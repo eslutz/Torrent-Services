@@ -106,4 +106,4 @@ docker exec gluetun wget -qO- https://am.i.mullvad.net/connected  # Check VPN (a
 - Always use VPN mode for torrenting to protect your privacy
 - Kill switch ensures qBittorrent loses internet access if VPN connection drops
 - Works with all 30+ supported VPN providers for flexible privacy options
-- qBittorrent Web UI bound to localhost only (127.0.0.1:8080) for additional security
+- By default, qBittorrent Web UI is bound to localhost (127.0.0.1:8080) for additional security. You can change the port mapping in `docker-compose.yml` to allow access from other devices on your network if needed.
