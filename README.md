@@ -57,13 +57,13 @@ docker-compose --profile vpn up -d
 
 **Access services:**
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Sonarr | http://localhost:8989 | TV show management |
-| Radarr | http://localhost:7878 | Movie management |
-| qBittorrent | http://localhost:8080 | Torrent client |
-| Prowlarr | http://localhost:9696 | Indexer management |
-| Bazarr | http://localhost:6767 | Subtitle management |
+| Service | URL | Local Domain | Purpose |
+|---------|-----|--------------|---------|
+| Sonarr | http://localhost:8989 | http://sonarr.home.arpa:8989 | TV show management |
+| Radarr | http://localhost:7878 | http://radarr.home.arpa:7878 | Movie management |
+| qBittorrent | http://localhost:8080 | http://qbittorrent.home.arpa:8080 | Torrent client |
+| Prowlarr | http://localhost:9696 | http://prowlarr.home.arpa:9696 | Indexer management |
+| Bazarr | http://localhost:6767 | http://bazarr.home.arpa:6767 | Subtitle management |
 
 **Initial qBittorrent password:**
 
