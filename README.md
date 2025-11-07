@@ -6,10 +6,10 @@ Automated media download and management using Docker with Sonarr, Radarr, qBitto
 
 | Tool | Purpose | Website |
 |------|---------|---------|
-| **qBittorrent** | Torrent client | [qBittorrent](https://www.qbittorrent.org) |
 | **Gluetun** | VPN client with kill switch | [Gluetun](https://github.com/qdm12/gluetun) |
 | **Sonarr** | TV show management | [Sonarr](https://sonarr.tv/) |
 | **Radarr** | Movie management | [Radarr](https://radarr.video/) |
+| **qBittorrent** | Torrent client | [qBittorrent](https://www.qbittorrent.org) |
 | **Prowlarr** | Indexer management | [Prowlarr](https://prowlarr.com/) |
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 
