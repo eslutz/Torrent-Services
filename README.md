@@ -43,8 +43,7 @@ cd torrent-stack
 cp .env.example .env
 nano .env  # Configure VPN credentials (see VPN Guide)
 
-# 3. Run setup script and start services
-chmod +x setup.sh && ./setup.sh
+# 3. Start services
 docker-compose --profile vpn up -d
 ```
 
