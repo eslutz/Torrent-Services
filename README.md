@@ -6,10 +6,10 @@ Automated media download and management using Docker with Sonarr, Radarr, qBitto
 
 | Tool | Purpose | Website |
 |------|---------|---------|
+| **qBittorrent** | Torrent client | [qBittorrent](https://www.qbittorrent.org) |
 | **Gluetun** | VPN client with kill switch | [Gluetun](https://github.com/qdm12/gluetun) |
 | **Sonarr** | TV show management | [Sonarr](https://sonarr.tv/) |
 | **Radarr** | Movie management | [Radarr](https://radarr.video/) |
-| **qBittorrent** | Torrent client | [qBittorrent](https://www.qbittorrent.org) |
 | **Prowlarr** | Indexer management | [Prowlarr](https://prowlarr.com/) |
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 
@@ -39,9 +39,9 @@ docker exec gluetun wget -qO- https://am.i.mullvad.net/connected
 
 | Service | URL | Local Domain | Purpose |
 |---------|-----|--------------|---------|
+| qBittorrent | http://localhost:8080 | http://qbittorrent.home.arpa:8080 | Torrents |
 | Sonarr | http://localhost:8989 | http://sonarr.home.arpa:8989 | TV shows |
 | Radarr | http://localhost:7878 | http://radarr.home.arpa:7878 | Movies |
-| qBittorrent | http://localhost:8080 | http://qbittorrent.home.arpa:8080 | Torrents |
 | Prowlarr | http://localhost:9696 | http://prowlarr.home.arpa:9696 | Indexers |
 | Bazarr | http://localhost:6767 | http://bazarr.home.arpa:6767 | Subtitles |
 
