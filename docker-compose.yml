@@ -1,0 +1,169 @@
+version: "3.8"
+
+services:
+  # Gluetun - VPN Client (Multi-Provider Support)
+  # All torrent traffic routes through this container
+  # Supports 30+ VPN providers including Mullvad, NordVPN, ProtonVPN, Surfshark, PIA, etc.
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      # Core VPN Configuration
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-mullvad}
+      - VPN_TYPE=${VPN_TYPE:-wireguard}
+
+      # Wireguard Configuration (for Mullvad, NordVPN, ProtonVPN, Surfshark, PIA, etc.)
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+
+      # OpenVPN Configuration (for NordVPN, ProtonVPN, Surfshark, ExpressVPN, PIA, etc.)
+      - OPENVPN_USER=${OPENVPN_USER}
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
+
+      # Server Selection (optional, works across most providers)
+      - SERVER_CITIES=${SERVER_CITIES}
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES}
+      - SERVER_HOSTNAMES=${SERVER_HOSTNAMES}
+      - ISP=${ISP}
+      - OWNED_ONLY=${OWNED_ONLY}
+
+      # Firewall settings
+      - FIREWALL_OUTBOUND_SUBNETS=172.18.0.0/16 # Allow Docker network
+
+      # Health check
+      - HEALTH_VPN_DURATION_INITIAL=30s
+
+      # Timezone
+      - TZ=${TZ:-America/New_York}
+    ports:
+      # qBittorrent Web UI (only accessible locally when using VPN)
+      - 127.0.0.1:8080:8080
+      # qBittorrent torrent port
+      - 6881:6881
+      - 6881:6881/udp
+    volumes:
+      - ./gluetun:/gluetun
+    restart: unless-stopped
+    networks:
+      - media-network
+    profiles:
+      - vpn # Only starts when VPN profile is active
+
+  # qBittorrent - Torrent Client (VPN Mode)
+  # Routes through Gluetun VPN container
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - WEBUI_PORT=8080
+    volumes:
+      - ./qbittorrent/config:/config
+      - ${DATA_DIR:-data}/downloads:/data/downloads
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+    profiles:
+      - vpn # Starts with VPN configuration
+
+  # qBittorrent without VPN (alternative service)
+  qbittorrent-no-vpn:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - WEBUI_PORT=8080
+    volumes:
+      - ./qbittorrent/config:/config
+      - ${DATA_DIR:-data}/downloads:/data/downloads
+    ports:
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    restart: unless-stopped
+    networks:
+      - media-network
+    profiles:
+      - no-vpn # Starts without VPN
+
+  # Sonarr - TV Show Management
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ./sonarr/config:/config
+      - ${DATA_DIR:-data}:/data
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+    networks:
+      - media-network
+
+  # Radarr - Movie Management
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ./radarr/config:/config
+      - ${DATA_DIR:-data}:/data
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+    networks:
+      - media-network
+
+  # Prowlarr - Indexer Manager (Optional but recommended)
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ./prowlarr/config:/config
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+    networks:
+      - media-network
+
+  # Bazarr - Subtitle Management (Optional)
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ./bazarr/config:/config
+      - ${DATA_DIR:-data}/tv:/data/tv
+      - ${DATA_DIR:-data}/movies:/data/movies
+    ports:
+      - 6767:6767
+    restart: unless-stopped
+    networks:
+      - media-network
+
+networks:
+  media-network:
+    name: media-network
+    driver: bridge
