@@ -45,6 +45,12 @@ docker exec gluetun wget -qO- https://am.i.mullvad.net/connected
 | Prowlarr | http://localhost:9696 | http://prowlarr.home.arpa:9696 | Indexers |
 | Bazarr | http://localhost:6767 | http://bazarr.home.arpa:6767 | Subtitles |
 
+**Addressing Guide:**
+- **localhost** - Access from the same machine running Docker
+- **home.arpa domains** - Network access after adding DNS records to Pi-hole (see [Network Integration](../docs/torrent-stack/network-integration.md))
+- **192.168.50.100:port** - Direct network access (Gaming PC IP)
+- **service:port** (e.g., `prowlarr:9696`) - Inter-container communication only (used in service configuration)
+
 **qBittorrent password:** `docker logs qbittorrent 2>&1 | grep "temporary password"`
 
 ## Documentation
