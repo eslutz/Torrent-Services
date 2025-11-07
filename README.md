@@ -1,22 +1,22 @@
-# Media Automation Server
+# Media Automation Stack (Torrent Services)
 
-Automated media download and management stack using Docker with Sonarr, Radarr, qBittorrent, and VPN protection.
+Automated media download and management stack using Docker with Sonarr, Radarr, qBittorrent, and VPN protection via Gluetun.
 
-## 🎯 Features
+## Features
 
 | Tool | Purpose | Website |
-| --- | --- | --- |
-| 🌊 **qBittorrent** | Torrent client | [qBittorrent](https://www.qbittorrent.org) |
-| 🔒 **Gluetun** | VPN client with kill switch | [Gluetun](https://github.com/qdm12/gluetun) |
-| �️ **Multi-VPN Support** | 30+ VPN providers | [Providers](https://github.com/qdm12/gluetun-wiki/tree/main/setup/providers) |
-| 🎬 **Radarr** | Movies | [Radarr](https://radarr.video/) |
-| 📺 **Sonarr** | TV Shows | [Sonarr](https://sonarr.tv/) |
-| 🔍 **Prowlarr** | Indexers | [Prowlarr](https://prowlarr.com/) |
-| 💬 **Bazarr** | Subtitles | [Bazarr](https://www.bazarr.media) |
+|------|---------|---------|
+| **qBittorrent** | Torrent client | [qBittorrent](https://www.qbittorrent.org) |
+| **Gluetun** | VPN client with kill switch | [Gluetun](https://github.com/qdm12/gluetun) |
+| **Multi-VPN Support** | 30+ VPN providers | [Providers](https://github.com/qdm12/gluetun-wiki/tree/main/setup/providers) |
+| **Radarr** | Movie management | [Radarr](https://radarr.video/) |
+| **Sonarr** | TV show management | [Sonarr](https://sonarr.tv/) |
+| **Prowlarr** | Indexer management | [Prowlarr](https://prowlarr.com/) |
+| **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 
 ## Supported VPN Providers
 
-Choose from **20+ VPN providers** including:
+Choose from **30+ VPN providers** including:
 
 - **Mullvad** (default) - Privacy-focused, €5/month
 - **ProtonVPN** - Free tier available, Swiss privacy
@@ -27,12 +27,7 @@ Choose from **20+ VPN providers** including:
 
 [Full provider list](https://github.com/qdm12/gluetun-wiki/tree/main/setup/providers)
 
-**Any provider supported by Gluetun works with this stack!** See the [VPN Guide](../docs/torrent-stack/vpn-guide.md) for setup instructions.
-
-## Prerequisites
-
-- Docker & Docker Compose ([Install](https://docs.docker.com/get-docker/))
-- VPN subscription from a [supported provider](https://github.com/qdm12/gluetun-wiki/tree/main/setup/providers)
+**Any provider supported by Gluetun works with this stack.** See the [VPN Guide](../docs/torrent-stack/vpn-guide.md) for setup instructions.
 
 ## Quick Start
 
