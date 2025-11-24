@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  # Gluetun - VPN Client (Multi-Provider Support)
+  # Gluetun - VPN Client (Mullvad WireGuard)
   # All torrent traffic routes through this container
-  # Supports 30+ VPN providers including Mullvad, NordVPN, ProtonVPN, Surfshark, PIA, etc.
+  # Provides kill-switch protection: torrents stop if VPN connection drops
   gluetun:
     image: qmcgaw/gluetun:latest
     container_name: gluetun
@@ -12,23 +12,18 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     environment:
-      # Core VPN Configuration
-      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-mullvad}
-      - VPN_TYPE=${VPN_TYPE:-wireguard}
+      # Mullvad VPN Configuration
+      - VPN_SERVICE_PROVIDER=mullvad
+      - VPN_TYPE=wireguard
 
-      # Wireguard Configuration (for Mullvad, NordVPN, ProtonVPN, Surfshark, PIA, etc.)
+      # Mullvad WireGuard Credentials
       - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
       - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
 
-      # OpenVPN Configuration (for NordVPN, ProtonVPN, Surfshark, ExpressVPN, PIA, etc.)
-      - OPENVPN_USER=${OPENVPN_USER}
-      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
-
-      # Server Selection (optional, works across most providers)
+      # Server Selection (optional)
       - SERVER_CITIES=${SERVER_CITIES}
       - SERVER_COUNTRIES=${SERVER_COUNTRIES}
       - SERVER_HOSTNAMES=${SERVER_HOSTNAMES}
-      - ISP=${ISP}
       - OWNED_ONLY=${OWNED_ONLY}
 
       # Firewall settings
@@ -50,11 +45,10 @@ services:
     restart: unless-stopped
     networks:
       - media-network
-    profiles:
-      - vpn # Only starts when VPN profile is active
 
-  # qBittorrent - Torrent Client (VPN Mode)
+  # qBittorrent - Torrent Client
   # Routes through Gluetun VPN container
+  # Kill-switch: If VPN drops, qBittorrent loses internet connectivity
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
@@ -70,30 +64,6 @@ services:
     depends_on:
       - gluetun
     restart: unless-stopped
-    profiles:
-      - vpn # Starts with VPN configuration
-
-  # qBittorrent without VPN (alternative service)
-  qbittorrent-no-vpn:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: qbittorrent-no-vpn
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-America/New_York}
-      - WEBUI_PORT=8080
-    volumes:
-      - ./qbittorrent/config:/config
-      - ${DATA_DIR:-data}/downloads:/data/downloads
-    ports:
-      - "8080:8080"
-      - "6881:6881"
-      - "6881:6881/udp"
-    restart: unless-stopped
-    networks:
-      - media-network
-    profiles:
-      - no-vpn # Starts without VPN
 
   # Sonarr - TV Show Management
   sonarr:
