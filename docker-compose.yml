@@ -48,7 +48,7 @@ services:
 
   # qBittorrent - Torrent Client
   # Routes through Gluetun VPN container
-  # Kill-switch: If VPN drops, qBittorrent loses internet connectivity
+  # kill-switch: If VPN drops, qBittorrent loses internet connectivity
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent

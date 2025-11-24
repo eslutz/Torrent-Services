@@ -74,5 +74,5 @@ docker exec gluetun wget -qO- https://am.i.mullvad.net/connected  # Check VPN
 
 - Never commit `.env` (contains Mullvad credentials - excluded via `.gitignore`)
 - VPN always enabled for torrenting
-- Kill-switch prevents IP exposure if VPN drops
+- kill-switch prevents IP exposure if VPN drops
 - qBittorrent bound to localhost by default (change in docker-compose.yml if network access needed)
