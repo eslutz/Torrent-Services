@@ -27,10 +27,11 @@ cp .env.example .env
 nano .env  # Set Mullvad credentials (see VPN Guide)
 
 # 2. Start services
-docker-compose up -d
+docker compose up -d
 
-# 3. Verify VPN
-docker exec gluetun wget -qO- https://am.i.mullvad.net/connected
+# 3. Verify VPN and test speed
+./speedtest-vpn.sh
+# Verifies VPN connection, shows your VPN IP/location, and tests download/upload speeds
 ```
 
 **Mullvad Configuration:** Set Mullvad WireGuard credentials in `.env`. See [VPN Guide](../docs/torrent-stack/vpn-guide.md) for detailed setup.
@@ -77,11 +78,19 @@ When configuring services to talk to each other (e.g., Sonarr connecting to qBit
 ## Common Commands
 
 ```bash
-docker-compose up -d                              # Start services
-docker-compose down                               # Stop all
-docker-compose logs -f <service>                  # View logs
-docker exec gluetun wget -qO- https://am.i.mullvad.net/connected  # Check VPN
-./speedtest-vpn.sh                                # Test VPN download speed
+# Service Management
+docker compose up -d                              # Start services
+docker compose down                               # Stop all
+docker compose restart <service>                  # Restart specific service
+docker compose logs -f <service>                  # View logs (follow mode)
+
+# VPN Testing
+docker exec gluetun wget -qO- https://am.i.mullvad.net/connected  # Quick VPN check
+./speedtest-vpn.sh                                # Full VPN test (connection + download/upload speeds)
+
+# Troubleshooting
+docker compose ps                                 # Check container status
+docker logs qbittorrent 2>&1 | grep "temporary password"  # Get qBittorrent temp password
 ```
 
 ## Security

@@ -24,8 +24,9 @@ services:
       - SERVER_HOSTNAMES=${SERVER_HOSTNAMES:-}
       - OWNED_ONLY=${OWNED_ONLY:-}
 
-      # Firewall settings
-      - FIREWALL_OUTBOUND_SUBNETS=172.16.0.0/12 # Allow all Docker networks (172.16-172.31)
+      # Firewall settings - Leave unset to allow all outbound (default behavior)
+      # Gluetun blocks inbound and provides kill switch by default
+      - FIREWALL_OUTBOUND_SUBNETS=${FIREWALL_OUTBOUND_SUBNETS:-}
 
       # Health check
       - HEALTH_VPN_DURATION_INITIAL=30s
@@ -36,8 +37,8 @@ services:
       # qBittorrent Web UI (accessible on network)
       - 8080:8080
       # qBittorrent torrent port (accessible on network)
-      - 6881:6881
-      - 6881:6881/udp
+      - ${QBITTORRENT_PORT:-6881}:${QBITTORRENT_PORT:-6881}
+      - ${QBITTORRENT_PORT:-6881}:${QBITTORRENT_PORT:-6881}/udp
     volumes:
       - ./gluetun:/gluetun
     restart: unless-stopped
