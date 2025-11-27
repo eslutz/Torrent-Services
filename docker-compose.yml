@@ -1,77 +1,10 @@
 services:
-  # Gluetun - VPN Client (Mullvad WireGuard)
-  # All torrent traffic routes through this container
-  # Provides kill-switch protection: torrents stop if VPN connection drops
-  gluetun:
-    image: qmcgaw/gluetun:latest
-    container_name: gluetun
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    environment:
-      # Mullvad VPN Configuration
-      - VPN_SERVICE_PROVIDER=mullvad
-      - VPN_TYPE=wireguard
-
-      # Mullvad WireGuard Credentials
-      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
-      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
-
-      # Server Selection (optional - set in .env if needed)
-      - SERVER_CITIES=${SERVER_CITIES:-}
-      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-}
-      - SERVER_HOSTNAMES=${SERVER_HOSTNAMES:-}
-      - OWNED_ONLY=${OWNED_ONLY:-}
-
-      # Firewall settings - Leave unset to allow all outbound (default behavior)
-      # Gluetun blocks inbound and provides kill switch by default
-      - FIREWALL_OUTBOUND_SUBNETS=${FIREWALL_OUTBOUND_SUBNETS:-}
-
-      # Health check
-      - HEALTH_VPN_DURATION_INITIAL=30s
-
-      # Timezone
-      - TZ=${TZ:-America/New_York}
-    ports:
-      # qBittorrent Web UI (accessible on network)
-      - 8080:8080
-      # qBittorrent torrent port (accessible on network)
-      - ${QBITTORRENT_PORT:-6881}:${QBITTORRENT_PORT:-6881}
-      - ${QBITTORRENT_PORT:-6881}:${QBITTORRENT_PORT:-6881}/udp
-    volumes:
-      - ./gluetun:/gluetun
-    restart: unless-stopped
-    networks:
-      - torrent-stack-network
-    healthcheck:
-      test: ["CMD-SHELL", "ping -c 1 1.1.1.1 > /dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
-
   # qBittorrent - Torrent Client
-  # Routes through Gluetun VPN container
-  # kill-switch: If VPN drops, qBittorrent loses internet connectivity
-  # NOTE: Uses network_mode service:gluetun, accessible from other containers at gluetun:8080
+  # Uses host network routing (Mullvad VPN installed on host)
+  # VPN protection handled at host level for cleaner TCP tracker connectivity
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
-    network_mode: "service:gluetun"
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -80,10 +13,15 @@ services:
     volumes:
       - ./qbittorrent/config:/config
       - ${DATA_DIR:-data}:/data
-    depends_on:
-      gluetun:
-        condition: service_healthy
+    ports:
+      # qBittorrent Web UI
+      - 8080:8080
+      # qBittorrent torrent port
+      - 6881:6881
+      - 6881:6881/udp
     restart: unless-stopped
+    networks:
+      - torrent-stack-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]
       interval: 30s
@@ -95,14 +33,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    deploy:
-      resources:
-        limits:
-          cpus: '4.0'
-          memory: 4G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
 
   # Sonarr - TV Show Management
   sonarr:
@@ -131,14 +61,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
 
   # Radarr - Movie Management
   radarr:
@@ -167,14 +89,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
 
   # Prowlarr - Indexer Manager
   prowlarr:
@@ -202,14 +116,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
 
   # Bazarr - Subtitle Management
   bazarr:
@@ -238,14 +144,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
 
 networks:
   torrent-stack-network:
