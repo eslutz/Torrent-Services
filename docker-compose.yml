@@ -17,13 +17,40 @@ services:
       # qBittorrent Web UI
       - 8080:8080
       # qBittorrent torrent port
-      - 6881:6881
-      - 6881:6881/udp
+      - ${QBITTORRENT_PORT:-6881}:${QBITTORRENT_PORT:-6881}
+      - ${QBITTORRENT_PORT:-6881}:${QBITTORRENT_PORT:-6881}/udp
     restart: unless-stopped
     networks:
       - torrent-stack-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Prowlarr - Indexer Manager
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ./prowlarr/config:/config
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+    networks:
+      - torrent-stack-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9696/ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -80,33 +107,6 @@ services:
       - torrent-stack-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7878/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Prowlarr - Indexer Manager
-  prowlarr:
-    image: lscr.io/linuxserver/prowlarr:latest
-    container_name: prowlarr
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-America/New_York}
-    volumes:
-      - ./prowlarr/config:/config
-    ports:
-      - 9696:9696
-    restart: unless-stopped
-    networks:
-      - torrent-stack-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9696/ping"]
       interval: 30s
       timeout: 10s
       retries: 3
