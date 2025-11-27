@@ -37,19 +37,32 @@ docker exec gluetun wget -qO- https://am.i.mullvad.net/connected
 
 **Access Services:**
 
-| Service | URL | Local Domain | Purpose |
-|---------|-----|--------------|---------|
-| qBittorrent | http://localhost:8080 | http://qbittorrent.home.arpa:8080 | Torrents |
-| Sonarr | http://localhost:8989 | http://sonarr.home.arpa:8989 | TV shows |
-| Radarr | http://localhost:7878 | http://radarr.home.arpa:7878 | Movies |
-| Prowlarr | http://localhost:9696 | http://prowlarr.home.arpa:9696 | Indexers |
-| Bazarr | http://localhost:6767 | http://bazarr.home.arpa:6767 | Subtitles |
+| Service | URL | Local Domain | Network Access | Purpose |
+|---------|-----|--------------|----------------|---------|
+| qBittorrent | http://localhost:8080 | http://qbittorrent.home.arpa:8080 | http://192.168.1.254:8080 | Torrents |
+| Sonarr | http://localhost:8989 | http://sonarr.home.arpa:8989 | http://192.168.1.254:8989 | TV shows |
+| Radarr | http://localhost:7878 | http://radarr.home.arpa:7878 | http://192.168.1.254:7878 | Movies |
+| Prowlarr | http://localhost:9696 | http://prowlarr.home.arpa:9696 | http://192.168.1.254:9696 | Indexers |
+| Bazarr | http://localhost:6767 | http://bazarr.home.arpa:6767 | http://192.168.1.254:6767 | Subtitles |
 
 **Addressing Guide:**
 - **localhost** - Access from the same machine running Docker
 - **home.arpa domains** - Network access after adding DNS records to Pi-hole (see [Network Integration](../docs/torrent-stack/network-integration.md))
-- **192.168.50.100:port** - Direct network access (Gaming PC IP)
+- **Network Access (192.168.1.254:port)** - Direct IP access from any device on your home network
 - **service:port** (e.g., `prowlarr:9696`) - Inter-container communication only (used in service configuration)
+
+**How to Access from Other Computers:**
+
+All services are accessible over your home network using the Network Access URLs above.
+
+1. **Find the server IP:** Run `ifconfig | grep "inet " | grep -v 127.0.0.1` on the server to get its IP (currently: `192.168.1.254`)
+2. **Access via browser:** Use `http://<SERVER_IP>:<PORT>` from any device on your network
+3. **Bookmark for convenience:** Save the URLs in your browser
+
+**For Inter-container Communication:**
+When configuring services to talk to each other (e.g., Sonarr connecting to qBittorrent), use:
+- qBittorrent: `gluetun:8080` (because qBittorrent shares Gluetun's network)
+- Other services: Use container name (e.g., `prowlarr:9696`, `sonarr:8989`)
 
 **qBittorrent password:** `docker logs qbittorrent 2>&1 | grep "temporary password"`
 
@@ -68,6 +81,7 @@ docker-compose up -d                              # Start services
 docker-compose down                               # Stop all
 docker-compose logs -f <service>                  # View logs
 docker exec gluetun wget -qO- https://am.i.mullvad.net/connected  # Check VPN
+./speedtest-vpn.sh                                # Test VPN download speed
 ```
 
 ## Security
@@ -75,4 +89,4 @@ docker exec gluetun wget -qO- https://am.i.mullvad.net/connected  # Check VPN
 - Never commit `.env` (contains Mullvad credentials - excluded via `.gitignore`)
 - VPN always enabled for torrenting
 - kill-switch prevents IP exposure if VPN drops
-- qBittorrent bound to localhost by default (change in docker-compose.yml if network access needed)
+- Services accessible on local network (consider firewall rules if needed for additional security)

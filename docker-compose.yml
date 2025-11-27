@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # Gluetun - VPN Client (Mullvad WireGuard)
   # All torrent traffic routes through this container
@@ -20,14 +18,14 @@ services:
       - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
       - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
 
-      # Server Selection (optional)
-      - SERVER_CITIES=${SERVER_CITIES}
-      - SERVER_COUNTRIES=${SERVER_COUNTRIES}
-      - SERVER_HOSTNAMES=${SERVER_HOSTNAMES}
-      - OWNED_ONLY=${OWNED_ONLY}
+      # Server Selection (optional - set in .env if needed)
+      - SERVER_CITIES=${SERVER_CITIES:-}
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-}
+      - SERVER_HOSTNAMES=${SERVER_HOSTNAMES:-}
+      - OWNED_ONLY=${OWNED_ONLY:-}
 
       # Firewall settings
-      - FIREWALL_OUTBOUND_SUBNETS=172.18.0.0/16 # Allow Docker network
+      - FIREWALL_OUTBOUND_SUBNETS=172.16.0.0/12 # Allow all Docker networks (172.16-172.31)
 
       # Health check
       - HEALTH_VPN_DURATION_INITIAL=30s
@@ -35,20 +33,40 @@ services:
       # Timezone
       - TZ=${TZ:-America/New_York}
     ports:
-      # qBittorrent Web UI (only accessible locally when using VPN)
-      - 127.0.0.1:8080:8080
-      # qBittorrent torrent port
+      # qBittorrent Web UI (accessible on network)
+      - 8080:8080
+      # qBittorrent torrent port (accessible on network)
       - 6881:6881
       - 6881:6881/udp
     volumes:
       - ./gluetun:/gluetun
     restart: unless-stopped
     networks:
-      - media-network
+      - torrent-stack-network
+    healthcheck:
+      test: ["CMD-SHELL", "ping -c 1 1.1.1.1 > /dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   # qBittorrent - Torrent Client
   # Routes through Gluetun VPN container
   # kill-switch: If VPN drops, qBittorrent loses internet connectivity
+  # NOTE: Uses network_mode service:gluetun, accessible from other containers at gluetun:8080
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
@@ -60,10 +78,30 @@ services:
       - WEBUI_PORT=8080
     volumes:
       - ./qbittorrent/config:/config
-      - ${DATA_DIR:-data}/downloads:/data/downloads
+      - ${DATA_DIR:-data}:/data
     depends_on:
-      - gluetun
+      gluetun:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   # Sonarr - TV Show Management
   sonarr:
@@ -80,7 +118,26 @@ services:
       - 8989:8989
     restart: unless-stopped
     networks:
-      - media-network
+      - torrent-stack-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # Radarr - Movie Management
   radarr:
@@ -97,9 +154,28 @@ services:
       - 7878:7878
     restart: unless-stopped
     networks:
-      - media-network
+      - torrent-stack-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7878/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
-  # Prowlarr - Indexer Manager (Optional but recommended)
+  # Prowlarr - Indexer Manager
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
@@ -113,9 +189,28 @@ services:
       - 9696:9696
     restart: unless-stopped
     networks:
-      - media-network
+      - torrent-stack-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9696/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
-  # Bazarr - Subtitle Management (Optional)
+  # Bazarr - Subtitle Management
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
@@ -125,15 +220,33 @@ services:
       - TZ=${TZ:-America/New_York}
     volumes:
       - ./bazarr/config:/config
-      - ${DATA_DIR:-data}/tv:/data/tv
-      - ${DATA_DIR:-data}/movies:/data/movies
+      - ${DATA_DIR:-data}:/data
     ports:
       - 6767:6767
     restart: unless-stopped
     networks:
-      - media-network
+      - torrent-stack-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6767/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
 networks:
-  media-network:
-    name: media-network
+  torrent-stack-network:
+    name: torrent-net
     driver: bridge
