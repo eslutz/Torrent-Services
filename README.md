@@ -93,7 +93,7 @@ Set a qBittorrent password for the automatic port updater.
 
    ```bash
    nano .env
-   # Change QB_PASS=temppass123 to QB_PASS=your_new_permanent_password
+   # Change QB_PASS=temp_pass123 to QB_PASS=your_new_permanent_password
    ```
 
 5. **Restart the port updater:**
