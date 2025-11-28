@@ -38,7 +38,7 @@ services:
       - ./gluetun:/gluetun
     restart: unless-stopped
     networks:
-      - torrent-stack-network
+      - torrent-services-network
     healthcheck:
       test: ["CMD-SHELL", "ping -c 1 1.1.1.1 > /dev/null 2>&1 || exit 1"]
       interval: 30s
@@ -97,7 +97,7 @@ services:
       - gluetun
       - qbittorrent
     networks:
-      - torrent-stack-network
+      - torrent-services-network
     restart: unless-stopped
     command: >
       sh -c '
@@ -179,7 +179,7 @@ services:
       - 9696:9696
     restart: unless-stopped
     networks:
-      - torrent-stack-network
+      - torrent-services-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9696/ping"]
       interval: 30s
@@ -207,7 +207,7 @@ services:
       - 8989:8989
     restart: unless-stopped
     networks:
-      - torrent-stack-network
+      - torrent-services-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
       interval: 30s
@@ -235,7 +235,7 @@ services:
       - 7878:7878
     restart: unless-stopped
     networks:
-      - torrent-stack-network
+      - torrent-services-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7878/ping"]
       interval: 30s
@@ -263,7 +263,7 @@ services:
       - 6767:6767
     restart: unless-stopped
     networks:
-      - torrent-stack-network
+      - torrent-services-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6767/ping"]
       interval: 30s
@@ -277,6 +277,6 @@ services:
         max-file: "3"
 
 networks:
-  torrent-stack-network:
+  torrent-services-network:
     name: torrent-net
     driver: bridge

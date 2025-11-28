@@ -219,7 +219,7 @@ docker logs qbt-port-updater --tail 20
 **Addressing Guide:**
 
 - **localhost** - Access from the same machine running Docker
-- **home.arpa domains** - Network access after adding DNS records to Pi-hole (see [Network Integration](../docs/torrent-stack/network-integration.md))
+- **home.arpa domains** - Network access after adding DNS records to Pi-hole (see [Network Integration](../docs/torrent-services/network-integration.md))
 - **Network Access (192.168.1.254:port)** - Direct IP access from any device on your home network
 - **service:port** - Inter-container communication (used in service configuration)
 
@@ -242,11 +242,11 @@ When configuring services to talk to each other:
 
 ## Documentation
 
-- **[Initial Setup](../docs/torrent-stack/initial-setup.md)** - Complete configuration walkthrough
-- **[VPN Guide](../docs/torrent-stack/vpn-guide.md)** - Mullvad VPN setup and troubleshooting
-- **[Network Integration](../docs/torrent-stack/network-integration.md)** - Home network architecture integration
-- **[Maintenance](../docs/torrent-stack/maintenance.md)** - Updates, backups, troubleshooting
-- **[Architecture](../docs/torrent-stack/architecture-overview.md)** - Technical overview
+- **[Initial Setup](../docs/torrent-services/initial-setup.md)** - Complete configuration walkthrough
+- **[VPN Guide](../docs/torrent-services/vpn-guide.md)** - Mullvad VPN setup and troubleshooting
+- **[Network Integration](../docs/torrent-services/network-integration.md)** - Home network architecture integration
+- **[Maintenance](../docs/torrent-services/maintenance.md)** - Updates, backups, troubleshooting
+- **[Architecture](../docs/torrent-services/architecture-overview.md)** - Technical overview
 
 ## Common Commands
 
