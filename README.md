@@ -243,7 +243,7 @@ When configuring services to talk to each other:
 ## Documentation
 
 - **[Initial Setup](../docs/torrent-services/initial-setup.md)** - Complete configuration walkthrough
-- **[VPN Guide](../docs/torrent-services/vpn-guide.md)** - Mullvad VPN setup and troubleshooting
+- **[VPN Guide](../docs/torrent-services/vpn-guide.md)** - VPN setup and troubleshooting
 - **[Network Integration](../docs/torrent-services/network-integration.md)** - Home network architecture integration
 - **[Maintenance](../docs/torrent-services/maintenance.md)** - Updates, backups, troubleshooting
 - **[Architecture](../docs/torrent-services/architecture-overview.md)** - Technical overview
