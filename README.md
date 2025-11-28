@@ -334,9 +334,9 @@ docker logs gluetun | grep -i "port forward"     # Check port forwarding logs
    sleep 30
    ```
 
-3. **Wait 2-3 minutes** for ProtonVPN to propagate the port forward
+4. **Wait 2-3 minutes** for ProtonVPN to propagate the port forward
 
-4. **Verify port was set correctly:**
+5. **Verify port was set correctly:**
 
    ```bash
    # Check Gluetun's forwarded port
@@ -345,7 +345,7 @@ docker logs gluetun | grep -i "port forward"     # Check port forwarding logs
    # Verify script output showed successful update
    ```
 
-5. **Try adding a torrent** with many seeds to test
+6. **Try adding a torrent** with many seeds to test
 
 ### Sonarr/Radarr Can't Connect to qBittorrent
 
