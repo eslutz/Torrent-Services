@@ -193,6 +193,17 @@ docker logs -f transmission-port-updater
 docker logs transmission-port-updater --tail 20
 ```
 
+### Manual Port Update
+
+For manual port updates (useful for debugging), use the standalone script:
+
+```bash
+# Run the standalone port update script
+./update-torrent-port.sh
+```
+
+This script reads the forwarded port from Gluetun and updates Transmission's peer port via the RPC API.
+
 **Access Services:**
 
 | Service | URL | Local Domain | Network Access | Purpose |
@@ -250,6 +261,7 @@ docker exec gluetun cat /tmp/gluetun/forwarded_port                  # Get forwa
 docker exec gluetun cat /tmp/gluetun/forwarded_port  # Check current forwarded port
 docker logs transmission-port-updater --tail 20      # View port updater logs
 docker logs -f transmission-port-updater             # Live monitoring of port updates
+./update-torrent-port.sh                             # Manual port update (standalone script)
 
 # Troubleshooting
 docker compose ps                                 # Check container status
