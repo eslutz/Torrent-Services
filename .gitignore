@@ -55,17 +55,22 @@ Temporary Items
 # Environment files with secrets
 .env
 
-# Docker volumes and data
-nginx/data/
-nginx/letsencrypt/
-crowdsec/config/
-crowdsec/data/
-wireguard/config/
-unbound/config/
+# =============================================================================
+# Docker Service Config Directories
+# =============================================================================
+
+# Ignore all config contents by default (contains runtime data and secrets)
+config/
+
+# Data directory (media and downloads)
+data/
 
 # Backups
 backups/
 *.tar.gz
 *.backup
+
+# Log files
+*.log
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,visualstudiocode

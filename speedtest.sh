@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Internet Speed Test Script
-# Tests download and upload speeds from the qBittorrent container
+# Tests download and upload speeds from the Transmission container
 
 echo "=========================================="
 echo "Internet Speed Test"
@@ -10,11 +10,11 @@ echo ""
 
 # Check current IP and location
 echo "Connection Status:"
-IP=$(docker exec qbittorrent sh -c 'curl -s https://ipinfo.io/json | grep "\"ip\"" | cut -d"\"" -f4' 2>/dev/null)
-CITY=$(docker exec qbittorrent sh -c 'curl -s https://ipinfo.io/json | grep "\"city\"" | cut -d"\"" -f4' 2>/dev/null)
-REGION=$(docker exec qbittorrent sh -c 'curl -s https://ipinfo.io/json | grep "\"region\"" | cut -d"\"" -f4' 2>/dev/null)
-COUNTRY=$(docker exec qbittorrent sh -c 'curl -s https://ipinfo.io/json | grep "\"country\"" | cut -d"\"" -f4' 2>/dev/null)
-ORG=$(docker exec qbittorrent sh -c 'curl -s https://ipinfo.io/json | grep "\"org\"" | cut -d"\"" -f4' 2>/dev/null)
+IP=$(docker exec transmission sh -c 'curl -s https://ipinfo.io/json | grep "\"ip\"" | cut -d"\"" -f4' 2>/dev/null)
+CITY=$(docker exec transmission sh -c 'curl -s https://ipinfo.io/json | grep "\"city\"" | cut -d"\"" -f4' 2>/dev/null)
+REGION=$(docker exec transmission sh -c 'curl -s https://ipinfo.io/json | grep "\"region\"" | cut -d"\"" -f4' 2>/dev/null)
+COUNTRY=$(docker exec transmission sh -c 'curl -s https://ipinfo.io/json | grep "\"country\"" | cut -d"\"" -f4' 2>/dev/null)
+ORG=$(docker exec transmission sh -c 'curl -s https://ipinfo.io/json | grep "\"org\"" | cut -d"\"" -f4' 2>/dev/null)
 
 if [ -n "$IP" ]; then
     echo "IP: ${IP:-Unknown}"
@@ -29,7 +29,7 @@ echo ""
 echo "Testing download speed..."
 DOWNLOAD_START=$(date +%s)
 
-docker exec qbittorrent sh -c "curl --progress-bar -o /tmp/speedtest.tmp http://speedtest.tele2.net/10MB.zip 2>&1"
+docker exec transmission sh -c "curl --progress-bar -o /tmp/speedtest.tmp http://speedtest.tele2.net/10MB.zip 2>&1"
 DOWNLOAD_EXIT=$?
 echo ""
 
@@ -53,13 +53,13 @@ fi
 echo ""
 
 # Clean up
-docker exec qbittorrent rm -f /tmp/speedtest.tmp 2>/dev/null
+docker exec transmission rm -f /tmp/speedtest.tmp 2>/dev/null
 
 # Test upload speed
 echo "Testing upload speed..."
 UPLOAD_START=$(date +%s)
 
-docker exec qbittorrent sh -c "dd if=/dev/zero of=/tmp/upload_test.tmp bs=1M count=10 2>/dev/null && curl --progress-bar -T /tmp/upload_test.tmp http://speedtest.tele2.net/upload.php -o /dev/null 2>&1 && rm -f /tmp/upload_test.tmp"
+docker exec transmission sh -c "dd if=/dev/zero of=/tmp/upload_test.tmp bs=1M count=10 2>/dev/null && curl --progress-bar -T /tmp/upload_test.tmp http://speedtest.tele2.net/upload.php -o /dev/null 2>&1 && rm -f /tmp/upload_test.tmp"
 UPLOAD_EXIT=$?
 echo ""
 # Calculate upload speed from elapsed time (10MB file)
@@ -82,7 +82,7 @@ fi
 echo ""
 
 # Clean up
-docker exec qbittorrent rm -f /tmp/upload_test.tmp 2>/dev/null
+docker exec transmission rm -f /tmp/upload_test.tmp 2>/dev/null
 
 echo "=========================================="
 echo "Note: Speed may be limited by:"

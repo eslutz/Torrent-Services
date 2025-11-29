@@ -1,6 +1,6 @@
 services:
   # Gluetun - VPN Client (ProtonVPN with Port Forwarding)
-  # Provides VPN tunnel with automatic port forwarding for qBittorrent
+  # Provides VPN tunnel with automatic port forwarding for Transmission
   # Port forwarding enables incoming peer connections for better torrent performance
   gluetun:
     image: qmcgaw/gluetun:latest
@@ -30,12 +30,12 @@ services:
       # Timezone
       - TZ=${TZ:-America/New_York}
     ports:
-      # qBittorrent Web UI
-      - 8080:8080
+      # Transmission Web UI
+      - 9091:9091
       # Forwarded port will be automatically assigned by ProtonVPN
       # Check with: docker exec gluetun cat /tmp/gluetun/forwarded_port
     volumes:
-      - ./gluetun:/gluetun
+      - ./config/gluetun:/gluetun
     restart: unless-stopped
     networks:
       - torrent-services-network
@@ -51,27 +51,28 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # qBittorrent - Torrent Client
+  # Transmission - Torrent Client
   # Routes through Gluetun VPN with automatic port forwarding
   # Port forwarding enables incoming peer connections for optimal performance
-  qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: qbittorrent
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission
     network_mode: "service:gluetun"
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
-      - WEBUI_PORT=8080
+      - USER=${TRANSMISSION_USER:-admin}
+      - PASS=${TRANSMISSION_PASS}
     volumes:
-      - ./qbittorrent/config:/config
-      - ${DATA_DIR:-data}:/data
+      - ./config/transmission:/config
+      - ${DATA_DIR:-./data}:/data
     depends_on:
       gluetun:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      test: ["CMD", "curl", "-f", "http://localhost:9091"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -82,20 +83,20 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Port Updater - Automatically updates qBittorrent port from Gluetun
-  # Monitors Gluetun's forwarded port and updates qBittorrent when it changes
-  qbt-port-updater:
+  # Port Updater - Automatically updates Transmission port from Gluetun
+  # Monitors Gluetun's forwarded port and updates Transmission when it changes
+  transmission-port-updater:
     image: alpine:latest
-    container_name: qbt-port-updater
+    container_name: transmission-port-updater
     environment:
-      - QB_HOST=gluetun:8080
-      - QB_USER=${QB_USER:-admin}
-      - QB_PASS=${QB_PASS}
+      - TRANSMISSION_HOST=gluetun:9091
+      - TRANSMISSION_USER=${TRANSMISSION_USER:-admin}
+      - TRANSMISSION_PASS=${TRANSMISSION_PASS}
     volumes:
-      - ./gluetun:/gluetun:ro
+      - ./config/gluetun:/gluetun:ro
     depends_on:
       - gluetun
-      - qbittorrent
+      - transmission
     networks:
       - torrent-services-network
     restart: unless-stopped
@@ -104,8 +105,8 @@ services:
       apk add --no-cache curl bash inotify-tools &&
 
       update_port() {
-        if [ -z "$$QB_PASS" ]; then
-          echo "⚠️  Warning: QB_PASS not set in .env - skipping port update"
+        if [ -z "$$TRANSMISSION_PASS" ]; then
+          echo "⚠️  Warning: TRANSMISSION_PASS not set in .env - skipping port update"
           return
         fi
 
@@ -118,28 +119,32 @@ services:
 
         echo "✓ Found forwarded port: $$FORWARDED_PORT"
 
-        COOKIE=$$(curl -s -i --header "Referer: http://$$QB_HOST" \
-          --data "username=$$QB_USER&password=$$QB_PASS" \
-          "http://$$QB_HOST/api/v2/auth/login" 2>/dev/null | \
-          grep -i set-cookie | cut -d" " -f2)
+        # Get session ID for Transmission RPC
+        SESSION_ID=$$(curl -s -u "$$TRANSMISSION_USER:$$TRANSMISSION_PASS" \
+          "http://$$TRANSMISSION_HOST/transmission/rpc" 2>/dev/null | \
+          grep -oP "X-Transmission-Session-Id: \K[^<]+")
 
-        if [ -z "$$COOKIE" ]; then
-          echo "❌ Failed to authenticate with qBittorrent"
+        if [ -z "$$SESSION_ID" ]; then
+          echo "❌ Failed to get Transmission session ID"
           return
         fi
 
-        CURRENT_PORT=$$(curl -s --cookie "$$COOKIE" \
-          "http://$$QB_HOST/api/v2/app/preferences" 2>/dev/null | \
-          grep -o "\"listen_port\":[0-9]*" | cut -d":" -f2)
+        # Get current port from Transmission
+        CURRENT_PORT=$$(curl -s -u "$$TRANSMISSION_USER:$$TRANSMISSION_PASS" \
+          -H "X-Transmission-Session-Id: $$SESSION_ID" \
+          -d "{\"method\":\"session-get\",\"arguments\":{\"fields\":[\"peer-port\"]}}" \
+          "http://$$TRANSMISSION_HOST/transmission/rpc" 2>/dev/null | \
+          grep -oP "\"peer-port\":\K[0-9]+")
 
         if [ "$$CURRENT_PORT" != "$$FORWARDED_PORT" ]; then
-          echo "🔄 Updating qBittorrent port from $$CURRENT_PORT to $$FORWARDED_PORT"
+          echo "🔄 Updating Transmission port from $$CURRENT_PORT to $$FORWARDED_PORT"
 
-          curl -s -X POST "http://$$QB_HOST/api/v2/app/setPreferences" \
-            --cookie "$$COOKIE" \
-            --data "json={\"listen_port\":$$FORWARDED_PORT}" 2>/dev/null
+          curl -s -u "$$TRANSMISSION_USER:$$TRANSMISSION_PASS" \
+            -H "X-Transmission-Session-Id: $$SESSION_ID" \
+            -d "{\"method\":\"session-set\",\"arguments\":{\"peer-port\":$$FORWARDED_PORT}}" \
+            "http://$$TRANSMISSION_HOST/transmission/rpc" 2>/dev/null
 
-          echo "✓ Successfully updated qBittorrent port to: $$FORWARDED_PORT"
+          echo "✓ Successfully updated Transmission port to: $$FORWARDED_PORT"
         else
           echo "✓ Port already correct: $$FORWARDED_PORT"
         fi
@@ -174,7 +179,7 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ./prowlarr/config:/config
+      - ./config/prowlarr:/config
     ports:
       - 9696:9696
     restart: unless-stopped
@@ -201,8 +206,8 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ./sonarr/config:/config
-      - ${DATA_DIR:-data}:/data
+      - ./config/sonarr:/config
+      - ${DATA_DIR:-./data}:/data
     ports:
       - 8989:8989
     restart: unless-stopped
@@ -229,8 +234,8 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ./radarr/config:/config
-      - ${DATA_DIR:-data}:/data
+      - ./config/radarr:/config
+      - ${DATA_DIR:-./data}:/data
     ports:
       - 7878:7878
     restart: unless-stopped
@@ -257,8 +262,8 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ./bazarr/config:/config
-      - ${DATA_DIR:-data}:/data
+      - ./config/bazarr:/config
+      - ${DATA_DIR:-./data}:/data
     ports:
       - 6767:6767
     restart: unless-stopped
