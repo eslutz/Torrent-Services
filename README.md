@@ -55,7 +55,7 @@ torrent-services/
 **Volume Mappings:**
 
 - **Config directories** are mounted to `/config` in each container
-- **Data directory** is mounted to `/` (root) in containers, allowing access to all media directories
+- **Data directory** is mounted to `/` (root) in containers, providing a unified view of the data directory structure that allows all services to reference the same paths for media libraries and downloads
 
 ## ProtonVPN Setup Guide
 

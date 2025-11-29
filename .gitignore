@@ -58,33 +58,32 @@ Temporary Items
 # =============================================================================
 # Service Configuration Directories
 # =============================================================================
-# Ignore all config contents by default
-config/
+# Ignore all config contents by default, but track important config files for backup
 
-# But track specific application config files (backup)
-!config/gluetun/
-config/gluetun/*
-!config/gluetun/.gitkeep
+# Gluetun - VPN configuration (no persistent config files to track)
+config/gluetun/
 
-!config/qbittorrent/
+# qBittorrent - track main config file
+# LinuxServer.io image stores config at: /config/qBittorrent/qBittorrent.conf
 config/qbittorrent/*
 !config/qbittorrent/qBittorrent/
 config/qbittorrent/qBittorrent/*
 !config/qbittorrent/qBittorrent/qBittorrent.conf
 
-!config/prowlarr/
+# Prowlarr - track main config file
 config/prowlarr/*
 !config/prowlarr/config.xml
 
-!config/sonarr/
+# Sonarr - track main config file
 config/sonarr/*
 !config/sonarr/config.xml
 
-!config/radarr/
+# Radarr - track main config file
 config/radarr/*
 !config/radarr/config.xml
 
-!config/bazarr/
+# Bazarr - track main config file
+# Bazarr stores config at: /config/config/config.yaml
 config/bazarr/*
 !config/bazarr/config/
 config/bazarr/config/*
