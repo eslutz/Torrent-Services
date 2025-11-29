@@ -35,6 +35,28 @@ docker exec gluetun cat /tmp/gluetun/forwarded_port
 docker logs qbt-port-updater --tail 20
 ```
 
+## Directory Structure
+
+```
+torrent-services/
+├── config/                 # Service configuration files
+│   ├── gluetun/           # Gluetun VPN configuration
+│   ├── qbittorrent/       # qBittorrent configuration
+│   ├── prowlarr/          # Prowlarr configuration
+│   ├── sonarr/            # Sonarr configuration
+│   ├── radarr/            # Radarr configuration
+│   └── bazarr/            # Bazarr configuration
+├── data/                   # Media and downloads (or set DATA_DIR in .env)
+├── docker-compose.yml      # Docker Compose configuration
+├── .env                    # Environment variables (create from .env.example)
+└── .env.example            # Example environment configuration
+```
+
+**Volume Mappings:**
+
+- **Config directories** are mounted to `/config` in each container
+- **Data directory** is mounted to `/` (root) in containers, allowing access to all media directories
+
 ## ProtonVPN Setup Guide
 
 ### Step 1: Get ProtonVPN Credentials

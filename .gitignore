@@ -55,13 +55,45 @@ Temporary Items
 # Environment files with secrets
 .env
 
-# Docker volumes and data
-nginx/data/
-nginx/letsencrypt/
-crowdsec/config/
-crowdsec/data/
-wireguard/config/
-unbound/config/
+# =============================================================================
+# Service Configuration Directories
+# =============================================================================
+# Ignore all config contents by default
+config/
+
+# But track specific application config files (backup)
+!config/gluetun/
+config/gluetun/*
+!config/gluetun/.gitkeep
+
+!config/qbittorrent/
+config/qbittorrent/*
+!config/qbittorrent/qBittorrent/
+config/qbittorrent/qBittorrent/*
+!config/qbittorrent/qBittorrent/qBittorrent.conf
+
+!config/prowlarr/
+config/prowlarr/*
+!config/prowlarr/config.xml
+
+!config/sonarr/
+config/sonarr/*
+!config/sonarr/config.xml
+
+!config/radarr/
+config/radarr/*
+!config/radarr/config.xml
+
+!config/bazarr/
+config/bazarr/*
+!config/bazarr/config/
+config/bazarr/config/*
+!config/bazarr/config/config.yaml
+
+# =============================================================================
+# Data Directory
+# =============================================================================
+data/
 
 # Backups
 backups/
