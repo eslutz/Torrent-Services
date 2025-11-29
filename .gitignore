@@ -64,11 +64,8 @@ Temporary Items
 config/gluetun/
 
 # qBittorrent - track main config file
-# LinuxServer.io image stores config at: /config/qBittorrent/qBittorrent.conf
-config/qbittorrent/*
-!config/qbittorrent/qBittorrent/
-config/qbittorrent/qBittorrent/*
-!config/qbittorrent/qBittorrent/qBittorrent.conf
+config/qBittorrent/*
+!config/qBittorrent/qBittorrent.conf
 
 # Prowlarr - track main config file
 config/prowlarr/*

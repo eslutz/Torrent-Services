@@ -41,7 +41,7 @@ docker logs qbt-port-updater --tail 20
 torrent-services/
 ├── config/                 # Service configuration files
 │   ├── gluetun/           # Gluetun VPN configuration
-│   ├── qbittorrent/       # qBittorrent configuration
+│   ├── qBittorrent/       # qBittorrent configuration
 │   ├── prowlarr/          # Prowlarr configuration
 │   ├── sonarr/            # Sonarr configuration
 │   ├── radarr/            # Radarr configuration

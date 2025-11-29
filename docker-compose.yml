@@ -64,7 +64,7 @@ services:
       - TZ=${TZ:-America/New_York}
       - WEBUI_PORT=8080
     volumes:
-      - ./config/qbittorrent:/config
+      - ./config/qBittorrent:/config
       - ${DATA_DIR:-./data}:/
     depends_on:
       gluetun:
