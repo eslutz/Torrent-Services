@@ -12,7 +12,6 @@ fi
 # Get Transmission credentials from environment
 TRANSMISSION_HOST="localhost:9091"
 TRANSMISSION_USER="${TRANSMISSION_USER:-admin}"
-TRANSMISSION_PASS="${TRANSMISSION_PASS}"
 
 if [ -z "$TRANSMISSION_PASS" ]; then
     echo "❌ Error: TRANSMISSION_PASS not set in .env file"
@@ -39,16 +38,28 @@ SESSION_ID=$(curl -s -u "${TRANSMISSION_USER}:${TRANSMISSION_PASS}" \
 
 if [ -z "$SESSION_ID" ]; then
     echo "❌ Error: Failed to get Transmission session ID"
-    echo "   Check TRANSMISSION_USER and TRANSMISSION_PASS in .env file"
+    echo "   Possible causes:"
+    echo "   - Transmission container is not running or not ready"
+    echo "   - Network connectivity issue between host and container"
+    echo "   - Incorrect TRANSMISSION_USER or TRANSMISSION_PASS in .env file"
+    echo "   Check: docker ps | grep transmission"
     exit 1
 fi
 
 # Get current port from Transmission
-CURRENT_PORT=$(curl -s -u "${TRANSMISSION_USER}:${TRANSMISSION_PASS}" \
+RESPONSE=$(curl -s -u "${TRANSMISSION_USER}:${TRANSMISSION_PASS}" \
     -H "X-Transmission-Session-Id: ${SESSION_ID}" \
     -d '{"method":"session-get","arguments":{"fields":["peer-port"]}}' \
-    "http://${TRANSMISSION_HOST}/transmission/rpc" 2>/dev/null | \
-    grep -oP '"peer-port":\K[0-9]+')
+    "http://${TRANSMISSION_HOST}/transmission/rpc" 2>/dev/null)
+
+CURRENT_PORT=$(echo "$RESPONSE" | grep -oP '"peer-port":\K[0-9]+')
+
+if [ -z "$CURRENT_PORT" ]; then
+    echo "❌ Error: Could not get current port from Transmission"
+    echo "   API response may be invalid or Transmission is not configured correctly"
+    echo "   Response: $RESPONSE"
+    exit 1
+fi
 
 echo "Current Transmission port: $CURRENT_PORT"
 

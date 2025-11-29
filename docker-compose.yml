@@ -119,22 +119,27 @@ services:
 
         echo "✓ Found forwarded port: $$FORWARDED_PORT"
 
-        # Get session ID for Transmission RPC
-        SESSION_ID=$$(curl -s -u "$$TRANSMISSION_USER:$$TRANSMISSION_PASS" \
-          "http://$$TRANSMISSION_HOST/transmission/rpc" 2>/dev/null | \
-          grep -oP "X-Transmission-Session-Id: \K[^<]+")
+        # Get session ID for Transmission RPC (first request returns 409 with session ID in header)
+        SESSION_RESPONSE=$$(curl -s -i -u "$$TRANSMISSION_USER:$$TRANSMISSION_PASS" \
+          "http://$$TRANSMISSION_HOST/transmission/rpc" 2>/dev/null)
+        SESSION_ID=$$(echo "$$SESSION_RESPONSE" | grep -i "X-Transmission-Session-Id:" | cut -d" " -f2 | tr -d "\\r\\n")
 
         if [ -z "$$SESSION_ID" ]; then
-          echo "❌ Failed to get Transmission session ID"
+          echo "❌ Failed to get Transmission session ID - container may not be ready"
           return
         fi
 
         # Get current port from Transmission
-        CURRENT_PORT=$$(curl -s -u "$$TRANSMISSION_USER:$$TRANSMISSION_PASS" \
+        RESPONSE=$$(curl -s -u "$$TRANSMISSION_USER:$$TRANSMISSION_PASS" \
           -H "X-Transmission-Session-Id: $$SESSION_ID" \
           -d "{\"method\":\"session-get\",\"arguments\":{\"fields\":[\"peer-port\"]}}" \
-          "http://$$TRANSMISSION_HOST/transmission/rpc" 2>/dev/null | \
-          grep -oP "\"peer-port\":\K[0-9]+")
+          "http://$$TRANSMISSION_HOST/transmission/rpc" 2>/dev/null)
+        CURRENT_PORT=$$(echo "$$RESPONSE" | grep -o "\"peer-port\":[0-9]*" | cut -d":" -f2)
+
+        if [ -z "$$CURRENT_PORT" ]; then
+          echo "❌ Could not get current port from Transmission API"
+          return
+        fi
 
         if [ "$$CURRENT_PORT" != "$$FORWARDED_PORT" ]; then
           echo "🔄 Updating Transmission port from $$CURRENT_PORT to $$FORWARDED_PORT"
