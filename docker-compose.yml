@@ -65,7 +65,7 @@ services:
       - WEBUI_PORT=8080
     volumes:
       - ./config/qbittorrent:/config
-      - ${DATA_DIR:-./data}:/
+      - ${DATA_DIR:-./media}:/media
     depends_on:
       gluetun:
         condition: service_healthy
@@ -202,7 +202,7 @@ services:
       - TZ=${TZ:-America/New_York}
     volumes:
       - ./config/sonarr:/config
-      - ${DATA_DIR:-./data}:/
+      - ${DATA_DIR:-./media}:/media
     ports:
       - 8989:8989
     restart: unless-stopped
@@ -230,7 +230,7 @@ services:
       - TZ=${TZ:-America/New_York}
     volumes:
       - ./config/radarr:/config
-      - ${DATA_DIR:-./data}:/
+      - ${DATA_DIR:-./media}:/media
     ports:
       - 7878:7878
     restart: unless-stopped
@@ -258,7 +258,7 @@ services:
       - TZ=${TZ:-America/New_York}
     volumes:
       - ./config/bazarr:/config
-      - ${DATA_DIR:-./data}:/
+      - ${DATA_DIR:-./media}:/media
     ports:
       - 6767:6767
     restart: unless-stopped

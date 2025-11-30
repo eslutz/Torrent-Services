@@ -87,9 +87,9 @@ config/bazarr/config/*
 !config/bazarr/config/config.yaml
 
 # =============================================================================
-# Data Directory
+# Media Directory
 # =============================================================================
-data/
+media/
 
 # Backups
 backups/
