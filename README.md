@@ -40,12 +40,12 @@ docker logs qbt-port-updater --tail 20
 ```
 torrent-services/
 ├── config/                 # Service configuration files
-│   ├── gluetun/           # Gluetun VPN configuration
-│   ├── qBittorrent/       # qBittorrent configuration
-│   ├── prowlarr/          # Prowlarr configuration
-│   ├── sonarr/            # Sonarr configuration
-│   ├── radarr/            # Radarr configuration
-│   └── bazarr/            # Bazarr configuration
+│   ├── gluetun/            # Gluetun VPN configuration
+│   ├── qBittorrent/        # qbittorrent configuration
+│   ├── prowlarr/           # Prowlarr configuration
+│   ├── sonarr/             # Sonarr configuration
+│   ├── radarr/             # Radarr configuration
+│   └── bazarr/             # Bazarr configuration
 ├── data/                   # Media and downloads (or set DATA_DIR in .env)
 ├── docker-compose.yml      # Docker Compose configuration
 ├── .env                    # Environment variables (create from .env.example)
