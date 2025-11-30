@@ -35,7 +35,7 @@ services:
       # Forwarded port will be automatically assigned by ProtonVPN
       # Check with: docker exec gluetun cat /tmp/gluetun/forwarded_port
     volumes:
-      - ./gluetun:/gluetun
+      - ./config/gluetun:/gluetun
     restart: unless-stopped
     networks:
       - torrent-services-network
@@ -64,8 +64,8 @@ services:
       - TZ=${TZ:-America/New_York}
       - WEBUI_PORT=8080
     volumes:
-      - ./qbittorrent/config:/config
-      - ${DATA_DIR:-data}:/data
+      - ./config/qbittorrent:/config
+      - ${DATA_DIR:-./media}:/media
     depends_on:
       gluetun:
         condition: service_healthy
@@ -92,7 +92,7 @@ services:
       - QB_USER=${QB_USER:-admin}
       - QB_PASS=${QB_PASS}
     volumes:
-      - ./gluetun:/gluetun:ro
+      - ./config/gluetun:/gluetun:ro
     depends_on:
       - gluetun
       - qbittorrent
@@ -174,7 +174,7 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ./prowlarr/config:/config
+      - ./config/prowlarr:/config
     ports:
       - 9696:9696
     restart: unless-stopped
@@ -201,8 +201,8 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ./sonarr/config:/config
-      - ${DATA_DIR:-data}:/data
+      - ./config/sonarr:/config
+      - ${DATA_DIR:-./media}:/media
     ports:
       - 8989:8989
     restart: unless-stopped
@@ -229,8 +229,8 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ./radarr/config:/config
-      - ${DATA_DIR:-data}:/data
+      - ./config/radarr:/config
+      - ${DATA_DIR:-./media}:/media
     ports:
       - 7878:7878
     restart: unless-stopped
@@ -257,8 +257,8 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ./bazarr/config:/config
-      - ${DATA_DIR:-data}:/data
+      - ./config/bazarr:/config
+      - ${DATA_DIR:-./media}:/media
     ports:
       - 6767:6767
     restart: unless-stopped

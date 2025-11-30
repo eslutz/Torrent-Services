@@ -55,13 +55,41 @@ Temporary Items
 # Environment files with secrets
 .env
 
-# Docker volumes and data
-nginx/data/
-nginx/letsencrypt/
-crowdsec/config/
-crowdsec/data/
-wireguard/config/
-unbound/config/
+# =============================================================================
+# Service Configuration Directories
+# =============================================================================
+# Ignore all config contents by default, but track important config files for backup
+
+# Gluetun - VPN configuration (no persistent config files to track)
+config/gluetun/
+
+# qBittorrent - track main config file
+config/qBittorrent/*
+!config/qBittorrent/qBittorrent.conf
+
+# Prowlarr - track main config file
+config/prowlarr/*
+!config/prowlarr/config.xml
+
+# Sonarr - track main config file
+config/sonarr/*
+!config/sonarr/config.xml
+
+# Radarr - track main config file
+config/radarr/*
+!config/radarr/config.xml
+
+# Bazarr - track main config file
+# Bazarr stores config at: /config/config/config.yaml
+config/bazarr/*
+!config/bazarr/config/
+config/bazarr/config/*
+!config/bazarr/config/config.yaml
+
+# =============================================================================
+# Media Directory
+# =============================================================================
+media/
 
 # Backups
 backups/
