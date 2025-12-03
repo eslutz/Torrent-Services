@@ -376,6 +376,7 @@ docker compose logs -f <service>                  # View logs (follow mode)
 # VPN Testing
 docker exec gluetun wget -qO- https://protonwire.p3.pm/status/json  # Check VPN connection
 docker exec gluetun cat /tmp/gluetun/forwarded_port                  # Get forwarded port
+./vpn-speedtest.sh                                                # Run speed test & VPN check
 
 # Port Forwarding
 docker exec gluetun cat /tmp/gluetun/forwarded_port  # Check current forwarded port
