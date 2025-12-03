@@ -58,33 +58,29 @@ Temporary Items
 # =============================================================================
 # Service Configuration Directories
 # =============================================================================
-# Ignore all config contents by default, but track important config files for backup
+# All config files are auto-generated at first run. API keys are unique per install.
+# Use bootstrap.sh to configure inter-service connections after containers start.
 
-# Gluetun - VPN configuration (no persistent config files to track)
+# Gluetun - VPN configuration
 config/gluetun/
 
-# qBittorrent - track main config file
-config/qBittorrent/*
-!config/qBittorrent/qBittorrent.conf
+# qBittorrent - all config auto-generated
+config/qBittorrent/
 
-# Prowlarr - track main config file
+# Prowlarr - all config auto-generated, EXCEPT custom indexer definitions
 config/prowlarr/*
-!config/prowlarr/config.xml
+!config/prowlarr/Definitions/
+config/prowlarr/Definitions/*
+!config/prowlarr/Definitions/Custom/
 
-# Sonarr - track main config file
-config/sonarr/*
-!config/sonarr/config.xml
+# Sonarr - all config auto-generated
+config/sonarr/
 
-# Radarr - track main config file
-config/radarr/*
-!config/radarr/config.xml
+# Radarr - all config auto-generated
+config/radarr/
 
-# Bazarr - track main config file
-# Bazarr stores config at: /config/config/config.yaml
-config/bazarr/*
-!config/bazarr/config/
-config/bazarr/config/*
-!config/bazarr/config/config.yaml
+# Bazarr - all config auto-generated
+config/bazarr/
 
 # =============================================================================
 # Media Directory

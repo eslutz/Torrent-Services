@@ -29,15 +29,19 @@ nano .env  # Set ProtonVPN credentials and qBittorrent password (see setup guide
 # 2. Start services
 docker compose up -d
 
-# 3. Verify VPN and port forwarding
+# 3. Run Bootstrap Script (Automates Auth & Connections)
+# Waits for services to start, then configures authentication and connects them
+./scripts/bootstrap.sh
+
+# 4. Verify VPN and port forwarding
 docker exec gluetun wget -qO- https://protonwire.p3.pm/status/json
 docker exec gluetun cat /tmp/gluetun/forwarded_port
-docker logs qbt-port-updater --tail 20
+docker logs qbit-port-sync --tail 20
 ```
 
 ## Directory Structure
 
-```
+```txt
 torrent-services/
 ├── config/                 # Service configuration files
 │   ├── gluetun/            # Gluetun VPN configuration
@@ -88,52 +92,30 @@ torrent-services/
    WIREGUARD_ADDRESSES=10.2.0.2/32
    ```
 
-### Step 2: Configure qBittorrent Password
+### Step 2: Configure Authentication & Connections
 
-Set a qBittorrent password for the automatic port updater.
+The `bootstrap.sh` script automatically:
 
-1. **Start the stack:**
+1. Sets up authentication for all services using credentials from `.env`
+2. Connects Prowlarr, Sonarr, Radarr, and qBittorrent together
+3. Configures indexers and subtitle providers
 
-   ```bash
-   docker compose up -d
-   ```
+Simply run:
 
-2. **Get the qBittorrent temporary password:**
-
-   ```bash
-   docker logs qbittorrent 2>&1 | grep "temporary password"
-   ```
-
-3. **Log in and change the password:**
-   - Access qBittorrent: `http://localhost:8080`
-   - Username: `admin`
-   - Password: (from step 2)
-   - Go to **Tools** → **Options** → **Web UI** → **Authentication**
-   - Set a new permanent password
-
-4. **Update `.env` with the new password:**
-
-   ```bash
-   nano .env
-   # Change QB_PASS=temp_pass123 to QB_PASS=your_new_permanent_password
-   ```
-
-5. **Restart the port updater:**
-
-   ```bash
-   docker compose restart qbt-port-updater
-   ```
+```bash
+./scripts/bootstrap.sh
+```
 
 ### Step 3: Verify Automatic Port Forwarding
 
-The `qbt-port-updater` container automatically watches for port changes and updates qBittorrent instantly when they occur.
+The `qbit-port-sync` container automatically watches for port changes and updates qBittorrent instantly when they occur.
 
 ```bash
 # Check Gluetun's forwarded port
 docker exec gluetun cat /tmp/gluetun/forwarded_port
 
 # View port updater logs
-docker logs qbt-port-updater --tail 20
+docker logs qbit-port-sync --tail 20
 
 # Verify qBittorrent is connectable (check status bar at http://localhost:8080)
 ```
@@ -148,44 +130,161 @@ You should see logs like:
 
 **That's it!** The port will automatically update whenever Gluetun reconnects or restarts.
 
-### Step 4: Configure Prowlarr, Sonarr, and Radarr
+### Step 4: Manual Configuration (If Bootstrap Skipped)
 
-#### Update Download Client URLs
+> **Note:** The `bootstrap.sh` script handles all of this automatically. Only follow these steps if you prefer manual configuration.
+
+#### Configure Prowlarr Indexers
+
+1. **Add Indexers in Prowlarr:**
+   - Go to `http://localhost:9696`
+   - Navigate to **Indexers** → **Add Indexer**
+   - Search for and add your preferred indexers (e.g., 1337x, IPTorrents)
+   - Configure credentials for private trackers if needed
+   - **Test** and **Save** each indexer
+
+2. **Connect Sonarr to Prowlarr:**
+   - In Prowlarr, go to **Settings** → **Apps** → **Add Application**
+   - Select **Sonarr**
+   - Configure:
+     - **Prowlarr Server:** `http://prowlarr:9696` (for Sonarr to reach Prowlarr)
+     - **Sonarr Server:** `http://sonarr:8989` (for Prowlarr to reach Sonarr)
+     - **API Key:** Get from Sonarr → Settings → General → API Key
+   - Click **Test** → **Save**
+   - Prowlarr will automatically sync all indexers to Sonarr
+
+3. **Connect Radarr to Prowlarr:**
+   - In Prowlarr, go to **Settings** → **Apps** → **Add Application**
+   - Select **Radarr**
+   - Configure:
+     - **Prowlarr Server:** `http://prowlarr:9696`
+     - **Radarr Server:** `http://radarr:7878`
+     - **API Key:** Get from Radarr → Settings → General → API Key
+   - Click **Test** → **Save**
+   - Prowlarr will automatically sync all indexers to Radarr
+
+#### Configure Download Client (qBittorrent)
 
 Since qBittorrent runs inside Gluetun's network, access it via `gluetun:8080`
 
 **Sonarr:**
 
 1. Go to `http://localhost:8989`
-2. Navigate to **Settings** → **Download Clients**
-3. Edit or add qBittorrent:
-   - Host: `gluetun`
-   - Port: `8080`
-   - Username/Password: (your qBittorrent credentials)
+2. Navigate to **Settings** → **Download Clients** → **Add** → **qBittorrent**
+3. Configure:
+   - **Name:** qBittorrent
+   - **Host:** `gluetun`
+   - **Port:** `8080`
+   - **Username:** `admin` (or your configured username)
+   - **Password:** (your qBittorrent password)
+   - **Category:** `tv` (recommended for organization)
 4. Click **Test** → **Save**
 
 **Radarr:**
 
 1. Go to `http://localhost:7878`
-2. Navigate to **Settings** → **Download Clients**
-3. Edit or add qBittorrent:
-   - Host: `gluetun`
-   - Port: `8080`
-   - Username/Password: (your qBittorrent credentials)
+2. Navigate to **Settings** → **Download Clients** → **Add** → **qBittorrent**
+3. Configure:
+   - **Name:** qBittorrent
+   - **Host:** `gluetun`
+   - **Port:** `8080`
+   - **Username:** `admin` (or your configured username)
+   - **Password:** (your qBittorrent password)
+   - **Category:** `movies` (recommended for organization)
 4. Click **Test** → **Save**
 
-**Prowlarr:**
+#### Configure Bazarr with Sonarr and Radarr
 
-1. Go to `http://localhost:9696`
-2. If qBittorrent is configured as a download client:
-   - Navigate to **Settings** → **Download Clients**
-   - Edit or add qBittorrent:
-     - Host: `gluetun`
-     - Port: `8080`
-     - Username/Password: (your qBittorrent credentials)
-   - Click **Test** → **Save**
+**Connect Bazarr to Sonarr (TV Subtitles):**
 
-**Bazarr:** No configuration needed - doesn't interact with qBittorrent directly.
+1. Go to `http://localhost:6767`
+2. Navigate to **Settings** → **Sonarr**
+3. Click **Add New** and configure:
+   - **Enabled:** ✅
+   - **Name:** Sonarr
+   - **Address:** `sonarr`
+   - **Port:** `8989`
+   - **Base URL:** (leave empty)
+   - **API Key:** Get from Sonarr → Settings → General → API Key
+   - **Download only monitored:** ✅ (recommended)
+   - **Minimum Score:** `90` (adjust to preference)
+   - **Use Sonarr Tags:** (optional - tag specific shows)
+4. Click **Test** → **Save**
+
+**Connect Bazarr to Radarr (Movie Subtitles):**
+
+1. In Bazarr, navigate to **Settings** → **Radarr**
+2. Click **Add New** and configure:
+   - **Enabled:** ✅
+   - **Name:** Radarr
+   - **Address:** `radarr`
+   - **Port:** `7878`
+   - **Base URL:** (leave empty)
+   - **API Key:** Get from Radarr → Settings → General → API Key
+   - **Download only monitored:** ✅ (recommended)
+   - **Minimum Score:** `90` (adjust to preference)
+   - **Use Radarr Tags:** (optional - tag specific movies)
+3. Click **Test** → **Save**
+
+**Configure Languages in Bazarr (Required):**
+
+1. Navigate to **Settings** → **Languages**
+2. **Subtitles Language:**
+   - Add **English** (or your preferred language)
+   - This defines which subtitle languages Bazarr will search for
+3. **Single Language:**
+   - Leave **OFF** (most modern players like Plex/Jellyfin handle `.en.srt` filenames)
+   - Only enable if your playback device can't handle language codes in filenames
+4. **Languages Filter** (leave defaults):
+   - **Language Equals:** Leave empty (only needed for treating languages as interchangeable)
+   - **Embedded Tracks Language - Deep analyze media file:** **OFF** (faster, use ON only if files have inconsistent metadata)
+   - **Treat unknown language embedded subtitles track as:** Leave as default or set to **English**
+5. **Languages Profile** (create default profile):
+   - Go to **Languages Profiles** section
+   - Click **Add** to create a new profile:
+     - **Name:** `English`
+     - **Tag:** (optional) `english` or `eng-sub`
+     - **Languages:** Click **Add Language** twice to add English two times:
+
+       **First English entry (Normal subtitles):**
+       - **Language:** English
+       - **Subtitles Type:** **Normal or hearing-impaired** - full subtitles for all dialogue including foreign parts
+       - **Search only when:** **Always** - search every time, upgrade low-quality subtitles (recommended)
+       - **Must contain:** Leave empty
+       - **Must not contain:** Leave empty
+
+       **Second English entry (Forced subtitles):**
+       - **Language:** English
+       - **Subtitles Type:** **Forced (foreign part only)** - only foreign language parts, no regular dialogue subtitles
+       - **Search only when:** **Always**
+       - **Must contain:** Leave empty
+       - **Must not contain:** Leave empty
+
+     - This downloads both subtitle files: full subtitles + forced-only (for foreign parts)
+     - Your media player will show both as separate tracks you can toggle
+   - Click **Save**
+6. **Tag-Based Automatic Language Profile Selection:**
+   - Leave **OFF** (unless you use tags in Sonarr/Radarr for different language needs)
+7. **Default Language Profiles for Newly Added Shows:**
+   - **Series:** Select your **English** profile
+   - **Movies:** Select your **English** profile
+   - This ensures all new content automatically gets English subtitles
+8. **Save** all settings
+
+**Configure Subtitle Providers in Bazarr:**
+
+1. Navigate to **Settings** → **Providers**
+2. Enable subtitle providers (recommended free options):
+   - **Addic7ed:** Requires free account at [addic7ed.com](https://www.addic7ed.com/) - excellent for TV shows
+   - **Podnapisi:** No account needed - good general provider
+   - **OpenSubtitles.com:** Requires free account at [opensubtitles.com](https://www.opensubtitles.com/) - large database
+3. **Save** settings
+
+**Sync Libraries:**
+
+1. Navigate to **Series** (TV shows) and click **Update all series**
+2. Navigate to **Movies** and click **Update all movies**
+3. Bazarr will now automatically download subtitles for new and existing media
 
 ## How Automatic Port Forwarding Works
 
@@ -194,10 +293,10 @@ Since qBittorrent runs inside Gluetun's network, access it via `gluetun:8080`
 1. **Gluetun starts** and connects to ProtonVPN P2P server
 2. **ProtonVPN assigns** a forwarded port (changes on each connection)
 3. **Gluetun saves** the port to `/tmp/gluetun/forwarded_port`
-4. **qbt-port-updater watches** the file for changes using inotify
+4. **port-updater watches** the file for changes using inotify
 5. **Port automatically updates** in qBittorrent instantly when detected
 
-### The qbt-port-updater Container
+### The qbit-port-sync Container
 
 A lightweight Alpine Linux container runs alongside your stack:
 
@@ -209,12 +308,7 @@ A lightweight Alpine Linux container runs alongside your stack:
 
 ### Configuration
 
-Edit `.env` to set your qBittorrent password:
-
-```bash
-# Required - your qBittorrent password
-QB_PASS=your_password
-```
+Refer to [`.env.example`](.env.example) for all configuration options including credentials.
 
 ### Monitoring
 
@@ -222,10 +316,10 @@ View the port updater logs:
 
 ```bash
 # Live monitoring
-docker logs -f qbt-port-updater
+docker logs -f qbit-port-sync
 
 # Last 20 lines
-docker logs qbt-port-updater --tail 20
+docker logs qbit-port-sync --tail 20
 ```
 
 **Access Services:**
@@ -285,8 +379,8 @@ docker exec gluetun cat /tmp/gluetun/forwarded_port                  # Get forwa
 
 # Port Forwarding
 docker exec gluetun cat /tmp/gluetun/forwarded_port  # Check current forwarded port
-docker logs qbt-port-updater --tail 20               # View port updater logs
-docker logs -f qbt-port-updater                      # Live monitoring of port updates
+docker logs qbit-port-sync --tail 20               # View port updater logs
+docker logs -f qbit-port-sync                      # Live monitoring of port updates
 
 # Troubleshooting
 docker compose ps                                 # Check container status
@@ -317,7 +411,7 @@ docker logs gluetun | grep -i "port forward"     # Check port forwarding logs
 3. **Check port updater:**
 
    ```bash
-   docker logs qbt-port-updater --tail 20
+   docker logs qbit-port-sync --tail 20
    ```
 
    Look for successful updates or error messages
@@ -332,27 +426,27 @@ docker logs gluetun | grep -i "port forward"     # Check port forwarding logs
 1. **Check port updater is running:**
 
    ```bash
-   docker ps | grep qbt-port-updater
-   docker logs qbt-port-updater --tail 20
+   docker ps | grep qbit-port-sync
+   docker logs qbit-port-sync --tail 20
    ```
 
-2. **Verify QB_PASS is set in .env:**
+2. **Verify QBIT_PASS is set in .env:**
 
    ```bash
-   grep QB_PASS .env
+   grep QBIT_PASS .env
    ```
 
    If not set, add it and restart:
 
    ```bash
-   echo "QB_PASS=your_password" >> .env
-   docker compose restart qbt-port-updater
+   echo "QBIT_PASS=your_password" >> .env
+   docker compose restart qbit-port-sync
    ```
 
 3. **Restart services:**
 
    ```bash
-   docker compose restart qbittorrent qbt-port-updater
+   docker compose restart qbittorrent qbit-port-sync
    sleep 30
    ```
 

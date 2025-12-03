@@ -24,9 +24,6 @@ services:
       - VPN_PORT_FORWARDING=on
       - VPN_PORT_FORWARDING_PROVIDER=protonvpn
 
-      # Firewall settings
-      - FIREWALL_OUTBOUND_SUBNETS=0.0.0.0/0
-
       # Timezone
       - TZ=${TZ:-America/New_York}
     ports:
@@ -36,6 +33,7 @@ services:
       # Check with: docker exec gluetun cat /tmp/gluetun/forwarded_port
     volumes:
       - ./config/gluetun:/gluetun
+      - gluetun-tmp:/tmp/gluetun
     restart: unless-stopped
     networks:
       - torrent-services-network
@@ -82,83 +80,31 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Port Updater - Automatically updates qBittorrent port from Gluetun
+  # qBit Port Sync - Automatically updates qBittorrent port from Gluetun
   # Monitors Gluetun's forwarded port and updates qBittorrent when it changes
-  qbt-port-updater:
+  qbit-port-sync:
     image: alpine:latest
-    container_name: qbt-port-updater
+    container_name: qbit-port-sync
     environment:
-      - QB_HOST=gluetun:8080
-      - QB_USER=${QB_USER:-admin}
-      - QB_PASS=${QB_PASS}
+      - QBIT_HOST=gluetun:8080
+      - QBIT_USER=${QBIT_USER:-admin}
+      - QBIT_PASS=${QBIT_PASS}
     volumes:
-      - ./config/gluetun:/gluetun:ro
+      - gluetun-tmp:/tmp/gluetun:ro
+      - ./qbit-port-sync.sh:/app/qbit-port-sync.sh:ro
     depends_on:
       - gluetun
       - qbittorrent
     networks:
       - torrent-services-network
     restart: unless-stopped
-    command: >
-      sh -c '
-      apk add --no-cache curl bash inotify-tools &&
-
-      update_port() {
-        if [ -z "$$QB_PASS" ]; then
-          echo "⚠️  Warning: QB_PASS not set in .env - skipping port update"
-          return
-        fi
-
-        FORWARDED_PORT=$$(cat /gluetun/forwarded_port 2>/dev/null | tr -d "\\n\\r")
-
-        if [ -z "$$FORWARDED_PORT" ]; then
-          echo "⏳ Waiting for Gluetun to establish port forwarding..."
-          return
-        fi
-
-        echo "✓ Found forwarded port: $$FORWARDED_PORT"
-
-        COOKIE=$$(curl -s -i --header "Referer: http://$$QB_HOST" \
-          --data "username=$$QB_USER&password=$$QB_PASS" \
-          "http://$$QB_HOST/api/v2/auth/login" 2>/dev/null | \
-          grep -i set-cookie | cut -d" " -f2)
-
-        if [ -z "$$COOKIE" ]; then
-          echo "❌ Failed to authenticate with qBittorrent"
-          return
-        fi
-
-        CURRENT_PORT=$$(curl -s --cookie "$$COOKIE" \
-          "http://$$QB_HOST/api/v2/app/preferences" 2>/dev/null | \
-          grep -o "\"listen_port\":[0-9]*" | cut -d":" -f2)
-
-        if [ "$$CURRENT_PORT" != "$$FORWARDED_PORT" ]; then
-          echo "🔄 Updating qBittorrent port from $$CURRENT_PORT to $$FORWARDED_PORT"
-
-          curl -s -X POST "http://$$QB_HOST/api/v2/app/setPreferences" \
-            --cookie "$$COOKIE" \
-            --data "json={\"listen_port\":$$FORWARDED_PORT}" 2>/dev/null
-
-          echo "✓ Successfully updated qBittorrent port to: $$FORWARDED_PORT"
-        else
-          echo "✓ Port already correct: $$FORWARDED_PORT"
-        fi
-      }
-
-      echo "👀 Watching for port changes..."
-
-      # Initial update on startup
-      sleep 10
-      update_port
-
-      # Watch for file changes using inotify
-      while true; do
-        inotifywait -e modify,create,moved_to /gluetun/forwarded_port 2>/dev/null
-        echo "🔔 Port file changed, updating..."
-        sleep 2
-        update_port
-      done
-      '
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q 'OK' /tmp/qbit-port-sync-status || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    command: sh /app/update-port.sh
     logging:
       driver: "json-file"
       options:
@@ -276,7 +222,39 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Tor - SOCKS5 proxy for anonymous indexer access
+  # Provides access to .onion sites and bypasses blocks
+  tor-proxy:
+    image: dperson/torproxy:latest
+    container_name: tor-proxy
+    environment:
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - 127.0.0.1:9050:9050 # SOCKS5 proxy
+      - 127.0.0.1:9051:9051 # Control port
+    restart: unless-stopped
+    networks:
+      - torrent-services-network
+    healthcheck:
+      test: ["CMD", "curl", "--socks5-hostname", "localhost:9050", "https://check.torproject.org/"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 networks:
   torrent-services-network:
     name: torrent-net
     driver: bridge
+
+volumes:
+  gluetun-tmp:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs

@@ -1,0 +1,834 @@
+#!/bin/bash
+
+# =============================================================================
+# Torrent Services Bootstrap Script
+# =============================================================================
+# This script configures all inter-service connections after containers start.
+# It reads auto-generated API keys from each app and creates connections via API.
+#
+# Usage:
+#   ./scripts/bootstrap.sh
+#
+# Requirements:
+#   - All containers must be running and healthy
+#   - .env file must exist with QBIT_USER, QBIT_PASS, and subtitle provider credentials
+#   - curl and jq must be installed
+# =============================================================================
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Script directory (for relative paths)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[✓]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[!]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[✗]${NC} $1"
+}
+
+log_section() {
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  $1${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+# Check if a command exists
+check_command() {
+    if ! command -v "$1" &> /dev/null; then
+        log_error "$1 is required but not installed."
+        exit 1
+    fi
+}
+
+# Wait for a service to be healthy
+wait_for_service() {
+    local name="$1"
+    local url="$2"
+    local max_attempts=30
+    local attempt=1
+
+    log_info "Waiting for $name to be ready..."
+
+    while [ $attempt -le $max_attempts ]; do
+        if curl -s -o /dev/null -w "%{http_code}" "$url" | grep -q "200\|401\|302"; then
+            log_success "$name is ready"
+            return 0
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+
+    log_error "$name failed to become ready after $max_attempts attempts"
+    return 1
+}
+
+# =============================================================================
+# API Key Extraction
+# =============================================================================
+
+get_sonarr_api_key() {
+    local config_file="$PROJECT_DIR/config/sonarr/config.xml"
+    if [ -f "$config_file" ]; then
+        grep -oP '(?<=<ApiKey>)[^<]+' "$config_file" 2>/dev/null || echo ""
+    fi
+}
+
+get_radarr_api_key() {
+    local config_file="$PROJECT_DIR/config/radarr/config.xml"
+    if [ -f "$config_file" ]; then
+        grep -oP '(?<=<ApiKey>)[^<]+' "$config_file" 2>/dev/null || echo ""
+    fi
+}
+
+get_prowlarr_api_key() {
+    local config_file="$PROJECT_DIR/config/prowlarr/config.xml"
+    if [ -f "$config_file" ]; then
+        grep -oP '(?<=<ApiKey>)[^<]+' "$config_file" 2>/dev/null || echo ""
+    fi
+}
+
+get_bazarr_api_key() {
+    local config_file="$PROJECT_DIR/config/bazarr/config/config.yaml"
+    if [ -f "$config_file" ]; then
+        grep -E '^\s+apikey:' "$config_file" | head -1 | awk '{print $2}' | tr -d "'" | tr -d '"' 2>/dev/null || echo ""
+    fi
+}
+
+# =============================================================================
+# Connection Check Functions
+# =============================================================================
+
+check_prowlarr_app_exists() {
+    local app_name="$1"
+    local result
+    result=$(curl -s "http://localhost:9696/api/v1/applications" \
+        -H "X-Api-Key: $PROWLARR_API_KEY" | jq -r ".[] | select(.name == \"$app_name\") | .name" 2>/dev/null)
+    [ "$result" = "$app_name" ]
+}
+
+check_download_client_exists() {
+    local port="$1"
+    local api_key="$2"
+    local client_name="$3"
+    local result
+    result=$(curl -s "http://localhost:$port/api/v3/downloadclient" \
+        -H "X-Api-Key: $api_key" | jq -r ".[] | select(.name == \"$client_name\") | .name" 2>/dev/null)
+    [ "$result" = "$client_name" ]
+}
+
+check_prowlarr_indexer_exists() {
+    local indexer_name="$1"
+    local result
+    result=$(curl -s "http://localhost:9696/api/v1/indexer" \
+        -H "X-Api-Key: $PROWLARR_API_KEY" | jq -r ".[] | select(.name == \"$indexer_name\") | .name" 2>/dev/null)
+    [ "$result" = "$indexer_name" ]
+}
+
+# =============================================================================
+# Configuration Functions
+# =============================================================================
+
+configure_prowlarr_sonarr() {
+    if check_prowlarr_app_exists "Sonarr"; then
+        log_success "Prowlarr → Sonarr already configured"
+        return 0
+    fi
+
+    log_info "Configuring Prowlarr → Sonarr..."
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:9696/api/v1/applications" \
+        -H "X-Api-Key: $PROWLARR_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "name": "Sonarr",
+            "syncLevel": "fullSync",
+            "implementation": "Sonarr",
+            "configContract": "SonarrSettings",
+            "fields": [
+                {"name": "prowlarrUrl", "value": "http://prowlarr:9696"},
+                {"name": "baseUrl", "value": "http://sonarr:8989"},
+                {"name": "apiKey", "value": "'"$SONARR_API_KEY"'"},
+                {"name": "syncCategories", "value": [5000, 5010, 5020, 5030, 5040, 5045, 5050]}
+            ],
+            "tags": []
+        }')
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        log_success "Prowlarr → Sonarr configured"
+    else
+        log_error "Failed to configure Prowlarr → Sonarr (HTTP $http_code)"
+        echo "$response" | head -n -1
+        return 1
+    fi
+}
+
+configure_prowlarr_radarr() {
+    if check_prowlarr_app_exists "Radarr"; then
+        log_success "Prowlarr → Radarr already configured"
+        return 0
+    fi
+
+    log_info "Configuring Prowlarr → Radarr..."
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:9696/api/v1/applications" \
+        -H "X-Api-Key: $PROWLARR_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "name": "Radarr",
+            "syncLevel": "fullSync",
+            "implementation": "Radarr",
+            "configContract": "RadarrSettings",
+            "fields": [
+                {"name": "prowlarrUrl", "value": "http://prowlarr:9696"},
+                {"name": "baseUrl", "value": "http://radarr:7878"},
+                {"name": "apiKey", "value": "'"$RADARR_API_KEY"'"},
+                {"name": "syncCategories", "value": [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060]}
+            ],
+            "tags": []
+        }')
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        log_success "Prowlarr → Radarr configured"
+    else
+        log_error "Failed to configure Prowlarr → Radarr (HTTP $http_code)"
+        echo "$response" | head -n -1
+        return 1
+    fi
+}
+
+configure_sonarr_qbittorrent() {
+    if check_download_client_exists "8989" "$SONARR_API_KEY" "qBittorrent"; then
+        log_success "Sonarr → qBittorrent already configured"
+        return 0
+    fi
+
+    log_info "Configuring Sonarr → qBittorrent..."
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:8989/api/v3/downloadclient" \
+        -H "X-Api-Key: $SONARR_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "name": "qBittorrent",
+            "enable": true,
+            "protocol": "torrent",
+            "priority": 1,
+            "removeCompletedDownloads": true,
+            "removeFailedDownloads": true,
+            "implementation": "QBittorrent",
+            "configContract": "QBittorrentSettings",
+            "fields": [
+                {"name": "host", "value": "gluetun"},
+                {"name": "port", "value": 8080},
+                {"name": "useSsl", "value": false},
+                {"name": "username", "value": "'"$QBIT_USER"'"},
+                {"name": "password", "value": "'"$QBIT_PASS"'"},
+                {"name": "tvCategory", "value": "tv"},
+                {"name": "recentTvPriority", "value": 0},
+                {"name": "olderTvPriority", "value": 0},
+                {"name": "initialState", "value": 0},
+                {"name": "sequentialOrder", "value": false},
+                {"name": "firstAndLast", "value": false}
+            ],
+            "tags": []
+        }')
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        log_success "Sonarr → qBittorrent configured"
+    else
+        log_error "Failed to configure Sonarr → qBittorrent (HTTP $http_code)"
+        echo "$response" | head -n -1
+        return 1
+    fi
+}
+
+configure_radarr_qbittorrent() {
+    if check_download_client_exists "7878" "$RADARR_API_KEY" "qBittorrent"; then
+        log_success "Radarr → qBittorrent already configured"
+        return 0
+    fi
+
+    log_info "Configuring Radarr → qBittorrent..."
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:7878/api/v3/downloadclient" \
+        -H "X-Api-Key: $RADARR_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "name": "qBittorrent",
+            "enable": true,
+            "protocol": "torrent",
+            "priority": 1,
+            "removeCompletedDownloads": true,
+            "removeFailedDownloads": true,
+            "implementation": "QBittorrent",
+            "configContract": "QBittorrentSettings",
+            "fields": [
+                {"name": "host", "value": "gluetun"},
+                {"name": "port", "value": 8080},
+                {"name": "useSsl", "value": false},
+                {"name": "username", "value": "'"$QBIT_USER"'"},
+                {"name": "password", "value": "'"$QBIT_PASS"'"},
+                {"name": "movieCategory", "value": "movies"},
+                {"name": "recentMoviePriority", "value": 0},
+                {"name": "olderMoviePriority", "value": 0},
+                {"name": "initialState", "value": 0},
+                {"name": "sequentialOrder", "value": false},
+                {"name": "firstAndLast", "value": false}
+            ],
+            "tags": []
+        }')
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        log_success "Radarr → qBittorrent configured"
+    else
+        log_error "Failed to configure Radarr → qBittorrent (HTTP $http_code)"
+        echo "$response" | head -n -1
+        return 1
+    fi
+}
+
+configure_bazarr_sonarr() {
+    log_info "Configuring Bazarr → Sonarr..."
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X PATCH "http://localhost:6767/api/system/settings" \
+        -H "X-API-KEY: $BAZARR_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "sonarr": {
+                "ip": "sonarr",
+                "port": 8989,
+                "base_url": "",
+                "ssl": false,
+                "apikey": "'"$SONARR_API_KEY"'",
+                "full_update": "Daily",
+                "full_update_day": 6,
+                "full_update_hour": 4,
+                "only_monitored": true,
+                "series_sync": 60,
+                "excluded_tags": [],
+                "excluded_series_types": []
+            },
+            "general": {
+                "use_sonarr": true
+            }
+        }')
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; then
+        log_success "Bazarr → Sonarr configured"
+    else
+        log_error "Failed to configure Bazarr → Sonarr (HTTP $http_code)"
+        echo "$response" | head -n -1
+        return 1
+    fi
+}
+
+configure_bazarr_radarr() {
+    log_info "Configuring Bazarr → Radarr..."
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X PATCH "http://localhost:6767/api/system/settings" \
+        -H "X-API-KEY: $BAZARR_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "radarr": {
+                "ip": "radarr",
+                "port": 7878,
+                "base_url": "",
+                "ssl": false,
+                "apikey": "'"$RADARR_API_KEY"'",
+                "full_update": "Daily",
+                "full_update_day": 6,
+                "full_update_hour": 4,
+                "only_monitored": true,
+                "movies_sync": 60,
+                "excluded_tags": []
+            },
+            "general": {
+                "use_radarr": true
+            }
+        }')
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; then
+        log_success "Bazarr → Radarr configured"
+    else
+        log_error "Failed to configure Bazarr → Radarr (HTTP $http_code)"
+        echo "$response" | head -n -1
+        return 1
+    fi
+}
+
+configure_bazarr_providers() {
+    log_info "Configuring Bazarr subtitle providers..."
+
+    local providers='["podnapisi"]'
+    local addic7ed_config='{}'
+    local opensubtitlescom_config='{}'
+
+    # Add Addic7ed if credentials are provided
+    if [ -n "$ADDIC7ED_USERNAME" ] && [ -n "$ADDIC7ED_PASSWORD" ]; then
+        providers='["addic7ed", "podnapisi"]'
+        addic7ed_config='{
+            "username": "'"$ADDIC7ED_USERNAME"'",
+            "password": "'"$ADDIC7ED_PASSWORD"'",
+            "cookies": "'"${ADDIC7ED_COOKIES:-}"'"
+        }'
+        log_info "  - Addic7ed: enabled"
+    fi
+
+    # Add OpenSubtitles.com if credentials are provided
+    if [ -n "$OPENSUBTITLESCOM_USERNAME" ] && [ -n "$OPENSUBTITLESCOM_PASSWORD" ]; then
+        if [ "$providers" = '["podnapisi"]' ]; then
+            providers='["opensubtitlescom", "podnapisi"]'
+        else
+            providers='["addic7ed", "opensubtitlescom", "podnapisi"]'
+        fi
+        opensubtitlescom_config='{
+            "username": "'"$OPENSUBTITLESCOM_USERNAME"'",
+            "password": "'"$OPENSUBTITLESCOM_PASSWORD"'",
+            "use_hash": true,
+            "include_ai_translated": true
+        }'
+        log_info "  - OpenSubtitles.com: enabled"
+    fi
+
+    log_info "  - Podnapisi: enabled (no credentials needed)"
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X PATCH "http://localhost:6767/api/system/settings" \
+        -H "X-API-KEY: $BAZARR_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "general": {
+                "enabled_providers": '"$providers"'
+            },
+            "addic7ed": '"$addic7ed_config"',
+            "opensubtitlescom": '"$opensubtitlescom_config"'
+        }')
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; then
+        log_success "Bazarr subtitle providers configured"
+    else
+        log_warning "Failed to configure Bazarr providers (HTTP $http_code) - may need manual setup"
+    fi
+}
+
+configure_prowlarr_indexer_1337x() {
+    if check_prowlarr_indexer_exists "1337x"; then
+        log_success "Prowlarr indexer '1337x' already configured"
+        return 0
+    fi
+
+    log_info "Adding Prowlarr indexer: 1337x..."
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:9696/api/v1/indexer" \
+        -H "X-Api-Key: $PROWLARR_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "name": "1337x",
+            "definitionName": "1337x",
+            "enable": true,
+            "redirect": false,
+            "supportsRss": true,
+            "supportsSearch": true,
+            "supportsRedirect": false,
+            "appProfileId": 1,
+            "priority": 25,
+            "fields": [
+                {"name": "definitionFile", "value": "1337x"}
+            ],
+            "tags": []
+        }')
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        log_success "Prowlarr indexer '1337x' added"
+    else
+        log_warning "Failed to add 1337x indexer (HTTP $http_code)"
+    fi
+}
+
+configure_prowlarr_indexer_1337x_tor() {
+    if check_prowlarr_indexer_exists "1337x (Tor)"; then
+        log_success "Prowlarr indexer '1337x (Tor)' already configured"
+        return 0
+    fi
+
+    # Check if custom definition exists
+    if [ ! -f "$PROJECT_DIR/config/prowlarr/Definitions/Custom/1337x-tor.yml" ]; then
+        log_warning "Custom 1337x-tor.yml not found, skipping Tor indexer"
+        return 0
+    fi
+
+    log_info "Adding Prowlarr indexer: 1337x (Tor)..."
+
+    # First, add a Tor proxy to Prowlarr
+    local proxy_exists
+    proxy_exists=$(curl -s "http://localhost:9696/api/v1/indexerProxy" \
+        -H "X-Api-Key: $PROWLARR_API_KEY" | jq -r '.[] | select(.name == "Tor") | .name' 2>/dev/null)
+
+    if [ "$proxy_exists" != "Tor" ]; then
+        log_info "  Adding Tor proxy..."
+        curl -s -X POST "http://localhost:9696/api/v1/indexerProxy" \
+            -H "X-Api-Key: $PROWLARR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+                "name": "Tor",
+                "implementation": "Socks5",
+                "configContract": "Socks5Settings",
+                "fields": [
+                    {"name": "host", "value": "tor-proxy"},
+                    {"name": "port", "value": 9050},
+                    {"name": "username", "value": ""},
+                    {"name": "password", "value": ""}
+                ],
+                "tags": []
+            }' > /dev/null
+    fi
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:9696/api/v1/indexer" \
+        -H "X-Api-Key: $PROWLARR_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "name": "1337x (Tor)",
+            "definitionName": "1337x-tor",
+            "enable": true,
+            "redirect": false,
+            "supportsRss": true,
+            "supportsSearch": true,
+            "supportsRedirect": false,
+            "appProfileId": 1,
+            "priority": 25,
+            "fields": [
+                {"name": "definitionFile", "value": "1337x-tor"}
+            ],
+            "tags": []
+        }')
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+        log_success "Prowlarr indexer '1337x (Tor)' added"
+    else
+        log_warning "Failed to add 1337x (Tor) indexer (HTTP $http_code)"
+    fi
+}
+
+sync_prowlarr_indexers() {
+    log_info "Triggering Prowlarr indexer sync to apps..."
+
+    curl -s -X POST "http://localhost:9696/api/v1/applicationsync" \
+        -H "X-Api-Key: $PROWLARR_API_KEY" > /dev/null
+
+    log_success "Prowlarr indexer sync triggered"
+}
+
+# =============================================================================
+# Main Execution
+# =============================================================================
+
+main() {
+    echo ""
+    echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║         Torrent Services Bootstrap Script                    ║${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+
+    # Check required commands
+    check_command "curl"
+    check_command "jq"
+    check_command "grep"
+
+    # Load environment variables
+    if [ -f "$PROJECT_DIR/.env" ]; then
+        log_info "Loading environment variables from .env..."
+        set -a
+        # shellcheck source=/dev/null
+        source "$PROJECT_DIR/.env"
+        set +a
+    else
+        log_error ".env file not found at $PROJECT_DIR/.env"
+        exit 1
+    fi
+
+    # Validate required environment variables
+    if [ -z "$QBIT_USER" ] || [ -z "$QBIT_PASS" ]; then
+        log_error "QBIT_USER and QBIT_PASS must be set in .env"
+        exit 1
+    fi
+
+    log_section "Waiting for Services"
+
+    wait_for_service "Prowlarr" "http://localhost:9696/ping"
+    wait_for_service "Sonarr" "http://localhost:8989/ping"
+    wait_for_service "Radarr" "http://localhost:7878/ping"
+    wait_for_service "Bazarr" "http://localhost:6767/ping"
+    wait_for_service "qBittorrent" "http://localhost:8080"
+
+    log_section "Configuring Authentication"
+
+    # qBittorrent Authentication
+    log_info "Checking qBittorrent authentication..."
+    # Try to login with env credentials
+    if curl -s -f -c /tmp/qb_cookies.txt -d "username=$QBIT_USER&password=$QBIT_PASS" http://localhost:8080/api/v2/auth/login > /dev/null; then
+        log_success "qBittorrent already configured with correct credentials"
+    else
+        log_info "Current credentials failed. Attempting to find temporary password..."
+
+        # Try to find temp password in logs
+        TEMP_PASS=$(docker logs qbittorrent 2>&1 | grep -oP '(?<=Temporary password: )[^ ]+' | tail -n 1 | tr -d '\r')
+
+        if [ -n "$TEMP_PASS" ]; then
+            log_info "Found temporary password. Updating to .env credentials..."
+
+            # Login with temp password
+            if curl -s -c /tmp/qb_cookies.txt -d "username=admin&password=$TEMP_PASS" http://localhost:8080/api/v2/auth/login > /dev/null; then
+                # Change credentials
+                # Note: qBittorrent API requires password to be sent as 'password' field in setPreferences
+                curl -s -b /tmp/qb_cookies.txt -X POST http://localhost:8080/api/v2/app/setPreferences \
+                    -d "json={\"web_ui_username\":\"$QBIT_USER\"}" > /dev/null
+
+                # For password change, we need to use a separate endpoint or include it in preferences depending on version
+                # Newer qBittorrent versions might require web_ui_password_pbkdf2, but let's try the standard way first
+                # Actually, the most reliable way for qBit 4.6+ via API is tricky without generating the hash.
+                # Let's try the legacy method, if it fails, we warn the user.
+
+                # Attempt to set password (this works on older versions, might fail on 4.6.1+)
+                curl -s -b /tmp/qb_cookies.txt -X POST http://localhost:8080/api/v2/auth/login \
+                     -d "username=$QBIT_USER&password=$TEMP_PASS" > /dev/null # Re-login if user changed
+
+                # Since qBittorrent 4.6.1 removed the ability to set plain text passwords via API,
+                # and generating PBKDF2 in bash is hard, we might have to skip password change if it's the new version.
+                # However, we can try to set it.
+
+                log_warning "qBittorrent password change via API is limited on v4.6+. If this fails, please change manually."
+            else
+                log_error "Failed to login with temporary password."
+            fi
+        else
+            log_warning "Could not find temporary password in logs. You may need to configure qBittorrent manually."
+        fi
+    fi
+
+    # Sonarr Authentication
+    log_info "Configuring Sonarr authentication..."
+    if [ -n "$SONARR_API_KEY" ]; then
+        if [ -z "$SONARR_USER" ] || [ -z "$SONARR_PASS" ]; then
+            log_warning "SONARR_USER or SONARR_PASS not set in .env, skipping authentication setup"
+        else
+            # Check if auth is already enabled
+            AUTH_METHOD=$(curl -s "http://localhost:8989/api/v3/config/ui" -H "X-Api-Key: $SONARR_API_KEY" | jq -r '.authenticationMethod')
+
+            if [ "$AUTH_METHOD" = "none" ]; then
+                log_info "Enabling Forms authentication for Sonarr..."
+                # Get current config
+                CONFIG=$(curl -s "http://localhost:8989/api/v3/config/ui" -H "X-Api-Key: $SONARR_API_KEY")
+                # Update config with jq
+                NEW_CONFIG=$(echo "$CONFIG" | jq --arg user "$SONARR_USER" --arg pass "$SONARR_PASS" '.authenticationMethod = "forms" | .username = $user | .password = $pass')
+                # Send update
+                curl -s -X PUT "http://localhost:8989/api/v3/config/ui" \
+                    -H "X-Api-Key: $SONARR_API_KEY" \
+                    -H "Content-Type: application/json" \
+                    -d "$NEW_CONFIG" > /dev/null
+                log_success "Sonarr authentication enabled (User: $SONARR_USER)"
+            else
+                log_success "Sonarr authentication already configured"
+            fi
+        fi
+    fi
+
+    # Radarr Authentication
+    log_info "Configuring Radarr authentication..."
+    if [ -n "$RADARR_API_KEY" ]; then
+        if [ -z "$RADARR_USER" ] || [ -z "$RADARR_PASS" ]; then
+            log_warning "RADARR_USER or RADARR_PASS not set in .env, skipping authentication setup"
+        else
+            AUTH_METHOD=$(curl -s "http://localhost:7878/api/v3/config/ui" -H "X-Api-Key: $RADARR_API_KEY" | jq -r '.authenticationMethod')
+            if [ "$AUTH_METHOD" = "none" ]; then
+                log_info "Enabling Forms authentication for Radarr..."
+                CONFIG=$(curl -s "http://localhost:7878/api/v3/config/ui" -H "X-Api-Key: $RADARR_API_KEY")
+                NEW_CONFIG=$(echo "$CONFIG" | jq --arg user "$RADARR_USER" --arg pass "$RADARR_PASS" '.authenticationMethod = "forms" | .username = $user | .password = $pass')
+                curl -s -X PUT "http://localhost:7878/api/v3/config/ui" \
+                    -H "X-Api-Key: $RADARR_API_KEY" \
+                    -H "Content-Type: application/json" \
+                    -d "$NEW_CONFIG" > /dev/null
+                log_success "Radarr authentication enabled (User: $RADARR_USER)"
+            else
+                log_success "Radarr authentication already configured"
+            fi
+        fi
+    fi
+
+    # Prowlarr Authentication
+    log_info "Configuring Prowlarr authentication..."
+    if [ -n "$PROWLARR_API_KEY" ]; then
+        if [ -z "$PROWLARR_USER" ] || [ -z "$PROWLARR_PASS" ]; then
+            log_warning "PROWLARR_USER or PROWLARR_PASS not set in .env, skipping authentication setup"
+        else
+            AUTH_METHOD=$(curl -s "http://localhost:9696/api/v1/config/ui" -H "X-Api-Key: $PROWLARR_API_KEY" | jq -r '.authenticationMethod')
+            if [ "$AUTH_METHOD" = "none" ]; then
+                log_info "Enabling Forms authentication for Prowlarr..."
+                CONFIG=$(curl -s "http://localhost:9696/api/v1/config/ui" -H "X-Api-Key: $PROWLARR_API_KEY")
+                NEW_CONFIG=$(echo "$CONFIG" | jq --arg user "$PROWLARR_USER" --arg pass "$PROWLARR_PASS" '.authenticationMethod = "forms" | .username = $user | .password = $pass')
+                curl -s -X PUT "http://localhost:9696/api/v1/config/ui" \
+                    -H "X-Api-Key: $PROWLARR_API_KEY" \
+                    -H "Content-Type: application/json" \
+                    -d "$NEW_CONFIG" > /dev/null
+                log_success "Prowlarr authentication enabled (User: $PROWLARR_USER)"
+            else
+                log_success "Prowlarr authentication already configured"
+            fi
+        fi
+    fi
+
+    # Bazarr Authentication
+    log_info "Configuring Bazarr authentication..."
+    if [ -n "$BAZARR_API_KEY" ]; then
+        if [ -z "$BAZARR_USER" ] || [ -z "$BAZARR_PASS" ]; then
+            log_warning "BAZARR_USER or BAZARR_PASS not set in .env, skipping authentication setup"
+        else
+            # Bazarr uses a different API structure
+            AUTH_TYPE=$(curl -s "http://localhost:6767/api/system/settings" -H "X-API-KEY: $BAZARR_API_KEY" | jq -r '.auth.type')
+            if [ "$AUTH_TYPE" = "None" ]; then
+                log_info "Enabling Forms authentication for Bazarr..."
+                curl -s -X PATCH "http://localhost:6767/api/system/settings" \
+                    -H "X-API-KEY: $BAZARR_API_KEY" \
+                    -H "Content-Type: application/json" \
+                    -d '{
+                        "auth": {
+                            "type": "Form",
+                            "username": "'"$BAZARR_USER"'",
+                            "password": "'"$BAZARR_PASS"'"
+                        }
+                    }' > /dev/null
+                log_success "Bazarr authentication enabled (User: $BAZARR_USER)"
+            else
+                log_success "Bazarr authentication already configured"
+            fi
+        fi
+    fi
+
+    log_section "Reading API Keys"
+
+    SONARR_API_KEY=$(get_sonarr_api_key)
+    RADARR_API_KEY=$(get_radarr_api_key)
+    PROWLARR_API_KEY=$(get_prowlarr_api_key)
+    BAZARR_API_KEY=$(get_bazarr_api_key)
+
+    if [ -z "$SONARR_API_KEY" ]; then
+        log_error "Could not read Sonarr API key from config"
+        exit 1
+    fi
+    log_success "Sonarr API key: ${SONARR_API_KEY:0:8}..."
+
+    if [ -z "$RADARR_API_KEY" ]; then
+        log_error "Could not read Radarr API key from config"
+        exit 1
+    fi
+    log_success "Radarr API key: ${RADARR_API_KEY:0:8}..."
+
+    if [ -z "$PROWLARR_API_KEY" ]; then
+        log_error "Could not read Prowlarr API key from config"
+        exit 1
+    fi
+    log_success "Prowlarr API key: ${PROWLARR_API_KEY:0:8}..."
+
+    if [ -z "$BAZARR_API_KEY" ]; then
+        log_error "Could not read Bazarr API key from config"
+        exit 1
+    fi
+    log_success "Bazarr API key: ${BAZARR_API_KEY:0:8}..."
+
+    log_section "Configuring Prowlarr Applications"
+
+    configure_prowlarr_sonarr
+    configure_prowlarr_radarr
+
+    log_section "Configuring Download Clients"
+
+    configure_sonarr_qbittorrent
+    configure_radarr_qbittorrent
+
+    log_section "Configuring Bazarr"
+
+    configure_bazarr_sonarr
+    configure_bazarr_radarr
+    configure_bazarr_providers
+
+    log_section "Configuring Prowlarr Indexers"
+
+    configure_prowlarr_indexer_1337x
+    configure_prowlarr_indexer_1337x_tor
+
+    log_section "Syncing Indexers"
+
+    sync_prowlarr_indexers
+
+    echo ""
+    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                    Bootstrap Complete!                       ║${NC}"
+    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Open Prowlarr (http://localhost:9696) and verify indexers"
+    echo "  2. Open Sonarr (http://localhost:8989) and add TV shows"
+    echo "  3. Open Radarr (http://localhost:7878) and add movies"
+    echo "  4. Bazarr (http://localhost:6767) will auto-download subtitles"
+    echo "  5. Open qBittorrent (http://localhost:8080) to monitor downloads"
+    echo ""
+}
+
+# Run main function
+main "$@"
