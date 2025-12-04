@@ -92,4 +92,8 @@ backups/
 *.tar.gz
 *.backup
 
+# Runtime logs (autoheal, etc.)
+logs/
+!logs/.gitkeep
+
 # End of https://www.toptal.com/developers/gitignore/api/macos,visualstudiocode

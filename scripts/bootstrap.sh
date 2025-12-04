@@ -631,7 +631,7 @@ start_monitoring_profile() {
     fi
 
     # Verify API keys are available (required by exporters)
-    if [ -z "$SONARR_API_KEY" ] || [ -z "$RADARR_API_KEY" ] || [ -z "$PROWLARR_API_KEY" ]; then
+    if [ -z "$SONARR_API_KEY" ] || [ -z "$RADARR_API_KEY" ] || [ -z "$PROWLARR_API_KEY" ] || [ -z "$BAZARR_API_KEY" ]; then
         log_error "Cannot start monitoring exporters - API keys not available"
         log_error "Ensure Sonarr, Radarr, and Prowlarr API keys are set in .env"
         return 1
@@ -640,7 +640,7 @@ start_monitoring_profile() {
     log_info "Starting monitoring exporters via docker compose profile..."
 
     # Start monitoring containers
-    if (cd "$PROJECT_DIR" && docker compose --profile monitoring up -d qbittorrent-exporter sonarr-exporter radarr-exporter prowlarr-exporter 2>&1); then
+    if (cd "$PROJECT_DIR" && docker compose --profile monitoring up -d qbittorrent-exporter scraparr 2>&1); then
         log_success "Monitoring exporters started successfully"
 
         # Wait a few seconds for exporters to initialize
@@ -648,7 +648,7 @@ start_monitoring_profile() {
 
         # Verify exporters are running
         local failed=0
-        for service in qbittorrent-exporter sonarr-exporter radarr-exporter prowlarr-exporter; do
+        for service in qbittorrent-exporter scraparr; do
             if docker ps --filter "name=$service" --filter "status=running" | grep -q "$service"; then
                 log_success "  ✓ $service is running"
             else
@@ -660,10 +660,8 @@ start_monitoring_profile() {
         if [ $failed -eq 0 ]; then
             echo ""
             log_info "Prometheus scrape targets:"
-            log_info "  - qBittorrent: http://192.168.50.100:9352/metrics"
-            log_info "  - Sonarr:      http://192.168.50.100:9707/metrics"
-            log_info "  - Radarr:      http://192.168.50.100:9708/metrics"
-            log_info "  - Prowlarr:    http://192.168.50.100:9709/metrics"
+            log_info "  - qBittorrent: http://192.168.50.100:8090/metrics"
+            log_info "  - Scraparr:    http://192.168.50.100:7100/metrics"
         fi
     else
         log_error "Failed to start monitoring exporters"
@@ -943,10 +941,8 @@ main() {
     echo ""
     if is_truthy "${ENABLE_MONITORING_PROFILE:-false}"; then
         echo "Monitoring exporters (for Prometheus):"
-        echo "  • qBittorrent: http://192.168.50.100:9352/metrics"
-        echo "  • Sonarr:      http://192.168.50.100:9707/metrics"
-        echo "  • Radarr:      http://192.168.50.100:9708/metrics"
-        echo "  • Prowlarr:    http://192.168.50.100:9709/metrics"
+        echo "  • qBittorrent: http://192.168.50.100:8090/metrics"
+        echo "  • Scraparr:    http://192.168.50.100:7100/metrics"
         echo ""
     fi
     echo "Configuration saved to: $ENV_FILE"

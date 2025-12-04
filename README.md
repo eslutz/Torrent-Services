@@ -13,14 +13,16 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Radarr** | Movie management | [Radarr](https://radarr.video/) |
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 | **Tor Proxy** | Optional SOCKS5 proxy for Tor-only indexers | [torproxy](https://hub.docker.com/r/dperson/torproxy) |
-| **Monitoring Exporters** | Prometheus metrics for qBittorrent/Sonarr/Radarr/Prowlarr | [Exportarr](https://github.com/onedr0p/exportarr) |
+| **Monitoring Exporters** | Prometheus metrics via Scraparr (*arr apps) + martabal/qbittorrent-exporter | [Scraparr](https://github.com/thecfu/scraparr) / [martabal/qbittorrent-exporter](https://github.com/martabal/qbittorrent-exporter) |
 
 **VPN:** ProtonVPN with automatic port forwarding via Gluetun for optimal torrent performance and privacy.
 
 **Resilience & observability highlights:**
 
 - VPN-aware health checks keep qBittorrent offline until Gluetun verifies the tunnel, Tor proxy, and port-forward files.
+- Dedicated `/scripts/healthchecks/*.sh` probes enforce latency thresholds and hit real APIs so containers only report healthy when they are responsive.
 - Service dependencies wait for healthy upstream services (e.g., Sonarr/Radarr wait for Prowlarr).
+- Autoheal container watches Docker health status and restarts stuck services automatically.
 - Cgroup CPU/RAM limits, stop_grace_periods, and `init: true` guard the host from runaway containers.
 - Hardened helpers: qbit-port-sync now runs read-only with tmpfs scratch space and detailed status health checks.
 - Optional monitoring profile exposes native Prometheus metrics without touching production services.
@@ -51,22 +53,52 @@ docker logs qbit-port-sync --tail 20
 # 5. (Optional) Start monitoring exporters after API keys exist
 # Option A: set ENABLE_MONITORING_PROFILE=true before running bootstrap (auto-start)
 # Option B: start manually any time:
-docker compose --profile monitoring up -d qbittorrent-exporter sonarr-exporter radarr-exporter prowlarr-exporter
+docker compose --profile monitoring up -d qbittorrent-exporter scraparr
 ```
+
+### Healthchecks & Autoheal
+
+- Every core container mounts `./scripts/healthchecks` and runs a dedicated script (e.g., `sonarr.sh`, `gluetun.sh`, `tor-proxy.sh`) that validates API responses, latency, and VPN/Tor prerequisites.
+- Healthchecks run every 30 seconds with a 10–15 second timeout and fail fast if responses exceed 5 seconds, forcing Docker to flag the service as `unhealthy`.
+- The Rust-based `autoheal` sidecar (`tmknight/docker-autoheal`) watches Docker health status via the socket, restarts unhealthy containers after the configured start delay, and persists JSON logs to `./logs/autoheal.json` for auditing.
+- Inspect autoheal activity with `docker logs autoheal --tail 50`, follow the structured log file, and view per-container health with `docker ps --format "table {{.Names}}\t{{.Status}}"`.
 
 ### Monitoring Profile & Metrics
 
-- The docker compose stack ships with Prometheus exporters for qBittorrent, Sonarr, Radarr, and Prowlarr under the `monitoring` profile.
-- `./scripts/bootstrap.sh` now reads API keys from each app and writes `SONARR_API_KEY`, `RADARR_API_KEY`, `PROWLARR_API_KEY`, and `BAZARR_API_KEY` into `.env`. Leave those values blank initially—the script will populate them.
+The docker compose stack ships with a lightweight Go qBittorrent exporter plus Scraparr (covering Sonarr/Radarr/Prowlarr/Bazarr) under the `monitoring` profile.
+
+#### How the Monitoring Architecture Works
+
+```txt
+┌─────────────┐     scrape /metrics     ┌────────────┐     query      ┌─────────┐
+│  Exporters  │ ◄────────────────────── │ Prometheus │ ◄───────────── │ Grafana │
+│ (this stack)│                         │  (storage) │                │ (UI)    │
+└─────────────┘                         └────────────┘                └─────────┘
+      │                                       │                            │
+ Expose current                         Store time-series           Visualize data
+ metrics only                           data (history)              from Prometheus
+```
+
+**Understanding the components:**
+
+1. **Exporters** (included here): Expose current metrics at a `/metrics` endpoint in Prometheus format. They **don't store data**—each scrape returns a snapshot of the current state.
+
+2. **Prometheus** (not included): Scrapes exporter endpoints on a schedule (e.g., every 15s) and stores the time-series data. Without Prometheus, you only see current values—no history, no trends.
+
+3. **Grafana** (not included): Queries Prometheus to visualize stored data. "Included dashboards" from exporters like Scraparr are **pre-built Grafana dashboard JSON files** you import into your Grafana instance—they're not standalone UIs.
+
+**To get a complete monitoring solution**, you need all three components. This stack provides the exporters; Prometheus and Grafana typically run on a dedicated monitoring host (e.g., in your `network-services` stack).
+
+#### Configuration
+
+- `./scripts/bootstrap.sh` reads API keys from each app and writes `SONARR_API_KEY`, `RADARR_API_KEY`, `PROWLARR_API_KEY`, and `BAZARR_API_KEY` into `.env`. Leave those values blank initially—the script will populate them for Scraparr.
 - Set `ENABLE_MONITORING_PROFILE=true` in `.env` before running the bootstrap script to automatically start the exporters, or launch them manually with `docker compose --profile monitoring up -d ...` once keys exist.
 - All exporter ports are bound to `127.0.0.1` to keep metrics private from the LAN. Point your Prometheus scrape config at the host loopback IP.
 
 | Exporter | Endpoint | Notes |
 |----------|----------|-------|
-| qBittorrent | <http://127.0.0.1:9352/metrics> | `eshogu/qbittorrent-exporter` (requires QBIT_USER/PASS) |
-| Sonarr | <http://127.0.0.1:9707/metrics> | `exportarr` profile `sonarr` |
-| Radarr | <http://127.0.0.1:9708/metrics> | `exportarr` profile `radarr` |
-| Prowlarr | <http://127.0.0.1:9709/metrics> | `exportarr` profile `prowlarr` |
+| qBittorrent | <http://127.0.0.1:8090/metrics> | `martabal/qbittorrent-exporter` (Go, tracker metrics enabled) |
+| Scraparr (*arr aggregate) | <http://127.0.0.1:7100/metrics> | One endpoint for Sonarr/Radarr/Prowlarr/Bazarr metrics |
 
 Stop the monitoring containers without impacting the main stack:
 
@@ -428,7 +460,7 @@ docker compose logs -f <service>                  # View logs (follow mode)
 # VPN Testing
 docker exec gluetun wget -qO- https://protonwire.p3.pm/status/json  # Check VPN connection
 docker exec gluetun cat /tmp/gluetun/forwarded_port                  # Get forwarded port
-./vpn-speedtest.sh                                                # Run speed test & VPN check
+./scripts/vpn-speedtest.sh                                           # Run speed test & VPN check
 
 # Port Forwarding
 docker exec gluetun cat /tmp/gluetun/forwarded_port  # Check current forwarded port

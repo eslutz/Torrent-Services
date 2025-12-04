@@ -34,17 +34,12 @@ services:
     volumes:
       - ./config/gluetun:/gluetun
       - gluetun-tmp:/tmp/gluetun
+      - ./scripts/healthchecks:/scripts:ro
     restart: unless-stopped
     networks:
       - torrent-services-network
     healthcheck:
-      test: >
-        /bin/sh -c '
-        ip link show tun0 > /dev/null 2>&1 || exit 1;
-        wget -q --spider --timeout=5 https://protonwire.p3.pm/status/json 2>/dev/null || exit 1;
-        [ -f /tmp/gluetun/forwarded_port ] && [ -s /tmp/gluetun/forwarded_port ] || exit 1;
-        exit 0
-        '
+      test: ["/scripts/gluetun.sh"]
       interval: 30s
       timeout: 15s
       retries: 3
@@ -72,6 +67,7 @@ services:
     volumes:
       - ./config/qbittorrent:/config
       - ${DATA_DIR:-./media}:/media
+      - ./scripts/healthchecks:/scripts:ro
     depends_on:
       gluetun:
         condition: service_healthy
@@ -79,7 +75,7 @@ services:
     init: true
     stop_grace_period: 60s
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      test: ["/scripts/qbittorrent.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -103,7 +99,7 @@ services:
       - QBIT_PASS=${QBIT_PASS}
     volumes:
       - gluetun-tmp:/tmp/gluetun:ro
-      - ./qbit-port-sync.sh:/app/qbit-port-sync.sh:ro
+      - ./scripts/qbit-port-sync.sh:/app/qbit-port-sync.sh:ro
     depends_on:
       gluetun:
         condition: service_healthy
@@ -143,6 +139,7 @@ services:
       - TZ=${TZ:-America/New_York}
     volumes:
       - ./config/prowlarr:/config
+      - ./scripts/healthchecks:/scripts:ro
     ports:
       - 9696:9696
     depends_on:
@@ -157,7 +154,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9696/ping"]
+      test: ["/scripts/prowlarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -181,6 +178,7 @@ services:
     volumes:
       - ./config/sonarr:/config
       - ${DATA_DIR:-./media}:/media
+      - ./scripts/healthchecks:/scripts:ro
     ports:
       - 8989:8989
     depends_on:
@@ -196,7 +194,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
+      test: ["/scripts/sonarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -220,6 +218,7 @@ services:
     volumes:
       - ./config/radarr:/config
       - ${DATA_DIR:-./media}:/media
+      - ./scripts/healthchecks:/scripts:ro
     ports:
       - 7878:7878
     depends_on:
@@ -235,7 +234,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7878/ping"]
+      test: ["/scripts/radarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -259,6 +258,7 @@ services:
     volumes:
       - ./config/bazarr:/config
       - ${DATA_DIR:-./media}:/media
+      - ./scripts/healthchecks:/scripts:ro
     ports:
       - 6767:6767
     depends_on:
@@ -275,7 +275,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6767/ping"]
+      test: ["/scripts/bazarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -298,6 +298,8 @@ services:
     ports:
       - 127.0.0.1:9050:9050 # SOCKS5 proxy
       - 127.0.0.1:9051:9051 # Control port
+    volumes:
+      - ./scripts/healthchecks:/scripts:ro
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -306,7 +308,7 @@ services:
     networks:
       - torrent-services-network
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 9050 || exit 1"]
+      test: ["/scripts/tor-proxy.sh"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -321,15 +323,20 @@ services:
 
   # qBittorrent Exporter for Prometheus
   qbittorrent-exporter:
-    image: eshogu/qbittorrent-exporter:latest
+    image: ghcr.io/martabal/qbittorrent-exporter:latest
     container_name: qbittorrent-exporter
     environment:
-      - QBITTORRENT_HOST=gluetun
-      - QBITTORRENT_PORT=8080
+      - QBITTORRENT_BASE_URL=http://gluetun:8080
       - QBITTORRENT_USERNAME=${QBIT_USER:-admin}
       - QBITTORRENT_PASSWORD=${QBIT_PASS}
+      - EXPORTER_PORT=8090
+      - LOG_LEVEL=INFO
+      - ENABLE_TRACKER=true
+    depends_on:
+      qbittorrent:
+        condition: service_healthy
     ports:
-      - "127.0.0.1:9352:9352"
+      - "127.0.0.1:8090:8090"
     networks:
       - torrent-services-network
     restart: unless-stopped
@@ -340,77 +347,39 @@ services:
       options:
         max-size: "5m"
         max-file: "2"
-    mem_limit: ${QBITTORRENT_EXPORTER_MEM_LIMIT:-256m}
-    cpus: ${QBITTORRENT_EXPORTER_CPUS:-0.5}
+    mem_limit: ${QBITTORRENT_EXPORTER_MEM_LIMIT:-128m}
+    cpus: ${QBITTORRENT_EXPORTER_CPUS:-0.25}
 
-  # Sonarr Exporter
-  sonarr-exporter:
-    image: ghcr.io/onedr0p/exportarr:latest
-    container_name: sonarr-exporter
-    command: ["sonarr"]
+  # Scraparr - Unified *arr Prometheus exporter
+  scraparr:
+    image: ghcr.io/thecfu/scraparr:latest
+    container_name: scraparr
     environment:
-      - PORT=9707
-      - URL=http://sonarr:8989
-      - APIKEY=${SONARR_API_KEY:-}
-    ports:
-      - "127.0.0.1:9707:9707"
+      - GENERAL_PORT=7100
+      - GENERAL_PATH=/metrics
+      - SONARR_URL=http://sonarr:8989
+      - SONARR_API_KEY=${SONARR_API_KEY}
+      - SONARR_INTERVAL=30
+      - RADARR_URL=http://radarr:7878
+      - RADARR_API_KEY=${RADARR_API_KEY}
+      - RADARR_INTERVAL=30
+      - PROWLARR_URL=http://prowlarr:9696
+      - PROWLARR_API_KEY=${PROWLARR_API_KEY}
+      - PROWLARR_INTERVAL=30
+      - BAZARR_URL=http://bazarr:6767
+      - BAZARR_API_KEY=${BAZARR_API_KEY}
+      - BAZARR_INTERVAL=30
     depends_on:
       sonarr:
         condition: service_healthy
-    networks:
-      - torrent-services-network
-    restart: unless-stopped
-    profiles:
-      - monitoring
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
-    mem_limit: ${SONARR_EXPORTER_MEM_LIMIT:-256m}
-    cpus: ${SONARR_EXPORTER_CPUS:-0.5}
-
-  # Radarr Exporter
-  radarr-exporter:
-    image: ghcr.io/onedr0p/exportarr:latest
-    container_name: radarr-exporter
-    command: ["radarr"]
-    environment:
-      - PORT=9708
-      - URL=http://radarr:7878
-      - APIKEY=${RADARR_API_KEY:-}
-    ports:
-      - "127.0.0.1:9708:9708"
-    depends_on:
       radarr:
         condition: service_healthy
-    networks:
-      - torrent-services-network
-    restart: unless-stopped
-    profiles:
-      - monitoring
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
-    mem_limit: ${RADARR_EXPORTER_MEM_LIMIT:-256m}
-    cpus: ${RADARR_EXPORTER_CPUS:-0.5}
-
-  # Prowlarr Exporter
-  prowlarr-exporter:
-    image: ghcr.io/onedr0p/exportarr:latest
-    container_name: prowlarr-exporter
-    command: ["prowlarr"]
-    environment:
-      - PORT=9709
-      - URL=http://prowlarr:9696
-      - APIKEY=${PROWLARR_API_KEY:-}
-    ports:
-      - "127.0.0.1:9709:9709"
-    depends_on:
       prowlarr:
         condition: service_healthy
+      bazarr:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:7100:7100"
     networks:
       - torrent-services-network
     restart: unless-stopped
@@ -421,8 +390,34 @@ services:
       options:
         max-size: "5m"
         max-file: "2"
-    mem_limit: ${PROWLARR_EXPORTER_MEM_LIMIT:-256m}
-    cpus: ${PROWLARR_EXPORTER_CPUS:-0.5}
+    mem_limit: ${SCRAPARR_MEM_LIMIT:-256m}
+    cpus: ${SCRAPARR_CPUS:-0.5}
+
+  autoheal:
+    image: tmknight88/docker-autoheal:latest
+    container_name: autoheal
+    restart: unless-stopped
+    read_only: true
+    user: "${PUID}:${PGID}"
+    network_mode: none
+    environment:
+      - AUTOHEAL_CONNECTION_TYPE=socket
+      - AUTOHEAL_MONITOR_ALL=true
+      - AUTOHEAL_INTERVAL=30
+      - AUTOHEAL_START_DELAY=300
+      - AUTOHEAL_STOP_TIMEOUT=30
+      - AUTOHEAL_LOG_PERSIST=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ./logs/autoheal.json:/opt/docker-autoheal/log.json:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    mem_limit: ${AUTOHEAL_MEM_LIMIT:-64m}
+    cpus: ${AUTOHEAL_CPUS:-0.1}
 
 networks:
   torrent-services-network:
