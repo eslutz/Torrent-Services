@@ -38,16 +38,24 @@ services:
     networks:
       - torrent-services-network
     healthcheck:
-      test: ["CMD-SHELL", "ping -c 1 1.1.1.1 > /dev/null 2>&1 || exit 1"]
+      test: >
+        /bin/sh -c '
+        ip link show tun0 > /dev/null 2>&1 || exit 1;
+        wget -q --spider --timeout=5 https://protonwire.p3.pm/status/json 2>/dev/null || exit 1;
+        [ -f /tmp/gluetun/forwarded_port ] && [ -s /tmp/gluetun/forwarded_port ] || exit 1;
+        exit 0
+        '
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    mem_limit: ${GLUETUN_MEM_LIMIT:-256m}
+    cpus: ${GLUETUN_CPUS:-0.5}
 
   # qBittorrent - Torrent Client
   # Routes through Gluetun VPN with automatic port forwarding
@@ -68,6 +76,8 @@ services:
       gluetun:
         condition: service_healthy
     restart: unless-stopped
+    init: true
+    stop_grace_period: 60s
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]
       interval: 30s
@@ -79,6 +89,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    mem_limit: ${QBITTORRENT_MEM_LIMIT:-2g}
+    cpus: ${QBITTORRENT_CPUS:-2.0}
 
   # qBit Port Sync - Automatically updates qBittorrent port from Gluetun
   # Monitors Gluetun's forwarded port and updates qBittorrent when it changes
@@ -93,23 +105,33 @@ services:
       - gluetun-tmp:/tmp/gluetun:ro
       - ./qbit-port-sync.sh:/app/qbit-port-sync.sh:ro
     depends_on:
-      - gluetun
-      - qbittorrent
+      gluetun:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_healthy
     networks:
       - torrent-services-network
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=10M,mode=1777
     healthcheck:
-      test: ["CMD-SHELL", "grep -q 'OK' /tmp/qbit-port-sync-status || exit 1"]
+      test: >
+        /bin/sh -c '
+        [ -f /tmp/qbit-port-sync-status ] && (grep -q "OK" /tmp/qbit-port-sync-status || grep -q "STARTING" /tmp/qbit-port-sync-status) || exit 1
+        '
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 30s
-    command: sh /app/update-port.sh
+      start_period: 120s
+    command: sh /app/qbit-port-sync.sh
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    mem_limit: ${QBIT_PORT_SYNC_MEM_LIMIT:-64m}
+    cpus: ${QBIT_PORT_SYNC_CPUS:-0.1}
 
   # Prowlarr - Indexer Manager
   prowlarr:
@@ -123,9 +145,17 @@ services:
       - ./config/prowlarr:/config
     ports:
       - 9696:9696
+    depends_on:
+      tor-proxy:
+        condition: service_healthy
     restart: unless-stopped
+    init: true
     networks:
       - torrent-services-network
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9696/ping"]
       interval: 30s
@@ -137,6 +167,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    mem_limit: ${PROWLARR_MEM_LIMIT:-512m}
+    cpus: ${PROWLARR_CPUS:-1.0}
 
   # Sonarr - TV Show Management
   sonarr:
@@ -151,9 +183,18 @@ services:
       - ${DATA_DIR:-./media}:/media
     ports:
       - 8989:8989
+    depends_on:
+      prowlarr:
+        condition: service_healthy
     restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
     networks:
       - torrent-services-network
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
       interval: 30s
@@ -165,6 +206,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    mem_limit: ${SONARR_MEM_LIMIT:-1g}
+    cpus: ${SONARR_CPUS:-1.0}
 
   # Radarr - Movie Management
   radarr:
@@ -179,9 +222,18 @@ services:
       - ${DATA_DIR:-./media}:/media
     ports:
       - 7878:7878
+    depends_on:
+      prowlarr:
+        condition: service_healthy
     restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
     networks:
       - torrent-services-network
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7878/ping"]
       interval: 30s
@@ -193,6 +245,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    mem_limit: ${RADARR_MEM_LIMIT:-1g}
+    cpus: ${RADARR_CPUS:-1.0}
 
   # Bazarr - Subtitle Management
   bazarr:
@@ -207,9 +261,19 @@ services:
       - ${DATA_DIR:-./media}:/media
     ports:
       - 6767:6767
+    depends_on:
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
     restart: unless-stopped
+    init: true
     networks:
       - torrent-services-network
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6767/ping"]
       interval: 30s
@@ -221,6 +285,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    mem_limit: ${BAZARR_MEM_LIMIT:-512m}
+    cpus: ${BAZARR_CPUS:-0.5}
 
   # Tor - SOCKS5 proxy for anonymous indexer access
   # Provides access to .onion sites and bypasses blocks
@@ -233,12 +299,16 @@ services:
       - 127.0.0.1:9050:9050 # SOCKS5 proxy
       - 127.0.0.1:9051:9051 # Control port
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/lib/tor:size=100M,mode=0700
+      - /var/log/tor:size=50M,mode=0755
     networks:
       - torrent-services-network
     healthcheck:
-      test: ["CMD", "curl", "--socks5-hostname", "localhost:9050", "https://check.torproject.org/"]
-      interval: 60s
-      timeout: 30s
+      test: ["CMD-SHELL", "nc -z localhost 9050 || exit 1"]
+      interval: 30s
+      timeout: 5s
       retries: 3
       start_period: 30s
     logging:
@@ -246,6 +316,113 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    mem_limit: ${TOR_PROXY_MEM_LIMIT:-128m}
+    cpus: ${TOR_PROXY_CPUS:-0.25}
+
+  # qBittorrent Exporter for Prometheus
+  qbittorrent-exporter:
+    image: eshogu/qbittorrent-exporter:latest
+    container_name: qbittorrent-exporter
+    environment:
+      - QBITTORRENT_HOST=gluetun
+      - QBITTORRENT_PORT=8080
+      - QBITTORRENT_USERNAME=${QBIT_USER:-admin}
+      - QBITTORRENT_PASSWORD=${QBIT_PASS}
+    ports:
+      - "127.0.0.1:9352:9352"
+    networks:
+      - torrent-services-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    mem_limit: ${QBITTORRENT_EXPORTER_MEM_LIMIT:-256m}
+    cpus: ${QBITTORRENT_EXPORTER_CPUS:-0.5}
+
+  # Sonarr Exporter
+  sonarr-exporter:
+    image: ghcr.io/onedr0p/exportarr:latest
+    container_name: sonarr-exporter
+    command: ["sonarr"]
+    environment:
+      - PORT=9707
+      - URL=http://sonarr:8989
+      - APIKEY=${SONARR_API_KEY:-}
+    ports:
+      - "127.0.0.1:9707:9707"
+    depends_on:
+      sonarr:
+        condition: service_healthy
+    networks:
+      - torrent-services-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    mem_limit: ${SONARR_EXPORTER_MEM_LIMIT:-256m}
+    cpus: ${SONARR_EXPORTER_CPUS:-0.5}
+
+  # Radarr Exporter
+  radarr-exporter:
+    image: ghcr.io/onedr0p/exportarr:latest
+    container_name: radarr-exporter
+    command: ["radarr"]
+    environment:
+      - PORT=9708
+      - URL=http://radarr:7878
+      - APIKEY=${RADARR_API_KEY:-}
+    ports:
+      - "127.0.0.1:9708:9708"
+    depends_on:
+      radarr:
+        condition: service_healthy
+    networks:
+      - torrent-services-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    mem_limit: ${RADARR_EXPORTER_MEM_LIMIT:-256m}
+    cpus: ${RADARR_EXPORTER_CPUS:-0.5}
+
+  # Prowlarr Exporter
+  prowlarr-exporter:
+    image: ghcr.io/onedr0p/exportarr:latest
+    container_name: prowlarr-exporter
+    command: ["prowlarr"]
+    environment:
+      - PORT=9709
+      - URL=http://prowlarr:9696
+      - APIKEY=${PROWLARR_API_KEY:-}
+    ports:
+      - "127.0.0.1:9709:9709"
+    depends_on:
+      prowlarr:
+        condition: service_healthy
+    networks:
+      - torrent-services-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    mem_limit: ${PROWLARR_EXPORTER_MEM_LIMIT:-256m}
+    cpus: ${PROWLARR_EXPORTER_CPUS:-0.5}
 
 networks:
   torrent-services-network:

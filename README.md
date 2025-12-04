@@ -12,31 +12,66 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Sonarr** | TV show management | [Sonarr](https://sonarr.tv/) |
 | **Radarr** | Movie management | [Radarr](https://radarr.video/) |
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
+| **Tor Proxy** | Optional SOCKS5 proxy for Tor-only indexers | [torproxy](https://hub.docker.com/r/dperson/torproxy) |
+| **Monitoring Exporters** | Prometheus metrics for qBittorrent/Sonarr/Radarr/Prowlarr | [Exportarr](https://github.com/onedr0p/exportarr) |
 
 **VPN:** ProtonVPN with automatic port forwarding via Gluetun for optimal torrent performance and privacy.
+
+**Resilience & observability highlights:**
+
+- VPN-aware health checks keep qBittorrent offline until Gluetun verifies the tunnel, Tor proxy, and port-forward files.
+- Service dependencies wait for healthy upstream services (e.g., Sonarr/Radarr wait for Prowlarr).
+- Cgroup CPU/RAM limits, stop_grace_periods, and `init: true` guard the host from runaway containers.
+- Hardened helpers: qbit-port-sync now runs read-only with tmpfs scratch space and detailed status health checks.
+- Optional monitoring profile exposes native Prometheus metrics without touching production services.
+- Resource budgets live in `.env`, so you can scale limits up/down without editing `docker-compose.yml`.
 
 ## Quick Start
 
 **Prerequisites**: Docker & Docker Compose ([Install](https://docs.docker.com/get-docker/)), ProtonVPN Plus subscription ([Sign up](https://protonvpn.com/))
 
-**Deploy in 3 steps:**
+**Deploy with guardrails:**
 
 ```bash
 # 1. Configure environment
 cp .env.example .env
-nano .env  # Set ProtonVPN credentials and qBittorrent password (see setup guide below)
+nano .env  # Set ProtonVPN credentials, qBittorrent password, and optional ENABLE_MONITORING_PROFILE
 
-# 2. Start services
+# 2. Start services (health checks and dependencies gate startup automatically)
 docker compose up -d
 
-# 3. Run Bootstrap Script (Automates Auth & Connections)
-# Waits for services to start, then configures authentication and connects them
+# 3. Run Bootstrap Script (automates auth, connections, and saves API keys to .env)
 ./scripts/bootstrap.sh
 
 # 4. Verify VPN and port forwarding
 docker exec gluetun wget -qO- https://protonwire.p3.pm/status/json
 docker exec gluetun cat /tmp/gluetun/forwarded_port
 docker logs qbit-port-sync --tail 20
+
+# 5. (Optional) Start monitoring exporters after API keys exist
+# Option A: set ENABLE_MONITORING_PROFILE=true before running bootstrap (auto-start)
+# Option B: start manually any time:
+docker compose --profile monitoring up -d qbittorrent-exporter sonarr-exporter radarr-exporter prowlarr-exporter
+```
+
+### Monitoring Profile & Metrics
+
+- The docker compose stack ships with Prometheus exporters for qBittorrent, Sonarr, Radarr, and Prowlarr under the `monitoring` profile.
+- `./scripts/bootstrap.sh` now reads API keys from each app and writes `SONARR_API_KEY`, `RADARR_API_KEY`, `PROWLARR_API_KEY`, and `BAZARR_API_KEY` into `.env`. Leave those values blank initially—the script will populate them.
+- Set `ENABLE_MONITORING_PROFILE=true` in `.env` before running the bootstrap script to automatically start the exporters, or launch them manually with `docker compose --profile monitoring up -d ...` once keys exist.
+- All exporter ports are bound to `127.0.0.1` to keep metrics private from the LAN. Point your Prometheus scrape config at the host loopback IP.
+
+| Exporter | Endpoint | Notes |
+|----------|----------|-------|
+| qBittorrent | <http://127.0.0.1:9352/metrics> | `eshogu/qbittorrent-exporter` (requires QBIT_USER/PASS) |
+| Sonarr | <http://127.0.0.1:9707/metrics> | `exportarr` profile `sonarr` |
+| Radarr | <http://127.0.0.1:9708/metrics> | `exportarr` profile `radarr` |
+| Prowlarr | <http://127.0.0.1:9709/metrics> | `exportarr` profile `prowlarr` |
+
+Stop the monitoring containers without impacting the main stack:
+
+```bash
+docker compose --profile monitoring down
 ```
 
 ## Directory Structure
@@ -60,6 +95,21 @@ torrent-services/
 
 - **Config directories** are mounted to `/config` in each container
 - **Media directory** is mounted to `/media` in containers, providing a unified view of the data directory structure that allows all services to reference the same paths for media libraries and downloads
+- `.env` holds ProtonVPN credentials, qBittorrent credentials, and (after running `./scripts/bootstrap.sh`) the API keys required for the monitoring exporters.
+- Optional CPU/RAM limits are controlled through `.env` (see **Resource Limit Overrides** below) so machines with different sizes can share the same compose file.
+
+### Resource Limit Overrides
+
+- Each service’s `mem_limit`/`cpus` value references an environment variable with sane defaults (e.g., `SONARR_MEM_LIMIT=1g`, `TOR_PROXY_CPUS=0.25`).
+- Adjust any combination in `.env` to right-size the stack for tiny hosts or beefy servers without editing YAML.
+- Example: to halve qBittorrent’s CPU allowance and increase Gluetun memory, set
+
+```bash
+QBITTORRENT_CPUS="1.0"
+GLUETUN_MEM_LIMIT="384m"
+```
+
+and re-run `docker compose up -d` to apply.
 
 ## ProtonVPN Setup Guide
 
@@ -371,6 +421,8 @@ When configuring services to talk to each other:
 docker compose up -d                              # Start services
 docker compose down                               # Stop all
 docker compose restart <service>                  # Restart specific service
+docker compose --profile monitoring up -d         # Start Prometheus exporters
+docker compose --profile monitoring down          # Stop Prometheus exporters
 docker compose logs -f <service>                  # View logs (follow mode)
 
 # VPN Testing

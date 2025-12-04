@@ -6,13 +6,21 @@
 # This script configures all inter-service connections after containers start.
 # It reads auto-generated API keys from each app and creates connections via API.
 #
+# Features:
+#   - Extracts API keys from config files and saves them to .env
+#   - Configures Prowlarr → Sonarr/Radarr application connections
+#   - Configures Sonarr/Radarr → qBittorrent download client connections
+#   - Configures Bazarr → Sonarr/Radarr integrations
+#   - Adds sample indexers to Prowlarr (1337x, 1337x Tor)
+#   - Optionally starts monitoring exporters (set ENABLE_MONITORING_PROFILE=true)
+#
 # Usage:
 #   ./scripts/bootstrap.sh
 #
 # Requirements:
 #   - All containers must be running and healthy
-#   - .env file must exist with QBIT_USER, QBIT_PASS, and subtitle provider credentials
-#   - curl and jq must be installed
+#   - .env file must exist with QBIT_USER, QBIT_PASS, and optional credentials
+#   - curl, jq, grep, and docker must be installed
 # =============================================================================
 
 set -e
@@ -27,6 +35,7 @@ NC='\033[0m' # No Color
 # Script directory (for relative paths)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+ENV_FILE="$PROJECT_DIR/.env"
 
 # =============================================================================
 # Helper Functions
@@ -53,6 +62,46 @@ log_section() {
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}  $1${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+# Escape values so they can be safely written to .env
+escape_env_value() {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    echo "$value"
+}
+
+# Insert or update a key=value pair inside .env
+upsert_env_var() {
+    local key="$1"
+    local value_escaped
+    value_escaped=$(escape_env_value "$2")
+
+    if grep -q "^${key}=" "$ENV_FILE"; then
+        awk -v k="$key" -v v="$value_escaped" 'BEGIN{q="\""} $0 ~ "^"k"=" {print k "=" q v q; next} {print}' "$ENV_FILE" > "${ENV_FILE}.tmp"
+        mv "${ENV_FILE}.tmp" "$ENV_FILE"
+    else
+        printf "\\n%s=\"%s\"\\n" "$key" "$value_escaped" >> "$ENV_FILE"
+    fi
+}
+
+persist_env_var() {
+    local key="$1"
+    local value="$2"
+    if [ -z "$value" ]; then
+        log_warning "Skipping ${key} persistence - value is empty"
+        return 0
+    fi
+    upsert_env_var "$key" "$value"
+    log_success "Saved ${key} to .env"
+}
+
+is_truthy() {
+    case "$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+        1|true|yes|on) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 # Check if a command exists
@@ -575,6 +624,54 @@ sync_prowlarr_indexers() {
     log_success "Prowlarr indexer sync triggered"
 }
 
+start_monitoring_profile() {
+    if ! is_truthy "${ENABLE_MONITORING_PROFILE:-false}"; then
+        log_info "Monitoring profile disabled (set ENABLE_MONITORING_PROFILE=true in .env to enable)"
+        return 0
+    fi
+
+    # Verify API keys are available (required by exporters)
+    if [ -z "$SONARR_API_KEY" ] || [ -z "$RADARR_API_KEY" ] || [ -z "$PROWLARR_API_KEY" ]; then
+        log_error "Cannot start monitoring exporters - API keys not available"
+        log_error "Ensure Sonarr, Radarr, and Prowlarr API keys are set in .env"
+        return 1
+    fi
+
+    log_info "Starting monitoring exporters via docker compose profile..."
+
+    # Start monitoring containers
+    if (cd "$PROJECT_DIR" && docker compose --profile monitoring up -d qbittorrent-exporter sonarr-exporter radarr-exporter prowlarr-exporter 2>&1); then
+        log_success "Monitoring exporters started successfully"
+
+        # Wait a few seconds for exporters to initialize
+        sleep 5
+
+        # Verify exporters are running
+        local failed=0
+        for service in qbittorrent-exporter sonarr-exporter radarr-exporter prowlarr-exporter; do
+            if docker ps --filter "name=$service" --filter "status=running" | grep -q "$service"; then
+                log_success "  ✓ $service is running"
+            else
+                log_error "  ✗ $service failed to start"
+                failed=1
+            fi
+        done
+
+        if [ $failed -eq 0 ]; then
+            echo ""
+            log_info "Prometheus scrape targets:"
+            log_info "  - qBittorrent: http://192.168.50.100:9352/metrics"
+            log_info "  - Sonarr:      http://192.168.50.100:9707/metrics"
+            log_info "  - Radarr:      http://192.168.50.100:9708/metrics"
+            log_info "  - Prowlarr:    http://192.168.50.100:9709/metrics"
+        fi
+    else
+        log_error "Failed to start monitoring exporters"
+        log_warning "Check logs with: docker compose --profile monitoring logs"
+        return 1
+    fi
+}
+
 # =============================================================================
 # Main Execution
 # =============================================================================
@@ -590,6 +687,7 @@ main() {
     check_command "curl"
     check_command "jq"
     check_command "grep"
+    check_command "docker"
 
     # Load environment variables
     if [ -f "$PROJECT_DIR/.env" ]; then
@@ -602,6 +700,8 @@ main() {
         log_error ".env file not found at $PROJECT_DIR/.env"
         exit 1
     fi
+
+    ENABLE_MONITORING_PROFILE=${ENABLE_MONITORING_PROFILE:-false}
 
     # Validate required environment variables
     if [ -z "$QBIT_USER" ] || [ -z "$QBIT_PASS" ]; then
@@ -791,6 +891,15 @@ main() {
     fi
     log_success "Bazarr API key: ${BAZARR_API_KEY:0:8}..."
 
+    log_section "Persisting API Keys to .env"
+
+    persist_env_var "QBIT_USER" "$QBIT_USER"
+    persist_env_var "QBIT_PASS" "$QBIT_PASS"
+    persist_env_var "SONARR_API_KEY" "$SONARR_API_KEY"
+    persist_env_var "RADARR_API_KEY" "$RADARR_API_KEY"
+    persist_env_var "PROWLARR_API_KEY" "$PROWLARR_API_KEY"
+    persist_env_var "BAZARR_API_KEY" "$BAZARR_API_KEY"
+
     log_section "Configuring Prowlarr Applications"
 
     configure_prowlarr_sonarr
@@ -816,17 +925,31 @@ main() {
 
     sync_prowlarr_indexers
 
+    log_section "Monitoring Exporters"
+
+    start_monitoring_profile
+
     echo ""
     echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║                    Bootstrap Complete!                       ║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo "Next steps:"
-    echo "  1. Open Prowlarr (http://localhost:9696) and verify indexers"
-    echo "  2. Open Sonarr (http://localhost:8989) and add TV shows"
-    echo "  3. Open Radarr (http://localhost:7878) and add movies"
-    echo "  4. Bazarr (http://localhost:6767) will auto-download subtitles"
-    echo "  5. Open qBittorrent (http://localhost:8080) to monitor downloads"
+    echo "Service URLs:"
+    echo "  • Prowlarr:    http://192.168.50.100:9696 (Indexer management)"
+    echo "  • Sonarr:      http://192.168.50.100:8989 (TV shows)"
+    echo "  • Radarr:      http://192.168.50.100:7878 (Movies)"
+    echo "  • Bazarr:      http://192.168.50.100:6767 (Subtitles)"
+    echo "  • qBittorrent: http://192.168.50.100:8080 (Downloads)"
+    echo ""
+    if is_truthy "${ENABLE_MONITORING_PROFILE:-false}"; then
+        echo "Monitoring exporters (for Prometheus):"
+        echo "  • qBittorrent: http://192.168.50.100:9352/metrics"
+        echo "  • Sonarr:      http://192.168.50.100:9707/metrics"
+        echo "  • Radarr:      http://192.168.50.100:9708/metrics"
+        echo "  • Prowlarr:    http://192.168.50.100:9709/metrics"
+        echo ""
+    fi
+    echo "Configuration saved to: $ENV_FILE"
     echo ""
 }
 
