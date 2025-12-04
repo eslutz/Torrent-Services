@@ -137,6 +137,7 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
+      - PROWLARR_API_KEY=${PROWLARR_API_KEY:-}
     volumes:
       - ./config/prowlarr:/config
       - ./scripts/healthchecks:/scripts:ro
@@ -175,6 +176,7 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
+      - SONARR_API_KEY=${SONARR_API_KEY:-}
     volumes:
       - ./config/sonarr:/config
       - ${DATA_DIR:-./media}:/media
@@ -215,6 +217,7 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
+      - RADARR_API_KEY=${RADARR_API_KEY:-}
     volumes:
       - ./config/radarr:/config
       - ${DATA_DIR:-./media}:/media
@@ -255,6 +258,7 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
+      - BAZARR_API_KEY=${BAZARR_API_KEY:-}
     volumes:
       - ./config/bazarr:/config
       - ${DATA_DIR:-./media}:/media

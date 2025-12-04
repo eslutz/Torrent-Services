@@ -440,6 +440,14 @@ When configuring services to talk to each other:
 
 ## Documentation
 
+### Internal Docs
+
+- **[Bootstrap](./docs/BOOTSTRAP.md)** - Automated service configuration and inter-service connections
+- **[Healthcheck](./docs/HEALTHCHECK.md)** - Container health monitoring and autoheal system
+- **[Monitoring](./docs/MONITORING.md)** - Prometheus metrics exporters setup
+
+### Network Integration Docs
+
 - **[Initial Setup](../docs/torrent-services/initial-setup.md)** - Complete configuration walkthrough
 - **[VPN Guide](../docs/torrent-services/vpn-guide.md)** - VPN setup and troubleshooting
 - **[Network Integration](../docs/torrent-services/network-integration.md)** - Home network architecture integration

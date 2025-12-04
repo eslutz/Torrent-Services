@@ -1,22 +1,42 @@
 #!/bin/sh
-# Sonarr healthcheck - verify /ping responds quickly
+# Sonarr healthcheck - verify API health endpoint
 
 set -e
 
 MAX_LATENCY_MS=${MAX_LATENCY_MS:-5000}
-PING_URL=${PING_URL:-http://localhost:8989/ping}
+
+# Use /health endpoint if API key is available, otherwise fall back to /ping
+if [ -n "$SONARR_API_KEY" ]; then
+  HEALTH_URL="http://localhost:8989/api/v3/health"
+  HEADER="X-Api-Key: $SONARR_API_KEY"
+else
+  HEALTH_URL="http://localhost:8989/ping"
+  HEADER=""
+fi
 
 now_ms() {
   echo $(( $(date +%s) * 1000 ))
 }
 
 START=$(now_ms)
-RESPONSE=$(curl -sf --max-time 10 "$PING_URL" 2>/dev/null || true)
+if [ -n "$HEADER" ]; then
+  RESPONSE=$(curl -sf --max-time 10 -H "$HEADER" "$HEALTH_URL" 2>/dev/null || true)
+else
+  RESPONSE=$(curl -sf --max-time 10 "$HEALTH_URL" 2>/dev/null || true)
+fi
 END=$(now_ms)
 
 if [ -z "$RESPONSE" ]; then
-  echo "Ping endpoint returned empty"
+  echo "Health endpoint returned empty"
   exit 1
+fi
+
+# If using /health endpoint, check for any warnings or errors
+if [ -n "$SONARR_API_KEY" ]; then
+  if echo "$RESPONSE" | grep -qi '"type":"error"\|"type":"warning"'; then
+    echo "Health check failed: service reported issues"
+    exit 1
+  fi
 fi
 
 LATENCY=$((END - START))
