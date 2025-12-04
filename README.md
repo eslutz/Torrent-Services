@@ -60,7 +60,7 @@ docker compose --profile monitoring up -d qbittorrent-exporter scraparr
 
 - Every core container mounts `./scripts/healthchecks` and runs a dedicated script (e.g., `sonarr.sh`, `gluetun.sh`, `tor-proxy.sh`) that validates API responses, latency, and VPN/Tor prerequisites.
 - Healthchecks run every 30 seconds with a 10–15 second timeout and fail fast if responses exceed 5 seconds, forcing Docker to flag the service as `unhealthy`.
-- The Rust-based `autoheal` sidecar (`tmknight/docker-autoheal`) watches Docker health status via the socket, restarts unhealthy containers after the configured start delay, and persists JSON logs to `./logs/autoheal.json` for auditing.
+- The Rust-based `autoheal` sidecar (`tmknight/docker-autoheal`) watches Docker health status via the socket, restarts unhealthy containers after the configured start delay, and persists JSON logs to a named volume for auditing.
 - Inspect autoheal activity with `docker logs autoheal --tail 50`, follow the structured log file, and view per-container health with `docker ps --format "table {{.Names}}\t{{.Status}}"`.
 
 ### Monitoring Profile & Metrics

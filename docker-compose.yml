@@ -414,7 +414,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/localtime:/etc/localtime:ro
-      - ./logs/autoheal.json:/opt/docker-autoheal/log.json:rw
+      - autoheal-logs:/opt/docker-autoheal
     logging:
       driver: "json-file"
       options:
@@ -434,3 +434,4 @@ volumes:
     driver_opts:
       type: tmpfs
       device: tmpfs
+  autoheal-logs:

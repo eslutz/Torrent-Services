@@ -180,14 +180,14 @@ The `autoheal` container monitors Docker health status and automatically restart
 
 ### Log Location
 
-Autoheal logs are written to `logs/autoheal.json`:
+Autoheal logs are stored in a named volume and accessible via Docker:
 
 ```bash
-# View recent autoheal activity
-cat logs/autoheal.json | jq -s '.[-10:]'
-
-# Or via Docker logs
+# View recent autoheal activity (preferred)
 docker logs autoheal --tail 50
+
+# Or read the JSON log file directly
+docker exec autoheal cat /opt/docker-autoheal/log.json | jq -s '.[-10:]'
 ```
 
 ### Excluding Containers
