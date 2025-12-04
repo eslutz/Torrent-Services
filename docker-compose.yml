@@ -39,7 +39,7 @@ services:
     networks:
       - torrent-services-network
     healthcheck:
-      test: ["/scripts/gluetun.sh"]
+      test: ["CMD-SHELL", "/scripts/gluetun.sh"]
       interval: 30s
       timeout: 15s
       retries: 3
@@ -75,7 +75,7 @@ services:
     init: true
     stop_grace_period: 60s
     healthcheck:
-      test: ["/scripts/qbittorrent.sh"]
+      test: ["CMD-SHELL", "/scripts/qbittorrent.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -155,7 +155,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["/scripts/prowlarr.sh"]
+      test: ["CMD-SHELL", "/scripts/prowlarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -196,7 +196,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["/scripts/sonarr.sh"]
+      test: ["CMD-SHELL", "/scripts/sonarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -237,7 +237,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["/scripts/radarr.sh"]
+      test: ["CMD-SHELL", "/scripts/radarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -279,7 +279,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["/scripts/bazarr.sh"]
+      test: ["CMD-SHELL", "/scripts/bazarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -312,7 +312,7 @@ services:
     networks:
       - torrent-services-network
     healthcheck:
-      test: ["/scripts/tor-proxy.sh"]
+      test: ["CMD-SHELL", "/scripts/tor-proxy.sh"]
       interval: 30s
       timeout: 5s
       retries: 3
