@@ -113,7 +113,6 @@ services:
       gluetun:
         condition: service_healthy
     restart: unless-stopped
-    init: true
     stop_grace_period: 60s
     security_opt:
       - no-new-privileges:true
@@ -149,7 +148,6 @@ services:
       torarr:
         condition: service_healthy
     restart: unless-stopped
-    init: true
     networks:
       - torrent-services-network
     cap_drop:
@@ -192,7 +190,6 @@ services:
       prowlarr:
         condition: service_healthy
     restart: unless-stopped
-    init: true
     stop_grace_period: 30s
     networks:
       - torrent-services-network
@@ -236,7 +233,6 @@ services:
       prowlarr:
         condition: service_healthy
     restart: unless-stopped
-    init: true
     stop_grace_period: 30s
     networks:
       - torrent-services-network
@@ -282,7 +278,6 @@ services:
       radarr:
         condition: service_healthy
     restart: unless-stopped
-    init: true
     networks:
       - torrent-services-network
     cap_drop:
