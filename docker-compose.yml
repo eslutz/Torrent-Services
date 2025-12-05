@@ -72,10 +72,9 @@ services:
       gluetun:
         condition: service_healthy
     restart: unless-stopped
-    init: true
     stop_grace_period: 60s
     healthcheck:
-      test: ["CMD-SHELL", "/scripts/qbittorrent.sh"]
+      test: ["CMD", "sh", "/scripts/qbittorrent.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -147,19 +146,21 @@ services:
       tor-proxy:
         condition: service_healthy
     restart: unless-stopped
-    init: true
     networks:
       - torrent-services-network
     cap_drop:
       - ALL
+    cap_add:
+      - SETUID
+      - SETGID
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "/scripts/prowlarr.sh"]
+      test: ["CMD", "sh", "/scripts/prowlarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
     logging:
       driver: "json-file"
       options:
@@ -187,16 +188,18 @@ services:
       prowlarr:
         condition: service_healthy
     restart: unless-stopped
-    init: true
     stop_grace_period: 30s
     networks:
       - torrent-services-network
     cap_drop:
       - ALL
+    cap_add:
+      - SETUID
+      - SETGID
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "/scripts/sonarr.sh"]
+      test: ["CMD", "sh", "/scripts/sonarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -228,16 +231,18 @@ services:
       prowlarr:
         condition: service_healthy
     restart: unless-stopped
-    init: true
     stop_grace_period: 30s
     networks:
       - torrent-services-network
     cap_drop:
       - ALL
+    cap_add:
+      - SETUID
+      - SETGID
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "/scripts/radarr.sh"]
+      test: ["CMD", "sh", "/scripts/radarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -271,15 +276,17 @@ services:
       radarr:
         condition: service_healthy
     restart: unless-stopped
-    init: true
     networks:
       - torrent-services-network
     cap_drop:
       - ALL
+    cap_add:
+      - SETUID
+      - SETGID
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "/scripts/bazarr.sh"]
+      test: ["CMD", "sh", "/scripts/bazarr.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -314,9 +321,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "/scripts/tor-proxy.sh"]
       interval: 30s
-      timeout: 5s
+      timeout: 20s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     logging:
       driver: "json-file"
       options:

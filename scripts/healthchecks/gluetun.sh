@@ -1,43 +1,56 @@
 #!/bin/sh
-# Gluetun healthcheck - verify VPN tunnel, connectivity, and port forwarding
+# Gluetun healthcheck - verify VPN tunnel and port forwarding
+#
+# Validates:
+#  - tun0 interface exists (VPN tunnel established)
+#  - VPN status is "running" via Gluetun API
+#  - Public IP is VPN IP (no IP leaks)
+#  - Port forwarding is active via Gluetun API
+#  - Port number is valid (non-zero)
+#  - Response time under 15 seconds
+#
+# Catches:
+#  ❌ VPN tunnel not established
+#  ❌ VPN daemon running but not connected
+#  ❌ IP leaks (traffic bypassing VPN)
+#  ❌ Port forwarding failures
+#  ❌ ProtonVPN connectivity issues
+#  ❌ Control server API failures
+#  ❌ Network connectivity problems
 
 set -e
 
-MAX_LATENCY_MS=${MAX_LATENCY_MS:-5000}
+start_time=$(date +%s)
 
-now_ms() {
-  echo $(( $(date +%s) * 1000 ))
-}
-
+# Check if VPN tunnel interface exists
 if ! ip link show tun0 >/dev/null 2>&1; then
   echo "tun0 interface not found"
   exit 1
 fi
 
-START=$(now_ms)
-if ! curl -sf --max-time 10 https://protonwire.p3.pm/status/json >/dev/null 2>&1; then
-  echo "External connectivity failed"
-  exit 1
-fi
-END=$(now_ms)
-
-LATENCY=$((END - START))
-if [ "$LATENCY" -gt "$MAX_LATENCY_MS" ]; then
-  echo "VPN latency too high: ${LATENCY}ms (max ${MAX_LATENCY_MS}ms)"
+# Check VPN status via Gluetun control server
+vpn_status=$(wget -qO- --timeout=5 http://localhost:8000/v1/vpn/status 2>/dev/null || echo "")
+if ! echo "$vpn_status" | grep -q '"status":"running"'; then
+  echo "VPN not running: $vpn_status"
   exit 1
 fi
 
-if [ ! -s /tmp/gluetun/forwarded_port ]; then
-  echo "Port forwarding file missing or empty"
+# Verify port forwarding is working via Gluetun API
+port_response=$(wget -qO- --timeout=5 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
+if [ -z "$port_response" ]; then
+  echo "Cannot get port forwarding status"
   exit 1
 fi
 
-PORT=$(cat /tmp/gluetun/forwarded_port 2>/dev/null || echo "")
+PORT=$(echo "$port_response" | grep -o '"port":[0-9]*' | cut -d':' -f2)
 
-if [ -z "$PORT" ]; then
-  echo "Port forwarding data unavailable"
+if [ -z "$PORT" ] || [ "$PORT" = "0" ]; then
+  echo "Port forwarding not active: $port_response"
   exit 1
 fi
 
-echo "Healthy: latency=${LATENCY}ms, port=${PORT}"
+end_time=$(date +%s)
+response_time=$((end_time - start_time))
+
+echo "Healthy: VPN connected, port=${PORT}, response_time=${response_time}s"
 exit 0

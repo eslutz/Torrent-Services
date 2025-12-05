@@ -1,29 +1,42 @@
 #!/bin/sh
-# qBittorrent healthcheck - ensure API responds quickly with a version string
+# qBittorrent healthcheck - verify web UI is responding
+#
+# Validates:
+#  - Service is running and responding
+#  - Web UI accessible (returns HTTP 200 or 403)
+#  - Response time under 3 seconds
+#
+# Note: 403 (Forbidden) is considered healthy because it means
+# the service is running but requires authentication
+#
+# Catches:
+#  ❌ Service crashed/not running
+#  ❌ Web UI not responding
+#  ❌ Slow response times (degraded performance)
+#  ❌ Complete service failure (no HTTP response)
 
 set -e
 
-MAX_LATENCY_MS=${MAX_LATENCY_MS:-5000}
-API_URL=${API_URL:-http://localhost:8080/api/v2/app/version}
+MAX_RESPONSE_TIME=${MAX_RESPONSE_TIME:-3}
 
-now_ms() {
-  echo $(( $(date +%s) * 1000 ))
-}
+# qBittorrent requires auth but we check if port is listening and responsive
+# A 403 response means service is running (just requires auth)
+START=$(date +%s)
+HTTP_CODE=$(wget --spider --server-response http://localhost:8080/api/v2/app/version 2>&1 | grep "^  HTTP/" | tail -1 | awk '{print $2}' || echo "000")
+END=$(date +%s)
 
-START=$(now_ms)
-RESPONSE=$(curl -sf --max-time 10 "$API_URL" 2>/dev/null || true)
-END=$(now_ms)
-
-if [ -z "$RESPONSE" ]; then
-  echo "API returned empty response"
+# Accept 200 (success) or 403 (requires auth but service is running)
+if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "403" ]; then
+  echo "qBittorrent not responding or returning error: HTTP $HTTP_CODE"
   exit 1
 fi
 
-LATENCY=$((END - START))
-if [ "$LATENCY" -gt "$MAX_LATENCY_MS" ]; then
-  echo "API response too slow: ${LATENCY}ms (max ${MAX_LATENCY_MS}ms)"
+# Check response time
+RESPONSE_TIME=$((END - START))
+if [ "$RESPONSE_TIME" -gt "$MAX_RESPONSE_TIME" ]; then
+  echo "qBittorrent response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
   exit 1
 fi
 
-echo "Healthy: version=${RESPONSE}, latency=${LATENCY}ms"
+echo "Healthy: response_time=${RESPONSE_TIME}s, http_code=$HTTP_CODE"
 exit 0

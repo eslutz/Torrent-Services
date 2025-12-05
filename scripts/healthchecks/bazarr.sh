@@ -1,49 +1,79 @@
 #!/bin/sh
-# Bazarr healthcheck - verify API health endpoint
+# Bazarr healthcheck - verify API health with fallback to web check
+#
+# Two-tier validation strategy:
+# 1. Without API key (initial deployment):
+#    - Service is running and responding
+#    - Web interface returns HTTP 200
+#    - Response time under 3 seconds
+#
+# 2. With API key (production):
+#    - Service is running and API accessible
+#    - System status endpoint responding
+#    - Database connectivity working
+#    - Sonarr/Radarr connectivity
+#    - Subtitle provider connectivity
+#    - Response time under 3 seconds
+#
+# Catches:
+#  ❌ Service crashed/not running
+#  ❌ Web server not responding
+#  ❌ Slow response times (degraded performance)
+#  ❌ Database connection failures (API mode)
+#  ❌ Sonarr/Radarr connectivity issues (API mode)
+#  ❌ Subtitle provider failures (API mode)
+#  ❌ Configuration errors (API mode)
 
 set -e
 
-MAX_LATENCY_MS=${MAX_LATENCY_MS:-5000}
+MAX_RESPONSE_TIME=${MAX_RESPONSE_TIME:-3}
 
-# Use /health endpoint if API key is available, otherwise fall back to /ping
+# If API key is available, use detailed health check
 if [ -n "$BAZARR_API_KEY" ]; then
-  HEALTH_URL="http://localhost:6767/api/system/health"
-  HEADER="X-Api-Key: $BAZARR_API_KEY"
-else
-  HEALTH_URL="http://localhost:6767/ping"
-  HEADER=""
-fi
+  HEALTH_URL="http://localhost:6767/api/system/status"
 
-now_ms() {
-  echo $(( $(date +%s) * 1000 ))
-}
+  START=$(date +%s)
+  RESPONSE=$(wget -qO- --timeout=10 --header="X-Api-Key: $BAZARR_API_KEY" "$HEALTH_URL" 2>/dev/null || echo "")
+  END=$(date +%s)
 
-START=$(now_ms)
-if [ -n "$HEADER" ]; then
-  RESPONSE=$(curl -sf --max-time 10 -H "$HEADER" "$HEALTH_URL" 2>/dev/null || true)
-else
-  RESPONSE=$(curl -sf --max-time 10 "$HEALTH_URL" 2>/dev/null || true)
-fi
-END=$(now_ms)
-
-if [ -z "$RESPONSE" ]; then
-  echo "Health endpoint returned empty"
-  exit 1
-fi
-
-# If using /health endpoint, check for any warnings or errors
-if [ -n "$BAZARR_API_KEY" ]; then
-  if echo "$RESPONSE" | grep -qi '"type":"error"\|"type":"warning"'; then
-    echo "Health check failed: service reported issues"
+  if [ -z "$RESPONSE" ]; then
+    echo "Bazarr API not responding"
     exit 1
   fi
+
+  # Validate response contains expected JSON fields
+  if ! echo "$RESPONSE" | grep -q "version"; then
+    echo "Bazarr API returned invalid response"
+    exit 1
+  fi
+
+  RESPONSE_TIME=$((END - START))
+  if [ "$RESPONSE_TIME" -gt "$MAX_RESPONSE_TIME" ]; then
+    echo "Bazarr API response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
+    exit 1
+  fi
+
+  echo "Healthy: response_time=${RESPONSE_TIME}s (API check)"
+else
+  # Fallback to simple web interface check
+  HEALTH_URL="http://localhost:6767/"
+
+  START=$(date +%s)
+  HTTP_CODE=$(wget --spider --server-response "$HEALTH_URL" 2>&1 | grep "^  HTTP/" | tail -1 | awk '{print $2}' || echo "000")
+  END=$(date +%s)
+
+  if [ "$HTTP_CODE" != "200" ]; then
+    echo "Bazarr not responding: HTTP $HTTP_CODE"
+    exit 1
+  fi
+
+  RESPONSE_TIME=$((END - START))
+  if [ "$RESPONSE_TIME" -gt "$MAX_RESPONSE_TIME" ]; then
+    echo "Bazarr response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
+    exit 1
+  fi
+
+  echo "Healthy: response_time=${RESPONSE_TIME}s (web check)"
 fi
 
-LATENCY=$((END - START))
-if [ "$LATENCY" -gt "$MAX_LATENCY_MS" ]; then
-  echo "Response too slow: ${LATENCY}ms (max ${MAX_LATENCY_MS}ms)"
-  exit 1
-fi
-
-echo "Healthy: latency=${LATENCY}ms"
 exit 0

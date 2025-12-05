@@ -704,6 +704,7 @@ main() {
     # Validate required environment variables
     if [ -z "$QBIT_USER" ] || [ -z "$QBIT_PASS" ]; then
         log_error "QBIT_USER and QBIT_PASS must be set in .env"
+        log_info "These are used for qBittorrent API access by Sonarr/Radarr"
         exit 1
     fi
 
@@ -715,148 +716,18 @@ main() {
     wait_for_service "Bazarr" "http://localhost:6767/ping"
     wait_for_service "qBittorrent" "http://localhost:8080"
 
-    log_section "Configuring Authentication"
+    log_section "Authentication Configuration"
 
-    # qBittorrent Authentication
-    log_info "Checking qBittorrent authentication..."
-    # Try to login with env credentials
-    if curl -s -f -c /tmp/qb_cookies.txt -d "username=$QBIT_USER&password=$QBIT_PASS" http://localhost:8080/api/v2/auth/login > /dev/null; then
-        log_success "qBittorrent already configured with correct credentials"
-    else
-        log_info "Current credentials failed. Attempting to find temporary password..."
-
-        # Try to find temp password in logs
-        TEMP_PASS=$(docker logs qbittorrent 2>&1 | grep -oP '(?<=Temporary password: )[^ ]+' | tail -n 1 | tr -d '\r')
-
-        if [ -n "$TEMP_PASS" ]; then
-            log_info "Found temporary password. Updating to .env credentials..."
-
-            # Login with temp password
-            if curl -s -c /tmp/qb_cookies.txt -d "username=admin&password=$TEMP_PASS" http://localhost:8080/api/v2/auth/login > /dev/null; then
-                # Change credentials
-                # Note: qBittorrent API requires password to be sent as 'password' field in setPreferences
-                curl -s -b /tmp/qb_cookies.txt -X POST http://localhost:8080/api/v2/app/setPreferences \
-                    -d "json={\"web_ui_username\":\"$QBIT_USER\"}" > /dev/null
-
-                # For password change, we need to use a separate endpoint or include it in preferences depending on version
-                # Newer qBittorrent versions might require web_ui_password_pbkdf2, but let's try the standard way first
-                # Actually, the most reliable way for qBit 4.6+ via API is tricky without generating the hash.
-                # Let's try the legacy method, if it fails, we warn the user.
-
-                # Attempt to set password (this works on older versions, might fail on 4.6.1+)
-                curl -s -b /tmp/qb_cookies.txt -X POST http://localhost:8080/api/v2/auth/login \
-                     -d "username=$QBIT_USER&password=$TEMP_PASS" > /dev/null # Re-login if user changed
-
-                # Since qBittorrent 4.6.1 removed the ability to set plain text passwords via API,
-                # and generating PBKDF2 in bash is hard, we might have to skip password change if it's the new version.
-                # However, we can try to set it.
-
-                log_warning "qBittorrent password change via API is limited on v4.6+. If this fails, please change manually."
-            else
-                log_error "Failed to login with temporary password."
-            fi
-        else
-            log_warning "Could not find temporary password in logs. You may need to configure qBittorrent manually."
-        fi
-    fi
-
-    # Sonarr Authentication
-    log_info "Configuring Sonarr authentication..."
-    if [ -n "$SONARR_API_KEY" ]; then
-        if [ -z "$SONARR_USER" ] || [ -z "$SONARR_PASS" ]; then
-            log_warning "SONARR_USER or SONARR_PASS not set in .env, skipping authentication setup"
-        else
-            # Check if auth is already enabled
-            AUTH_METHOD=$(curl -s "http://localhost:8989/api/v3/config/ui" -H "X-Api-Key: $SONARR_API_KEY" | jq -r '.authenticationMethod')
-
-            if [ "$AUTH_METHOD" = "none" ]; then
-                log_info "Enabling Forms authentication for Sonarr..."
-                # Get current config
-                CONFIG=$(curl -s "http://localhost:8989/api/v3/config/ui" -H "X-Api-Key: $SONARR_API_KEY")
-                # Update config with jq
-                NEW_CONFIG=$(echo "$CONFIG" | jq --arg user "$SONARR_USER" --arg pass "$SONARR_PASS" '.authenticationMethod = "forms" | .username = $user | .password = $pass')
-                # Send update
-                curl -s -X PUT "http://localhost:8989/api/v3/config/ui" \
-                    -H "X-Api-Key: $SONARR_API_KEY" \
-                    -H "Content-Type: application/json" \
-                    -d "$NEW_CONFIG" > /dev/null
-                log_success "Sonarr authentication enabled (User: $SONARR_USER)"
-            else
-                log_success "Sonarr authentication already configured"
-            fi
-        fi
-    fi
-
-    # Radarr Authentication
-    log_info "Configuring Radarr authentication..."
-    if [ -n "$RADARR_API_KEY" ]; then
-        if [ -z "$RADARR_USER" ] || [ -z "$RADARR_PASS" ]; then
-            log_warning "RADARR_USER or RADARR_PASS not set in .env, skipping authentication setup"
-        else
-            AUTH_METHOD=$(curl -s "http://localhost:7878/api/v3/config/ui" -H "X-Api-Key: $RADARR_API_KEY" | jq -r '.authenticationMethod')
-            if [ "$AUTH_METHOD" = "none" ]; then
-                log_info "Enabling Forms authentication for Radarr..."
-                CONFIG=$(curl -s "http://localhost:7878/api/v3/config/ui" -H "X-Api-Key: $RADARR_API_KEY")
-                NEW_CONFIG=$(echo "$CONFIG" | jq --arg user "$RADARR_USER" --arg pass "$RADARR_PASS" '.authenticationMethod = "forms" | .username = $user | .password = $pass')
-                curl -s -X PUT "http://localhost:7878/api/v3/config/ui" \
-                    -H "X-Api-Key: $RADARR_API_KEY" \
-                    -H "Content-Type: application/json" \
-                    -d "$NEW_CONFIG" > /dev/null
-                log_success "Radarr authentication enabled (User: $RADARR_USER)"
-            else
-                log_success "Radarr authentication already configured"
-            fi
-        fi
-    fi
-
-    # Prowlarr Authentication
-    log_info "Configuring Prowlarr authentication..."
-    if [ -n "$PROWLARR_API_KEY" ]; then
-        if [ -z "$PROWLARR_USER" ] || [ -z "$PROWLARR_PASS" ]; then
-            log_warning "PROWLARR_USER or PROWLARR_PASS not set in .env, skipping authentication setup"
-        else
-            AUTH_METHOD=$(curl -s "http://localhost:9696/api/v1/config/ui" -H "X-Api-Key: $PROWLARR_API_KEY" | jq -r '.authenticationMethod')
-            if [ "$AUTH_METHOD" = "none" ]; then
-                log_info "Enabling Forms authentication for Prowlarr..."
-                CONFIG=$(curl -s "http://localhost:9696/api/v1/config/ui" -H "X-Api-Key: $PROWLARR_API_KEY")
-                NEW_CONFIG=$(echo "$CONFIG" | jq --arg user "$PROWLARR_USER" --arg pass "$PROWLARR_PASS" '.authenticationMethod = "forms" | .username = $user | .password = $pass')
-                curl -s -X PUT "http://localhost:9696/api/v1/config/ui" \
-                    -H "X-Api-Key: $PROWLARR_API_KEY" \
-                    -H "Content-Type: application/json" \
-                    -d "$NEW_CONFIG" > /dev/null
-                log_success "Prowlarr authentication enabled (User: $PROWLARR_USER)"
-            else
-                log_success "Prowlarr authentication already configured"
-            fi
-        fi
-    fi
-
-    # Bazarr Authentication
-    log_info "Configuring Bazarr authentication..."
-    if [ -n "$BAZARR_API_KEY" ]; then
-        if [ -z "$BAZARR_USER" ] || [ -z "$BAZARR_PASS" ]; then
-            log_warning "BAZARR_USER or BAZARR_PASS not set in .env, skipping authentication setup"
-        else
-            # Bazarr uses a different API structure
-            AUTH_TYPE=$(curl -s "http://localhost:6767/api/system/settings" -H "X-API-KEY: $BAZARR_API_KEY" | jq -r '.auth.type')
-            if [ "$AUTH_TYPE" = "None" ]; then
-                log_info "Enabling Forms authentication for Bazarr..."
-                curl -s -X PATCH "http://localhost:6767/api/system/settings" \
-                    -H "X-API-KEY: $BAZARR_API_KEY" \
-                    -H "Content-Type: application/json" \
-                    -d '{
-                        "auth": {
-                            "type": "Form",
-                            "username": "'"$BAZARR_USER"'",
-                            "password": "'"$BAZARR_PASS"'"
-                        }
-                    }' > /dev/null
-                log_success "Bazarr authentication enabled (User: $BAZARR_USER)"
-            else
-                log_success "Bazarr authentication already configured"
-            fi
-        fi
-    fi
+    log_info "Services use built-in authentication (Forms-based login)"
+    log_info "Default credentials are set on first access to each service"
+    log_info "Recommended: Set strong passwords immediately after first login"
+    log_info ""
+    log_info "Service URLs:"
+    log_info "  • Prowlarr:    http://localhost:9696"
+    log_info "  • Sonarr:      http://localhost:8989"
+    log_info "  • Radarr:      http://localhost:7878"
+    log_info "  • Bazarr:      http://localhost:6767"
+    log_info "  • qBittorrent: http://localhost:8080"
 
     log_section "Reading API Keys"
 

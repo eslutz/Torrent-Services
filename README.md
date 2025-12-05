@@ -37,12 +37,14 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 ```bash
 # 1. Configure environment
 cp .env.example .env
-nano .env  # Set ProtonVPN credentials, qBittorrent password, and optional ENABLE_MONITORING_PROFILE
+nano .env  # Set ProtonVPN credentials and optional ENABLE_MONITORING_PROFILE
 
 # 2. Start services (health checks and dependencies gate startup automatically)
 docker compose up -d
 
-# 3. Run Bootstrap Script (automates auth, connections, and saves API keys to .env)
+# 3. Set passwords on first access to each service's web interface
+
+# 4. Run Bootstrap Script (automates API key extraction, connections, and saves to .env)
 ./scripts/bootstrap.sh
 
 # 4. Verify VPN and port forwarding
@@ -174,11 +176,19 @@ and re-run `docker compose up -d` to apply.
    WIREGUARD_ADDRESSES=10.2.0.2/32
    ```
 
-### Step 2: Configure Authentication & Connections
+### Step 2: Set Passwords & Run Bootstrap
+
+**First, secure your services:**
+
+1. Access each service's web interface (see URLs below)
+2. Set a strong password on first login
+3. For qBittorrent, get temporary password: `docker logs qbittorrent 2>&1 | grep "temporary password"`
+
+**Then run the bootstrap script** to automate connections:
 
 The `bootstrap.sh` script automatically:
 
-1. Sets up authentication for all services using credentials from `.env`
+1. Extracts API keys from each service's config files
 2. Connects Prowlarr, Sonarr, Radarr, and qBittorrent together
 3. Configures indexers and subtitle providers
 
@@ -257,8 +267,8 @@ Since qBittorrent runs inside Gluetun's network, access it via `gluetun:8080`
    - **Name:** qBittorrent
    - **Host:** `gluetun`
    - **Port:** `8080`
-   - **Username:** `admin` (or your configured username)
-   - **Password:** (your qBittorrent password)
+   - **Username:** admin
+   - **Password:** (your qBittorrent API password from .env: QBIT_PASS)
    - **Category:** `tv` (recommended for organization)
 4. Click **Test** → **Save**
 
@@ -270,8 +280,8 @@ Since qBittorrent runs inside Gluetun's network, access it via `gluetun:8080`
    - **Name:** qBittorrent
    - **Host:** `gluetun`
    - **Port:** `8080`
-   - **Username:** `admin` (or your configured username)
-   - **Password:** (your qBittorrent password)
+   - **Username:** admin
+   - **Password:** (your qBittorrent API password from .env: QBIT_PASS)
    - **Category:** `movies` (recommended for organization)
 4. Click **Test** → **Save**
 
@@ -436,7 +446,9 @@ When configuring services to talk to each other:
 - **qBittorrent:** `gluetun:8080` (qBittorrent shares Gluetun's network)
 - **Other services:** Use container name (e.g., `prowlarr:9696`, `sonarr:8989`)
 
-**qBittorrent password:** `docker logs qbittorrent 2>&1 | grep "temporary password"`
+**Authentication:** Each service uses Forms-based authentication. The `QBIT_USER` and `QBIT_PASS` in `.env` are used for API communication between Sonarr/Radarr and qBittorrent.
+
+**qBittorrent temporary password:** `docker logs qbittorrent 2>&1 | grep "temporary password"`
 
 ## Documentation
 
@@ -529,10 +541,10 @@ docker logs gluetun | grep -i "port forward"     # Check port forwarding logs
    grep QBIT_PASS .env
    ```
 
-   If not set, add it and restart:
+   If not set, add it and restart (QBIT_PASS is used for API communication):
 
    ```bash
-   echo "QBIT_PASS=your_password" >> .env
+   echo "QBIT_PASS=your_api_password" >> .env
    docker compose restart qbit-port-sync
    ```
 
