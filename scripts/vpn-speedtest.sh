@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Internet Speed Test Script
+# Manual VPN sanity + throughput check from inside the qBittorrent container.
+# What it does: compares host vs container public IP (to confirm VPN egress) and runs a quick
+# download/upload test via curl against speedtest.tele2.net. Run ad-hoc; not wired into healthchecks.
 # Tests download and upload speeds from the qBittorrent container
 # Optimized for high-speed connections
 CONTAINER_NAME="qbittorrent"

@@ -38,12 +38,16 @@ services:
     restart: unless-stopped
     networks:
       - torrent-services-network
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "/scripts/gluetun.sh"]
-      interval: 30s
-      timeout: 15s
+      test: ["CMD", "sh", "/scripts/gluetun.sh"]
+      interval: 15s
+      timeout: 20s
       retries: 3
-      start_period: 60s
+      start_period: 180s
     logging:
       driver: "json-file"
       options:
@@ -51,6 +55,43 @@ services:
         max-file: "3"
     mem_limit: ${GLUETUN_MEM_LIMIT:-256m}
     cpus: ${GLUETUN_CPUS:-0.5}
+
+  # Gluetarr - Sync Gluetun forwarded port to qBittorrent with metrics + health endpoints
+  gluetarr:
+    image: ghcr.io/eslutz/gluetarr:latest
+    container_name: gluetarr
+    environment:
+      - GLUETUN_PORT_FILE=/tmp/gluetun/forwarded_port
+      - QBIT_ADDR=http://gluetun:8080
+      - QBIT_USER=${QBIT_USER:-admin}
+      - QBIT_PASS=${QBIT_PASS}
+      - SYNC_INTERVAL=${GLUETARR_SYNC_INTERVAL:-60}
+      - LOG_LEVEL=${GLUETARR_LOG_LEVEL:-info}
+    volumes:
+      - gluetun-tmp:/tmp/gluetun:ro
+    ports:
+      - 127.0.0.1:9090:9090
+    depends_on:
+      gluetun:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_healthy
+    networks:
+      - torrent-services-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--timeout=5", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${QBIT_PORT_SYNC_MEM_LIMIT:-128m}
+    cpus: ${QBIT_PORT_SYNC_CPUS:-0.1}
 
   # qBittorrent - Torrent Client
   # Routes through Gluetun VPN with automatic port forwarding
@@ -72,13 +113,16 @@ services:
       gluetun:
         condition: service_healthy
     restart: unless-stopped
+    init: true
     stop_grace_period: 60s
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/qbittorrent.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
     logging:
       driver: "json-file"
       options:
@@ -86,47 +130,6 @@ services:
         max-file: "3"
     mem_limit: ${QBITTORRENT_MEM_LIMIT:-2g}
     cpus: ${QBITTORRENT_CPUS:-2.0}
-
-  # qBit Port Sync - Automatically updates qBittorrent port from Gluetun
-  # Monitors Gluetun's forwarded port and updates qBittorrent when it changes
-  qbit-port-sync:
-    image: alpine:latest
-    container_name: qbit-port-sync
-    environment:
-      - QBIT_HOST=gluetun:8080
-      - QBIT_USER=${QBIT_USER:-admin}
-      - QBIT_PASS=${QBIT_PASS}
-    volumes:
-      - gluetun-tmp:/tmp/gluetun:ro
-      - ./scripts/qbit-port-sync.sh:/app/qbit-port-sync.sh:ro
-    depends_on:
-      gluetun:
-        condition: service_healthy
-      qbittorrent:
-        condition: service_healthy
-    networks:
-      - torrent-services-network
-    restart: unless-stopped
-    read_only: true
-    tmpfs:
-      - /tmp:size=10M,mode=1777
-    healthcheck:
-      test: >
-        /bin/sh -c '
-        [ -f /tmp/qbit-port-sync-status ] && (grep -q "OK" /tmp/qbit-port-sync-status || grep -q "STARTING" /tmp/qbit-port-sync-status) || exit 1
-        '
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 120s
-    command: sh /app/qbit-port-sync.sh
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    mem_limit: ${QBIT_PORT_SYNC_MEM_LIMIT:-64m}
-    cpus: ${QBIT_PORT_SYNC_CPUS:-0.1}
 
   # Prowlarr - Indexer Manager
   prowlarr:
@@ -143,9 +146,10 @@ services:
     ports:
       - 9696:9696
     depends_on:
-      tor-proxy:
+      torarr:
         condition: service_healthy
     restart: unless-stopped
+    init: true
     networks:
       - torrent-services-network
     cap_drop:
@@ -157,10 +161,10 @@ services:
       - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/prowlarr.sh"]
-      interval: 30s
+      interval: 45s
       timeout: 10s
       retries: 3
-      start_period: 90s
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -188,6 +192,7 @@ services:
       prowlarr:
         condition: service_healthy
     restart: unless-stopped
+    init: true
     stop_grace_period: 30s
     networks:
       - torrent-services-network
@@ -200,10 +205,10 @@ services:
       - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/sonarr.sh"]
-      interval: 30s
+      interval: 45s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
     logging:
       driver: "json-file"
       options:
@@ -231,6 +236,7 @@ services:
       prowlarr:
         condition: service_healthy
     restart: unless-stopped
+    init: true
     stop_grace_period: 30s
     networks:
       - torrent-services-network
@@ -243,10 +249,10 @@ services:
       - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/radarr.sh"]
-      interval: 30s
+      interval: 45s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
     logging:
       driver: "json-file"
       options:
@@ -276,6 +282,7 @@ services:
       radarr:
         condition: service_healthy
     restart: unless-stopped
+    init: true
     networks:
       - torrent-services-network
     cap_drop:
@@ -287,10 +294,10 @@ services:
       - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/bazarr.sh"]
-      interval: 30s
+      interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -299,31 +306,27 @@ services:
     mem_limit: ${BAZARR_MEM_LIMIT:-512m}
     cpus: ${BAZARR_CPUS:-0.5}
 
-  # Tor - SOCKS5 proxy for anonymous indexer access
+  # Torarr - SOCKS5 proxy for anonymous indexer access
   # Provides access to .onion sites and bypasses blocks
-  tor-proxy:
-    image: dperson/torproxy:latest
-    container_name: tor-proxy
+  torarr:
+    image: ghcr.io/eslutz/torarr:latest
+    container_name: torarr
     environment:
       - TZ=${TZ:-America/New_York}
     ports:
       - 127.0.0.1:9050:9050 # SOCKS5 proxy
-      - 127.0.0.1:9051:9051 # Control port
+      - 127.0.0.1:8085:8085 # Health/metrics endpoint
     volumes:
-      - ./scripts/healthchecks:/scripts:ro
+      - tor-data:/var/lib/tor
     restart: unless-stopped
-    read_only: true
-    tmpfs:
-      - /var/lib/tor:size=100M,mode=0700
-      - /var/log/tor:size=50M,mode=0755
     networks:
       - torrent-services-network
     healthcheck:
-      test: ["CMD-SHELL", "/scripts/tor-proxy.sh"]
-      interval: 30s
-      timeout: 20s
+      test: ["CMD", "wget", "-qO-", "--timeout=10", "http://localhost:8085/health"]
+      interval: 60s
+      timeout: 15s
       retries: 3
-      start_period: 60s
+      start_period: 180s
     logging:
       driver: "json-file"
       options:
@@ -409,7 +412,6 @@ services:
     container_name: autoheal
     restart: unless-stopped
     read_only: true
-    user: "${PUID}:${PGID}"
     network_mode: none
     environment:
       - AUTOHEAL_CONNECTION_TYPE=socket
@@ -427,7 +429,7 @@ services:
       options:
         max-size: "5m"
         max-file: "2"
-    mem_limit: ${AUTOHEAL_MEM_LIMIT:-64m}
+    mem_limit: ${AUTOHEAL_MEM_LIMIT:-128m}
     cpus: ${AUTOHEAL_CPUS:-0.1}
 
 networks:
@@ -442,3 +444,4 @@ volumes:
       type: tmpfs
       device: tmpfs
   autoheal-logs:
+  tor-data:
