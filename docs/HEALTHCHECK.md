@@ -56,8 +56,7 @@ scripts/healthchecks/
 ├── prowlarr.sh      # /ping endpoint with latency check
 ├── sonarr.sh        # /ping endpoint with latency check
 ├── radarr.sh        # /ping endpoint with latency check
-├── bazarr.sh        # /ping endpoint with latency check
-└── tor-proxy.sh     # SOCKS port + Tor circuit verification
+└── bazarr.sh        # /ping endpoint with latency check
 ```
 
 ## Healthcheck Configuration
@@ -147,20 +146,22 @@ curl -H "X-Api-Key: $API_KEY" http://localhost:6767/api/system/health  # Bazarr
 
 > **Note**: The scripts automatically use the deeper `/api/v*/health` endpoints when API keys are provided via environment variables. These endpoints check database status, disk space, service integrations, and more. If API keys are not available, the scripts fall back to the basic `/ping` endpoint.
 
-### Tor Proxy
+### Torarr (Tor Proxy)
 
-**Script**: `scripts/healthchecks/tor-proxy.sh`
+**Healthcheck**: Built-in HTTP endpoint at `http://localhost:8085/health`
 
-**Checks**:
+**Checks** (performed by torarr internally):
 
-1. SOCKS port 9050 is listening
-2. Tor circuit is functional (request through Tor succeeds)
+1. SOCKS5 port 9050 is listening
+2. Tor circuit is functional (can establish connections)
+3. Tor network connectivity verified
 
 ```bash
-# What it validates
-nc -z localhost 9050                                    # Port available
-curl --socks5-hostname localhost:9050 https://check.torproject.org/api/ip  # Tor works
+# Docker healthcheck command
+wget -qO- --timeout=10 http://localhost:8085/health
 ```
+
+> **Note**: Torarr uses a native HTTP health endpoint instead of an external script. The service itself validates Tor connectivity and exposes health status via HTTP.
 
 ## Autoheal Container
 

@@ -100,7 +100,7 @@ These saved API keys are used by:
 | Indexer | Type | Configuration |
 |---------|------|---------------|
 | 1337x | Public | Default settings |
-| 1337x (Tor) | Custom | Uses `tor-proxy:9050`, from `Definitions/Custom/` |
+| 1337x (Tor) | Custom | Uses `torarr:9050`, from `Definitions/Custom/` |
 
 ### Monitoring Profile
 

@@ -576,7 +576,7 @@ configure_prowlarr_indexer_1337x_tor() {
                 "implementation": "Socks5",
                 "configContract": "Socks5Settings",
                 "fields": [
-                    {"name": "host", "value": "tor-proxy"},
+                    {"name": "host", "value": "torarr"},
                     {"name": "port", "value": 9050},
                     {"name": "username", "value": ""},
                     {"name": "password", "value": ""}
