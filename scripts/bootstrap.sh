@@ -137,6 +137,148 @@ wait_for_service() {
 }
 
 # =============================================================================
+# qBittorrent Credential Management
+# =============================================================================
+
+get_qbittorrent_temp_password() {
+    # Extract temporary password from qBittorrent logs if it exists
+    # Checks entire log to handle cases where bootstrap is run long after container startup
+    docker logs qbittorrent 2>&1 | grep "temporary password" | tail -1 | sed -E 's/.*temporary password is provided for this session: ([A-Za-z0-9]+).*/\1/' || echo ""
+}
+
+check_qbittorrent_auth() {
+    local user="$1"
+    local pass="$2"
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:8080/api/v2/auth/login" \
+        --data-urlencode "username=$user" \
+        --data-urlencode "password=$pass")
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+    local body
+    body=$(echo "$response" | sed '$d')
+    
+    # Log authentication attempts for debugging
+    if [ "$http_code" = "200" ]; then
+        if [ "$body" = "Ok." ]; then
+            log_info "Authentication successful for user: $user (password configured)"
+            return 0
+        else
+            log_warning "Authentication returned 200 for user: $user (may indicate no password is set)"
+            return 0
+        fi
+    else
+        log_info "Authentication failed for user: $user (HTTP $http_code)"
+        return 1
+    fi
+}
+
+update_qbittorrent_credentials() {
+    local current_user="$1"
+    local current_pass="$2"
+    local new_user="$3"
+    local new_pass="$4"
+
+    log_info "Updating qBittorrent credentials to match .env..."
+
+    # First, login with current credentials to get session cookie
+    local cookie
+    cookie=$(curl -s -i -X POST "http://localhost:8080/api/v2/auth/login" \
+        --data-urlencode "username=$current_user" \
+        --data-urlencode "password=$current_pass" | \
+        grep -i "set-cookie:" | sed -E 's/.*SID=([^;]+).*/SID=\1/')
+
+    if [ -z "$cookie" ]; then
+        log_error "Failed to authenticate with qBittorrent"
+        return 1
+    fi
+
+    # Disable authentication bypass (must be off to set credentials)
+    curl -s -X POST "http://localhost:8080/api/v2/app/setPreferences" \
+        -H "Cookie: $cookie" \
+        --data-urlencode "json={\"web_ui_upnp\":false,\"bypass_local_auth\":false,\"bypass_auth_subnet_whitelist_enabled\":false}" >/dev/null
+
+    # Update preferences with new credentials
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:8080/api/v2/app/setPreferences" \
+        -H "Cookie: $cookie" \
+        --data-urlencode "json={\"web_ui_username\":\"$new_user\",\"web_ui_password\":\"$new_pass\"}")
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "200" ]; then
+        log_success "qBittorrent credentials updated"
+        
+        # Wait a moment for qBittorrent to save config
+        sleep 2
+        
+        # Verify the new credentials work
+        if check_qbittorrent_auth "$new_user" "$new_pass"; then
+            log_success "New credentials verified successfully"
+            return 0
+        else
+            log_warning "Credentials may not have persisted - retrying after restart"
+            docker restart qbittorrent >/dev/null 2>&1
+            sleep 10
+            
+            # Try again with temporary password if it was regenerated
+            local temp_pass
+            temp_pass=$(get_qbittorrent_temp_password)
+            if [ -n "$temp_pass" ] && check_qbittorrent_auth "admin" "$temp_pass"; then
+                log_info "Re-authenticated after restart, applying credentials again"
+                update_qbittorrent_credentials "admin" "$temp_pass" "$new_user" "$new_pass"
+                return $?
+            fi
+            return 1
+        fi
+    else
+        log_error "Failed to update qBittorrent credentials (HTTP $http_code)"
+        return 1
+    fi
+}
+
+configure_qbittorrent_auth() {
+    log_info "Checking qBittorrent authentication status..."
+    
+    # Try to authenticate with admin/temporary password first (indicates no password set)
+    local temp_pass
+    temp_pass=$(get_qbittorrent_temp_password)
+
+    if [ -n "$temp_pass" ]; then
+        log_info "Found temporary password in logs: ${temp_pass:0:3}... (indicates password not yet configured)"
+        if check_qbittorrent_auth "admin" "$temp_pass"; then
+            update_qbittorrent_credentials "admin" "$temp_pass" "$QBIT_USER" "$QBIT_PASS"
+            return $?
+        fi
+    else
+        log_info "No temporary password found in logs (password may already be configured)"
+    fi
+
+    # Try default admin/adminadmin (fresh install default)
+    log_info "Trying default credentials (admin/adminadmin)..."
+    if check_qbittorrent_auth "admin" "adminadmin"; then
+        log_info "Default credentials worked - setting to .env values"
+        update_qbittorrent_credentials "admin" "adminadmin" "$QBIT_USER" "$QBIT_PASS"
+        return $?
+    fi
+
+    # Finally, check if desired credentials already work (password previously set)
+    log_info "Checking if .env credentials are already configured..."
+    if check_qbittorrent_auth "$QBIT_USER" "$QBIT_PASS"; then
+        log_success "qBittorrent credentials already configured correctly"
+        return 0
+    fi
+
+    # If we get here, we couldn't authenticate with any known credentials
+    log_error "Could not authenticate with qBittorrent using any known credentials"
+    log_info "Credentials may have been manually changed. Please verify:"
+    log_info "  Expected username: $QBIT_USER"
+    log_info "  You can reset by deleting config/qbittorrent and restarting"
+    return 1
+}
+
+# =============================================================================
 # API Key Extraction
 # =============================================================================
 
@@ -573,6 +715,10 @@ main() {
     persist_env_var "RADARR_API_KEY" "$RADARR_API_KEY"
     persist_env_var "PROWLARR_API_KEY" "$PROWLARR_API_KEY"
     persist_env_var "BAZARR_API_KEY" "$BAZARR_API_KEY"
+
+    log_section "Configuring qBittorrent Authentication"
+
+    configure_qbittorrent_auth
 
     log_section "Configuring Prowlarr Applications"
 
