@@ -589,6 +589,14 @@ main() {
     configure_bazarr_sonarr
     configure_bazarr_radarr
 
+    if is_truthy "$ENABLE_MONITORING_PROFILE"; then
+        log_section "Starting Monitoring Stack"
+        log_info "ENABLE_MONITORING_PROFILE is set to true"
+        log_info "Starting exporters..."
+        docker compose --profile monitoring up -d
+        log_success "Monitoring stack started"
+    fi
+
     echo ""
     echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║                    Bootstrap Complete!                       ║${NC}"
