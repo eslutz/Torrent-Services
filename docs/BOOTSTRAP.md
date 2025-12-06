@@ -41,14 +41,12 @@ This ensures:
 │     - Configures Prowlarr → Sonarr/Radarr apps                  │
 │     - Configures Sonarr/Radarr → qBittorrent download client    │
 │     - Configures Bazarr → Sonarr/Radarr connections             │
-│     - Adds indexers to Prowlarr                                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  3. Stack is fully operational                                  │
 │     - All services connected and authenticated                  │
-│     - Indexers synced to Sonarr/Radarr                          │
 │     - Ready to use                                              │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -94,17 +92,6 @@ These saved API keys are used by:
 | Radarr → qBittorrent | POST `/api/v3/downloadclient` | Credentials from `.env` |
 | Bazarr → Sonarr | PATCH `/api/system/settings` | API key from Sonarr config |
 | Bazarr → Radarr | PATCH `/api/system/settings` | API key from Radarr config |
-
-### Indexers (Prowlarr)
-
-| Indexer | Type | Configuration |
-|---------|------|---------------|
-| 1337x | Public | Default settings |
-| 1337x (Tor) | Custom | Uses `torarr:9050`, from `Definitions/Custom/` |
-
-### Monitoring Profile
-
-If `ENABLE_MONITORING_PROFILE=true` is set in `.env`, the bootstrap script will automatically start the monitoring exporters after saving API keys.
 
 ## Usage
 
@@ -152,24 +139,24 @@ Use cases for re-running:
 ```txt
 torrent-services/
 ├── scripts/
-│   └── bootstrap.sh          # The bootstrap script
+│   └── bootstrap.sh                 # The bootstrap script
 ├── config/
 │   ├── prowlarr/
-│   │   ├── config.xml        # Auto-generated (contains API key)
+│   │   ├── config.xml               # Auto-generated (contains API key)
 │   │   └── Definitions/
-│   │       └── Custom/       # Custom indexer definitions (tracked)
+│   │       └── Custom/              # Custom indexer definitions (tracked)
 │   ├── sonarr/
-│   │   └── config.xml        # Auto-generated (not tracked)
+│   │   └── config.xml               # Auto-generated (not tracked)
 │   ├── radarr/
-│   │   └── config.xml        # Auto-generated (not tracked)
+│   │   └── config.xml               # Auto-generated (not tracked)
 │   ├── bazarr/
 │   │   └── config/
-│   │       └── config.yaml   # Auto-generated (not tracked)
-│   ├── qbittorrent/          # Auto-generated (not tracked)
-│   └── gluetun/              # Auto-generated (not tracked)
+│   │       └── config.yaml          # Auto-generated (not tracked)
+│   ├── qbittorrent/                 # Auto-generated (not tracked)
+│   └── gluetun/                     # Auto-generated (not tracked)
 ├── docker-compose.yml
-├── .env                      # Secrets (not tracked)
-└── .env.example              # Template (tracked)
+├── .env                             # Secrets (not tracked)
+└── .env.example                     # Template (tracked)
 ```
 
 ## Environment Variables
@@ -186,10 +173,10 @@ Key variables used by bootstrap:
 | `PROWLARR_USER` / `PROWLARR_PASS` | Prowlarr authentication |
 | `BAZARR_USER` / `BAZARR_PASS` | Bazarr authentication |
 | `ENABLE_MONITORING_PROFILE` | Auto-start monitoring exporters if `true` |
+| `PROWLARR_USER` / `PROWLARR_PASS` | Prowlarr authentication |
+| `BAZARR_USER` / `BAZARR_PASS` | Bazarr authentication |
 
 ## Verification
-
-After running bootstrap, verify the configuration:
 
 ### Check Service Connections
 
@@ -199,7 +186,7 @@ After running bootstrap, verify the configuration:
 | Sonarr → Download Client | Sonarr UI → Settings → Download Clients (should show qBittorrent) |
 | Radarr → Download Client | Radarr UI → Settings → Download Clients (should show qBittorrent) |
 | Bazarr → Apps | Bazarr UI → Settings (should show Sonarr, Radarr connected) |
-| Prowlarr → Indexers | Prowlarr UI → Indexers (should show configured indexers) |
+| Bazarr → Apps | Bazarr UI → Settings (should show Sonarr, Radarr connected) |
 
 ### Test End-to-End
 

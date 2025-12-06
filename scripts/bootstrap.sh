@@ -11,8 +11,6 @@
 #   - Configures Prowlarr → Sonarr/Radarr application connections
 #   - Configures Sonarr/Radarr → qBittorrent download client connections
 #   - Configures Bazarr → Sonarr/Radarr integrations
-#   - Adds sample indexers to Prowlarr (1337x, 1337x Tor)
-#   - Optionally starts monitoring exporters (set ENABLE_MONITORING_PROFILE=true)
 #
 # Usage:
 #   ./scripts/bootstrap.sh
@@ -20,7 +18,11 @@
 # Requirements:
 #   - All containers must be running and healthy
 #   - .env file must exist with QBIT_USER, QBIT_PASS, and optional credentials
-#   - curl, jq, grep, and docker must be installed
+#   - curl, jq, grep, sed, and docker must be installed
+#
+# Compatibility:
+#   - macOS and Linux compatible (uses portable sed/grep patterns)
+#   - Avoids GNU-specific flags (grep -P, head -n -1)
 # =============================================================================
 
 set -e
@@ -141,21 +143,21 @@ wait_for_service() {
 get_sonarr_api_key() {
     local config_file="$PROJECT_DIR/config/sonarr/config.xml"
     if [ -f "$config_file" ]; then
-        grep -oP '(?<=<ApiKey>)[^<]+' "$config_file" 2>/dev/null || echo ""
+        grep '<ApiKey>' "$config_file" 2>/dev/null | sed -E 's/.*<ApiKey>([^<]+)<\/ApiKey>.*/\1/' || echo ""
     fi
 }
 
 get_radarr_api_key() {
     local config_file="$PROJECT_DIR/config/radarr/config.xml"
     if [ -f "$config_file" ]; then
-        grep -oP '(?<=<ApiKey>)[^<]+' "$config_file" 2>/dev/null || echo ""
+        grep '<ApiKey>' "$config_file" 2>/dev/null | sed -E 's/.*<ApiKey>([^<]+)<\/ApiKey>.*/\1/' || echo ""
     fi
 }
 
 get_prowlarr_api_key() {
     local config_file="$PROJECT_DIR/config/prowlarr/config.xml"
     if [ -f "$config_file" ]; then
-        grep -oP '(?<=<ApiKey>)[^<]+' "$config_file" 2>/dev/null || echo ""
+        grep '<ApiKey>' "$config_file" 2>/dev/null | sed -E 's/.*<ApiKey>([^<]+)<\/ApiKey>.*/\1/' || echo ""
     fi
 }
 
@@ -186,14 +188,6 @@ check_download_client_exists() {
     result=$(curl -s "http://localhost:$port/api/v3/downloadclient" \
         -H "X-Api-Key: $api_key" | jq -r ".[] | select(.name == \"$client_name\") | .name" 2>/dev/null)
     [ "$result" = "$client_name" ]
-}
-
-check_prowlarr_indexer_exists() {
-    local indexer_name="$1"
-    local result
-    result=$(curl -s "http://localhost:9696/api/v1/indexer" \
-        -H "X-Api-Key: $PROWLARR_API_KEY" | jq -r ".[] | select(.name == \"$indexer_name\") | .name" 2>/dev/null)
-    [ "$result" = "$indexer_name" ]
 }
 
 # =============================================================================
@@ -233,7 +227,7 @@ configure_prowlarr_sonarr() {
         log_success "Prowlarr → Sonarr configured"
     else
         log_error "Failed to configure Prowlarr → Sonarr (HTTP $http_code)"
-        echo "$response" | head -n -1
+        echo "$response" | sed '$d'
         return 1
     fi
 }
@@ -271,7 +265,7 @@ configure_prowlarr_radarr() {
         log_success "Prowlarr → Radarr configured"
     else
         log_error "Failed to configure Prowlarr → Radarr (HTTP $http_code)"
-        echo "$response" | head -n -1
+        echo "$response" | sed '$d'
         return 1
     fi
 }
@@ -320,7 +314,7 @@ configure_sonarr_qbittorrent() {
         log_success "Sonarr → qBittorrent configured"
     else
         log_error "Failed to configure Sonarr → qBittorrent (HTTP $http_code)"
-        echo "$response" | head -n -1
+        echo "$response" | sed '$d'
         return 1
     fi
 }
@@ -369,16 +363,32 @@ configure_radarr_qbittorrent() {
         log_success "Radarr → qBittorrent configured"
     else
         log_error "Failed to configure Radarr → qBittorrent (HTTP $http_code)"
-        echo "$response" | head -n -1
+        echo "$response" | sed '$d'
         return 1
     fi
 }
 
 configure_bazarr_sonarr() {
+    # Check if already configured
+    local current_settings
+    current_settings=$(curl -s "http://localhost:6767/api/system/settings" \
+        -H "X-API-KEY: $BAZARR_API_KEY")
+
+    local use_sonarr
+    use_sonarr=$(echo "$current_settings" | jq -r '.general.use_sonarr' 2>/dev/null)
+
+    local sonarr_apikey
+    sonarr_apikey=$(echo "$current_settings" | jq -r '.sonarr.apikey' 2>/dev/null)
+
+    if [ "$use_sonarr" = "true" ] && [ "$sonarr_apikey" = "$SONARR_API_KEY" ]; then
+        log_success "Bazarr → Sonarr already configured"
+        return 0
+    fi
+
     log_info "Configuring Bazarr → Sonarr..."
 
     local response
-    response=$(curl -s -w "\n%{http_code}" -X PATCH "http://localhost:6767/api/system/settings" \
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:6767/api/system/settings" \
         -H "X-API-KEY: $BAZARR_API_KEY" \
         -H "Content-Type: application/json" \
         -d '{
@@ -407,17 +417,33 @@ configure_bazarr_sonarr() {
     if [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; then
         log_success "Bazarr → Sonarr configured"
     else
-        log_error "Failed to configure Bazarr → Sonarr (HTTP $http_code)"
-        echo "$response" | head -n -1
-        return 1
+        log_warning "Failed to configure Bazarr → Sonarr automatically (HTTP $http_code)"
+        log_info "Please configure manually: Settings → Sonarr → Add Sonarr server"
+        return 0
     fi
 }
 
 configure_bazarr_radarr() {
+    # Check if already configured
+    local current_settings
+    current_settings=$(curl -s "http://localhost:6767/api/system/settings" \
+        -H "X-API-KEY: $BAZARR_API_KEY")
+
+    local use_radarr
+    use_radarr=$(echo "$current_settings" | jq -r '.general.use_radarr' 2>/dev/null)
+
+    local radarr_apikey
+    radarr_apikey=$(echo "$current_settings" | jq -r '.radarr.apikey' 2>/dev/null)
+
+    if [ "$use_radarr" = "true" ] && [ "$radarr_apikey" = "$RADARR_API_KEY" ]; then
+        log_success "Bazarr → Radarr already configured"
+        return 0
+    fi
+
     log_info "Configuring Bazarr → Radarr..."
 
     local response
-    response=$(curl -s -w "\n%{http_code}" -X PATCH "http://localhost:6767/api/system/settings" \
+    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:6767/api/system/settings" \
         -H "X-API-KEY: $BAZARR_API_KEY" \
         -H "Content-Type: application/json" \
         -d '{
@@ -445,228 +471,9 @@ configure_bazarr_radarr() {
     if [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; then
         log_success "Bazarr → Radarr configured"
     else
-        log_error "Failed to configure Bazarr → Radarr (HTTP $http_code)"
-        echo "$response" | head -n -1
-        return 1
-    fi
-}
-
-configure_bazarr_providers() {
-    log_info "Configuring Bazarr subtitle providers..."
-
-    local providers='["podnapisi"]'
-    local addic7ed_config='{}'
-    local opensubtitlescom_config='{}'
-
-    # Add Addic7ed if credentials are provided
-    if [ -n "$ADDIC7ED_USERNAME" ] && [ -n "$ADDIC7ED_PASSWORD" ]; then
-        providers='["addic7ed", "podnapisi"]'
-        addic7ed_config='{
-            "username": "'"$ADDIC7ED_USERNAME"'",
-            "password": "'"$ADDIC7ED_PASSWORD"'",
-            "cookies": "'"${ADDIC7ED_COOKIES:-}"'"
-        }'
-        log_info "  - Addic7ed: enabled"
-    fi
-
-    # Add OpenSubtitles.com if credentials are provided
-    if [ -n "$OPENSUBTITLESCOM_USERNAME" ] && [ -n "$OPENSUBTITLESCOM_PASSWORD" ]; then
-        if [ "$providers" = '["podnapisi"]' ]; then
-            providers='["opensubtitlescom", "podnapisi"]'
-        else
-            providers='["addic7ed", "opensubtitlescom", "podnapisi"]'
-        fi
-        opensubtitlescom_config='{
-            "username": "'"$OPENSUBTITLESCOM_USERNAME"'",
-            "password": "'"$OPENSUBTITLESCOM_PASSWORD"'",
-            "use_hash": true,
-            "include_ai_translated": true
-        }'
-        log_info "  - OpenSubtitles.com: enabled"
-    fi
-
-    log_info "  - Podnapisi: enabled (no credentials needed)"
-
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X PATCH "http://localhost:6767/api/system/settings" \
-        -H "X-API-KEY: $BAZARR_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "general": {
-                "enabled_providers": '"$providers"'
-            },
-            "addic7ed": '"$addic7ed_config"',
-            "opensubtitlescom": '"$opensubtitlescom_config"'
-        }')
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; then
-        log_success "Bazarr subtitle providers configured"
-    else
-        log_warning "Failed to configure Bazarr providers (HTTP $http_code) - may need manual setup"
-    fi
-}
-
-configure_prowlarr_indexer_1337x() {
-    if check_prowlarr_indexer_exists "1337x"; then
-        log_success "Prowlarr indexer '1337x' already configured"
+        log_warning "Failed to configure Bazarr → Radarr automatically (HTTP $http_code)"
+        log_info "Please configure manually: Settings → Radarr → Add Radarr server"
         return 0
-    fi
-
-    log_info "Adding Prowlarr indexer: 1337x..."
-
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:9696/api/v1/indexer" \
-        -H "X-Api-Key: $PROWLARR_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "name": "1337x",
-            "definitionName": "1337x",
-            "enable": true,
-            "redirect": false,
-            "supportsRss": true,
-            "supportsSearch": true,
-            "supportsRedirect": false,
-            "appProfileId": 1,
-            "priority": 25,
-            "fields": [
-                {"name": "definitionFile", "value": "1337x"}
-            ],
-            "tags": []
-        }')
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
-        log_success "Prowlarr indexer '1337x' added"
-    else
-        log_warning "Failed to add 1337x indexer (HTTP $http_code)"
-    fi
-}
-
-configure_prowlarr_indexer_1337x_tor() {
-    if check_prowlarr_indexer_exists "1337x (Tor)"; then
-        log_success "Prowlarr indexer '1337x (Tor)' already configured"
-        return 0
-    fi
-
-    # Check if custom definition exists
-    if [ ! -f "$PROJECT_DIR/config/prowlarr/Definitions/Custom/1337x-tor.yml" ]; then
-        log_warning "Custom 1337x-tor.yml not found, skipping Tor indexer"
-        return 0
-    fi
-
-    log_info "Adding Prowlarr indexer: 1337x (Tor)..."
-
-    # First, add a Tor proxy to Prowlarr
-    local proxy_exists
-    proxy_exists=$(curl -s "http://localhost:9696/api/v1/indexerProxy" \
-        -H "X-Api-Key: $PROWLARR_API_KEY" | jq -r '.[] | select(.name == "Tor") | .name' 2>/dev/null)
-
-    if [ "$proxy_exists" != "Tor" ]; then
-        log_info "  Adding Tor proxy..."
-        curl -s -X POST "http://localhost:9696/api/v1/indexerProxy" \
-            -H "X-Api-Key: $PROWLARR_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d '{
-                "name": "Tor",
-                "implementation": "Socks5",
-                "configContract": "Socks5Settings",
-                "fields": [
-                    {"name": "host", "value": "torarr"},
-                    {"name": "port", "value": 9050},
-                    {"name": "username", "value": ""},
-                    {"name": "password", "value": ""}
-                ],
-                "tags": []
-            }' > /dev/null
-    fi
-
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:9696/api/v1/indexer" \
-        -H "X-Api-Key: $PROWLARR_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "name": "1337x (Tor)",
-            "definitionName": "1337x-tor",
-            "enable": true,
-            "redirect": false,
-            "supportsRss": true,
-            "supportsSearch": true,
-            "supportsRedirect": false,
-            "appProfileId": 1,
-            "priority": 25,
-            "fields": [
-                {"name": "definitionFile", "value": "1337x-tor"}
-            ],
-            "tags": []
-        }')
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
-        log_success "Prowlarr indexer '1337x (Tor)' added"
-    else
-        log_warning "Failed to add 1337x (Tor) indexer (HTTP $http_code)"
-    fi
-}
-
-sync_prowlarr_indexers() {
-    log_info "Triggering Prowlarr indexer sync to apps..."
-
-    curl -s -X POST "http://localhost:9696/api/v1/applicationsync" \
-        -H "X-Api-Key: $PROWLARR_API_KEY" > /dev/null
-
-    log_success "Prowlarr indexer sync triggered"
-}
-
-start_monitoring_profile() {
-    if ! is_truthy "${ENABLE_MONITORING_PROFILE:-false}"; then
-        log_info "Monitoring profile disabled (set ENABLE_MONITORING_PROFILE=true in .env to enable)"
-        return 0
-    fi
-
-    # Verify API keys are available (required by exporters)
-    if [ -z "$SONARR_API_KEY" ] || [ -z "$RADARR_API_KEY" ] || [ -z "$PROWLARR_API_KEY" ] || [ -z "$BAZARR_API_KEY" ]; then
-        log_error "Cannot start monitoring exporters - API keys not available"
-        log_error "Ensure Sonarr, Radarr, and Prowlarr API keys are set in .env"
-        return 1
-    fi
-
-    log_info "Starting monitoring exporters via docker compose profile..."
-
-    # Start monitoring containers
-    if (cd "$PROJECT_DIR" && docker compose --profile monitoring up -d qbittorrent-exporter scraparr 2>&1); then
-        log_success "Monitoring exporters started successfully"
-
-        # Wait a few seconds for exporters to initialize
-        sleep 5
-
-        # Verify exporters are running
-        local failed=0
-        for service in qbittorrent-exporter scraparr; do
-            if docker ps --filter "name=$service" --filter "status=running" | grep -q "$service"; then
-                log_success "  ✓ $service is running"
-            else
-                log_error "  ✗ $service failed to start"
-                failed=1
-            fi
-        done
-
-        if [ $failed -eq 0 ]; then
-            echo ""
-            log_info "Prometheus scrape targets:"
-            log_info "  - qBittorrent: http://192.168.50.100:8090/metrics"
-            log_info "  - Scraparr:    http://192.168.50.100:7100/metrics"
-        fi
-    else
-        log_error "Failed to start monitoring exporters"
-        log_warning "Check logs with: docker compose --profile monitoring logs"
-        return 1
     fi
 }
 
@@ -698,8 +505,6 @@ main() {
         log_error ".env file not found at $PROJECT_DIR/.env"
         exit 1
     fi
-
-    ENABLE_MONITORING_PROFILE=${ENABLE_MONITORING_PROFILE:-false}
 
     # Validate required environment variables
     if [ -z "$QBIT_USER" ] || [ -z "$QBIT_PASS" ]; then
@@ -783,20 +588,6 @@ main() {
 
     configure_bazarr_sonarr
     configure_bazarr_radarr
-    configure_bazarr_providers
-
-    log_section "Configuring Prowlarr Indexers"
-
-    configure_prowlarr_indexer_1337x
-    configure_prowlarr_indexer_1337x_tor
-
-    log_section "Syncing Indexers"
-
-    sync_prowlarr_indexers
-
-    log_section "Monitoring Exporters"
-
-    start_monitoring_profile
 
     echo ""
     echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
@@ -810,12 +601,6 @@ main() {
     echo "  • Bazarr:      http://192.168.50.100:6767 (Subtitles)"
     echo "  • qBittorrent: http://192.168.50.100:8080 (Downloads)"
     echo ""
-    if is_truthy "${ENABLE_MONITORING_PROFILE:-false}"; then
-        echo "Monitoring exporters (for Prometheus):"
-        echo "  • qBittorrent: http://192.168.50.100:8090/metrics"
-        echo "  • Scraparr:    http://192.168.50.100:7100/metrics"
-        echo ""
-    fi
     echo "Configuration saved to: $ENV_FILE"
     echo ""
 }

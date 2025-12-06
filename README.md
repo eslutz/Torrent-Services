@@ -38,24 +38,23 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 ```bash
 # 1. Configure environment
 cp .env.example .env
-nano .env  # Set ProtonVPN credentials and optional ENABLE_MONITORING_PROFILE
+nano .env  # Set ProtonVPN credentials
 
 # 2. Start services (health checks and dependencies gate startup automatically)
 docker compose up -d
 
 # 3. Set passwords on first access to each service's web interface
 
-# 4. Run Bootstrap Script (automates API key extraction, connections, and saves to .env)
+# 4. Run Bootstrap Script (automates API key extraction and connections)
 ./scripts/bootstrap.sh
 
-# 4. Verify VPN and port forwarding
+# 5. Verify VPN and port forwarding
 docker exec gluetun wget -qO- https://protonwire.p3.pm/status/json
 docker exec gluetun cat /tmp/gluetun/forwarded_port
 docker logs gluetarr --tail 20
 
-# 5. (Optional) Start monitoring exporters after API keys exist
-# Option A: set ENABLE_MONITORING_PROFILE=true before running bootstrap (auto-start)
-# Option B: start manually any time:
+# 6. (Optional) Start monitoring exporters after API keys exist
+# Start manually any time:
 docker compose --profile monitoring up -d qbittorrent-exporter scraparr
 ```
 
