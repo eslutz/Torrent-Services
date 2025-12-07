@@ -43,7 +43,7 @@ nano .env  # Set ProtonVPN credentials
 # 2. Start services (health checks and dependencies gate startup automatically)
 docker compose up -d
 
-# 3. Set passwords on first access to each service's web interface
+# 3. Configure authentication for each service (see Step 2 below for details)
 
 # 4. Run Bootstrap Script (automates API key extraction and connections)
 ./scripts/bootstrap.sh
@@ -198,27 +198,34 @@ and re-run `docker compose up -d` to apply.
    WIREGUARD_ADDRESSES=10.2.0.2/32
    ```
 
-### Step 2: Set Passwords & Run Bootstrap
+### Step 2: Configure Authentication (Required)
 
-**First, secure your services:**
+**⚠️ IMPORTANT:** Before running the bootstrap script, you must configure authentication for each service.
 
-1. Access each service's web interface (see URLs below)
-2. Set a strong password on first login
-3. For qBittorrent, get temporary password: `docker logs qbittorrent 2>&1 | grep "temporary password"`
+**Access each service and set up authentication:**
 
-**Then run the bootstrap script** to automate connections:
+| Service | URL | Authentication Setup |
+|---------|-----|---------------------|
+| **Prowlarr** | <http://localhost:9696> | On first access: Select "Forms (Login Page)" → Create username/password |
+| **Sonarr** | <http://localhost:8989> | On first access: Select "Forms (Login Page)" → Create username/password |
+| **Radarr** | <http://localhost:7878> | On first access: Select "Forms (Login Page)" → Create username/password |
+| **Bazarr** | <http://localhost:6767> | Settings → General → Security: Select "Forms" → Create username/password |
+| **qBittorrent** | <http://localhost:8080> | ✅ Automated - bootstrap script configures this |
 
-The `bootstrap.sh` script automatically:
+> **Why manual setup?** Prowlarr, Sonarr, Radarr, and Bazarr use Forms-based authentication that must be configured through the web UI on first access. There is no API to set these credentials programmatically. The bootstrap script will automatically configure qBittorrent authentication (using credentials from your `.env` file) and extract API keys from all services after you complete the manual setup above.
 
-1. Extracts API keys from each service's config files
-2. Connects Prowlarr, Sonarr, Radarr, and qBittorrent together
-3. Configures indexers and subtitle providers
-
-Simply run:
+**After configuring authentication**, run the bootstrap script:
 
 ```bash
 ./scripts/bootstrap.sh
 ```
+
+The script will automatically:
+- Configure qBittorrent authentication with your `.env` credentials
+- Extract API keys from all services
+- Connect Prowlarr → Sonarr/Radarr (indexer sync)
+- Connect Sonarr/Radarr → qBittorrent (download client)
+- Connect Bazarr → Sonarr/Radarr (subtitle integration)
 
 ### Step 3: Verify Automatic Port Forwarding
 

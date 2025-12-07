@@ -663,19 +663,6 @@ main() {
     wait_for_service "Bazarr" "http://localhost:6767/ping"
     wait_for_service "qBittorrent" "http://localhost:8080"
 
-    log_section "Authentication Configuration"
-
-    log_info "Services use built-in authentication (Forms-based login)"
-    log_info "Default credentials are set on first access to each service"
-    log_info "Recommended: Set strong passwords immediately after first login"
-    log_info ""
-    log_info "Service URLs:"
-    log_info "  • Prowlarr:    http://localhost:9696"
-    log_info "  • Sonarr:      http://localhost:8989"
-    log_info "  • Radarr:      http://localhost:7878"
-    log_info "  • Bazarr:      http://localhost:6767"
-    log_info "  • qBittorrent: http://localhost:8080"
-
     log_section "Reading API Keys"
 
     SONARR_API_KEY=$(get_sonarr_api_key)
