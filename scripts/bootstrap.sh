@@ -164,8 +164,8 @@ check_qbittorrent_auth() {
             log_info "Authentication successful for user: $user (password configured)"
             return 0
         else
-            log_warning "Authentication returned 200 for user: $user (may indicate no password is set)"
-            return 0
+            log_warning "Authentication failed for user: $user (Response: $body)"
+            return 1
         fi
     else
         log_info "Authentication failed for user: $user (HTTP $http_code)"
@@ -240,34 +240,35 @@ update_qbittorrent_credentials() {
 
 configure_qbittorrent_auth() {
     log_info "Checking qBittorrent authentication status..."
+
+    # 1. Check if .env credentials are already configured (Most likely scenario)
+    log_info "Checking if .env credentials are already configured..."
+    if check_qbittorrent_auth "$QBIT_USER" "$QBIT_PASS"; then
+        log_success "qBittorrent credentials already configured correctly"
+        return 0
+    fi
     
-    # Try to authenticate with admin/temporary password first (indicates no password set)
+    # 2. Try to authenticate with admin/temporary password (indicates fresh install/no password set)
     local temp_pass
     temp_pass=$(get_qbittorrent_temp_password)
 
     if [ -n "$temp_pass" ]; then
-        log_info "Found temporary password in logs: ${temp_pass:0:3}... (indicates password not yet configured)"
+        log_info "Found temporary password in logs: ${temp_pass:0:3}... (checking validity)"
         if check_qbittorrent_auth "admin" "$temp_pass"; then
+            log_info "Temporary password is valid. Updating to .env credentials..."
             update_qbittorrent_credentials "admin" "$temp_pass" "$QBIT_USER" "$QBIT_PASS"
             return $?
         fi
     else
-        log_info "No temporary password found in logs (password may already be configured)"
+        log_info "No temporary password found in logs"
     fi
 
-    # Try default admin/adminadmin (fresh install default)
+    # 3. Try default admin/adminadmin (fresh install default)
     log_info "Trying default credentials (admin/adminadmin)..."
     if check_qbittorrent_auth "admin" "adminadmin"; then
         log_info "Default credentials worked - setting to .env values"
         update_qbittorrent_credentials "admin" "adminadmin" "$QBIT_USER" "$QBIT_PASS"
         return $?
-    fi
-
-    # Finally, check if desired credentials already work (password previously set)
-    log_info "Checking if .env credentials are already configured..."
-    if check_qbittorrent_auth "$QBIT_USER" "$QBIT_PASS"; then
-        log_success "qBittorrent credentials already configured correctly"
-        return 0
     fi
 
     # If we get here, we couldn't authenticate with any known credentials
@@ -619,6 +620,61 @@ configure_bazarr_radarr() {
     fi
 }
 
+disable_analytics() {
+    local service_name="$1"
+    local port="$2"
+    local api_key="$3"
+    local api_ver="$4"
+
+    log_info "Checking analytics settings for $service_name..."
+
+    local url="http://localhost:${port}/api/${api_ver}/config/host"
+    local current_config
+    current_config=$(curl -s -H "X-Api-Key: $api_key" "$url")
+
+    # Check if we got valid JSON
+    if ! echo "$current_config" | jq -e . >/dev/null 2>&1; then
+        log_error "Failed to retrieve config for $service_name"
+        return 1
+    fi
+
+    local is_enabled
+    is_enabled=$(echo "$current_config" | jq -r '.analyticsEnabled')
+
+    if [ "$is_enabled" = "false" ]; then
+        log_success "Analytics already disabled for $service_name"
+        return 0
+    fi
+
+    log_info "Disabling analytics for $service_name..."
+
+    # Create updated config
+    local updated_config
+    updated_config=$(echo "$current_config" | jq '.analyticsEnabled = false')
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X PUT "$url" \
+        -H "X-Api-Key: $api_key" \
+        -H "Content-Type: application/json" \
+        -d "$updated_config")
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [ "$http_code" = "200" ] || [ "$http_code" = "202" ]; then
+        log_success "Analytics disabled for $service_name"
+
+        log_info "Restarting $service_name to apply changes..."
+        local container_name=$(echo "$service_name" | tr '[:upper:]' '[:lower:]')
+        docker restart "$container_name" >/dev/null
+
+        wait_for_service "$service_name" "http://localhost:${port}/ping"
+    else
+        log_error "Failed to disable analytics for $service_name (HTTP $http_code)"
+        return 1
+    fi
+}
+
 # =============================================================================
 # Main Execution
 # =============================================================================
@@ -702,6 +758,12 @@ main() {
     persist_env_var "RADARR_API_KEY" "$RADARR_API_KEY"
     persist_env_var "PROWLARR_API_KEY" "$PROWLARR_API_KEY"
     persist_env_var "BAZARR_API_KEY" "$BAZARR_API_KEY"
+
+    log_section "Disabling Analytics"
+
+    disable_analytics "Sonarr" "8989" "$SONARR_API_KEY" "v3"
+    disable_analytics "Radarr" "7878" "$RADARR_API_KEY" "v3"
+    disable_analytics "Prowlarr" "9696" "$PROWLARR_API_KEY" "v1"
 
     log_section "Configuring qBittorrent Authentication"
 
