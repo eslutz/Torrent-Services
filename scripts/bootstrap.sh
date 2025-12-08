@@ -99,92 +99,17 @@ wait_for_service() {
         attempt=$((attempt + 1))
     done
 
-// ...existing code...
     log_error "$name failed to become ready after $max_attempts attempts"
     return 1
 }
 
-# =============================================================================
-# Connection Check Functions
-# =============================================================================
-// ...existing code...
 
-check_download_client_exists() {
-    local port="$1"
-    local api_key="$2"
-    local client_name="$3"
-    local result
-    result=$(curl -s "http://localhost:$port/api/v3/downloadclient" \
-        -H "X-Api-Key: $api_key" | jq -r ".[] | select(.name == \"$client_name\") | .name" 2>/dev/null)
-    [ "$result" = "$client_name" ]
-}
 
 # =============================================================================
 # Configuration Functions
 # =============================================================================
 
 
-
-
-
-
-
-
-
-disable_analytics() {
-    local service_name="$1"
-    local port="$2"
-    local api_key="$3"
-    local api_ver="$4"
-
-    log_info "Checking analytics settings for $service_name..."
-
-    local url="http://localhost:${port}/api/${api_ver}/config/host"
-    local current_config
-    current_config=$(curl -s -H "X-Api-Key: $api_key" "$url")
-
-    # Check if we got valid JSON
-    if ! echo "$current_config" | jq -e . >/dev/null 2>&1; then
-        log_error "Failed to retrieve config for $service_name"
-        return 1
-    fi
-
-    local is_enabled
-    is_enabled=$(echo "$current_config" | jq -r '.analyticsEnabled')
-
-    if [ "$is_enabled" = "false" ]; then
-        log_success "Analytics already disabled for $service_name"
-        return 0
-    fi
-
-    log_info "Disabling analytics for $service_name..."
-
-    # Create updated config
-    local updated_config
-    updated_config=$(echo "$current_config" | jq '.analyticsEnabled = false')
-
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X PUT "$url" \
-        -H "X-Api-Key: $api_key" \
-        -H "Content-Type: application/json" \
-        -d "$updated_config")
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [ "$http_code" = "200" ] || [ "$http_code" = "202" ]; then
-        log_success "Analytics disabled for $service_name"
-
-        log_info "Restarting $service_name to apply changes..."
-        local container_name=$(echo "$service_name" | tr '[:upper:]' '[:lower:]')
-        docker restart "$container_name" >/dev/null
-
-        wait_for_service "$service_name" "http://localhost:${port}/ping"
-    else
-        log_error "Failed to disable analytics for $service_name (HTTP $http_code)"
-        return 1
-    fi
-}
 
 # =============================================================================
 # Main Execution
@@ -244,10 +169,6 @@ main() {
         log_error "Failed to extract API keys"
         exit 1
     fi
-
-    log_section "Disabling Analytics"
-// ...existing code...
-
 
     log_section "Configuring qBittorrent"
 

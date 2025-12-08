@@ -219,6 +219,33 @@ def configure_general_settings(bazarr_api_key):
         log(f"Failed to configure Bazarr general settings: {e}", "ERROR")
         # Don't exit here, as this is optional configuration
 
+def disable_analytics(api_key):
+    log("Checking analytics settings...", "INFO")
+    headers = get_headers(api_key)
+    
+    try:
+        resp = requests.get(f"{BAZARR_URL}/api/system/settings", headers=headers)
+        resp.raise_for_status()
+        settings = resp.json()
+        
+        if settings.get("general", {}).get("analytics_enabled") is False:
+            log("Analytics already disabled", "SUCCESS")
+            return
+
+        log("Disabling analytics...", "INFO")
+        
+        payload = {
+            "general": {
+                "analytics_enabled": False
+            }
+        }
+        
+        requests.post(f"{BAZARR_URL}/api/system/settings", headers=headers, json=payload).raise_for_status()
+        log("Analytics disabled", "SUCCESS")
+        
+    except Exception as e:
+        log(f"Failed to disable analytics: {e}", "ERROR")
+
 def main():
     log("Starting Bazarr setup...", "INFO")
     
@@ -227,6 +254,7 @@ def main():
     radarr_api_key = get_api_key("Radarr", "RADARR_API_KEY")
     
     wait_for_bazarr(bazarr_api_key)
+    disable_analytics(bazarr_api_key)
     
     configure_sonarr(bazarr_api_key, sonarr_api_key)
     configure_radarr(bazarr_api_key, radarr_api_key)
