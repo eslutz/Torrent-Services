@@ -66,39 +66,6 @@ log_section() {
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 }
 
-# Escape values so they can be safely written to .env
-escape_env_value() {
-    local value="$1"
-    value="${value//\\/\\\\}"
-    value="${value//\"/\\\"}"
-    echo "$value"
-}
-
-# Insert or update a key=value pair inside .env
-upsert_env_var() {
-    local key="$1"
-    local value_escaped
-    value_escaped=$(escape_env_value "$2")
-
-    if grep -q "^${key}=" "$ENV_FILE"; then
-        awk -v k="$key" -v v="$value_escaped" 'BEGIN{q="\""} $0 ~ "^"k"=" {print k "=" q v q; next} {print}' "$ENV_FILE" > "${ENV_FILE}.tmp"
-        mv "${ENV_FILE}.tmp" "$ENV_FILE"
-    else
-        printf "\\n%s=\"%s\"\\n" "$key" "$value_escaped" >> "$ENV_FILE"
-    fi
-}
-
-persist_env_var() {
-    local key="$1"
-    local value="$2"
-    if [ -z "$value" ]; then
-        log_warning "Skipping ${key} persistence - value is empty"
-        return 0
-    fi
-    upsert_env_var "$key" "$value"
-    log_success "Saved ${key} to .env"
-}
-
 is_truthy() {
     case "$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')" in
         1|true|yes|on) return 0 ;;
@@ -132,47 +99,15 @@ wait_for_service() {
         attempt=$((attempt + 1))
     done
 
+// ...existing code...
     log_error "$name failed to become ready after $max_attempts attempts"
     return 1
-}
-
-
-
-# =============================================================================
-# API Key Extraction
-# =============================================================================
-
-get_sonarr_api_key() {
-    local config_file="$PROJECT_DIR/config/sonarr/config.xml"
-    if [ -f "$config_file" ]; then
-        grep '<ApiKey>' "$config_file" 2>/dev/null | sed -E 's/.*<ApiKey>([^<]+)<\/ApiKey>.*/\1/' || echo ""
-    fi
-}
-
-get_radarr_api_key() {
-    local config_file="$PROJECT_DIR/config/radarr/config.xml"
-    if [ -f "$config_file" ]; then
-        grep '<ApiKey>' "$config_file" 2>/dev/null | sed -E 's/.*<ApiKey>([^<]+)<\/ApiKey>.*/\1/' || echo ""
-    fi
-}
-
-get_prowlarr_api_key() {
-    local config_file="$PROJECT_DIR/config/prowlarr/config.xml"
-    if [ -f "$config_file" ]; then
-        grep '<ApiKey>' "$config_file" 2>/dev/null | sed -E 's/.*<ApiKey>([^<]+)<\/ApiKey>.*/\1/' || echo ""
-    fi
-}
-
-get_bazarr_api_key() {
-    local config_file="$PROJECT_DIR/config/bazarr/config/config.yaml"
-    if [ -f "$config_file" ]; then
-        grep -E '^\s+apikey:' "$config_file" | head -1 | awk '{print $2}' | tr -d "'" | tr -d '"' 2>/dev/null || echo ""
-    fi
 }
 
 # =============================================================================
 # Connection Check Functions
 # =============================================================================
+// ...existing code...
 
 check_download_client_exists() {
     local port="$1"
@@ -292,50 +227,26 @@ main() {
     wait_for_service "Prowlarr" "http://localhost:9696/ping"
     wait_for_service "Sonarr" "http://localhost:8989/ping"
     wait_for_service "Radarr" "http://localhost:7878/ping"
+// ...existing code...
     wait_for_service "Bazarr" "http://localhost:6767/ping"
     wait_for_service "qBittorrent" "http://localhost:8080"
 
-    log_section "Reading API Keys"
+    log_section "Extracting API Keys"
 
-    SONARR_API_KEY=$(get_sonarr_api_key)
-    RADARR_API_KEY=$(get_radarr_api_key)
-    PROWLARR_API_KEY=$(get_prowlarr_api_key)
-    BAZARR_API_KEY=$(get_bazarr_api_key)
-
-    if [ -z "$SONARR_API_KEY" ]; then
-        log_error "Could not read Sonarr API key from config"
+    log_info "Running API key extraction script..."
+    if python3 "$SCRIPT_DIR/setup/extract_api_keys.py"; then
+        log_success "API keys extracted and saved to .env"
+        # Reload .env to get the new keys
+        set -a
+        source "$PROJECT_DIR/.env"
+        set +a
+    else
+        log_error "Failed to extract API keys"
         exit 1
     fi
-    log_success "Sonarr API key: ${SONARR_API_KEY:0:8}..."
-
-    if [ -z "$RADARR_API_KEY" ]; then
-        log_error "Could not read Radarr API key from config"
-        exit 1
-    fi
-    log_success "Radarr API key: ${RADARR_API_KEY:0:8}..."
-
-    if [ -z "$PROWLARR_API_KEY" ]; then
-        log_error "Could not read Prowlarr API key from config"
-        exit 1
-    fi
-    log_success "Prowlarr API key: ${PROWLARR_API_KEY:0:8}..."
-
-    if [ -z "$BAZARR_API_KEY" ]; then
-        log_error "Could not read Bazarr API key from config"
-        exit 1
-    fi
-    log_success "Bazarr API key: ${BAZARR_API_KEY:0:8}..."
-
-    log_section "Persisting API Keys to .env"
-
-    persist_env_var "QBIT_USER" "$QBIT_USER"
-    persist_env_var "QBIT_PASS" "$QBIT_PASS"
-    persist_env_var "SONARR_API_KEY" "$SONARR_API_KEY"
-    persist_env_var "RADARR_API_KEY" "$RADARR_API_KEY"
-    persist_env_var "PROWLARR_API_KEY" "$PROWLARR_API_KEY"
-    persist_env_var "BAZARR_API_KEY" "$BAZARR_API_KEY"
 
     log_section "Disabling Analytics"
+// ...existing code...
 
 
     log_section "Configuring qBittorrent"

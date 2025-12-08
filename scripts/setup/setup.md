@@ -4,6 +4,7 @@ This directory contains Python scripts and configuration files for automating th
 
 ## Files
 
+- **`extract_api_keys.py`**: Extracts API keys from service configuration files and saves them to `.env`.
 - **`setup_prowlarr.py`**: Configures Prowlarr indexers, proxies, and application links.
 - **`setup_sonarr.py`**: Configures Sonarr media management, naming, root folders, and download clients.
 - **`setup_radarr.py`**: Configures Radarr media management, naming, root folders, and download clients.
