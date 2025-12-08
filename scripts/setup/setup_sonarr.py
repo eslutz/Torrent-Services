@@ -44,7 +44,7 @@ def load_config():
 
 CONFIG = load_config()
 SONARR_CONFIG = CONFIG.get("sonarr", {})
-SONARR_URL = SONARR_CONFIG.get("url", "http://localhost:8989")
+SONARR_URL = os.environ.get("SONARR_URL", SONARR_CONFIG.get("url", "http://localhost:8989"))
 
 def log(msg, level="INFO"):
     colors = {

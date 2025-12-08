@@ -44,7 +44,7 @@ def load_config():
 
 CONFIG = load_config()
 BAZARR_CONFIG = CONFIG.get("bazarr", {})
-BAZARR_URL = BAZARR_CONFIG.get("url", "http://localhost:6767")
+BAZARR_URL = os.environ.get("BAZARR_URL", BAZARR_CONFIG.get("url", "http://localhost:6767"))
 
 def log(msg, level="INFO"):
     colors = {

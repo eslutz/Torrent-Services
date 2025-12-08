@@ -401,6 +401,39 @@ services:
     mem_limit: ${AUTOHEAL_MEM_LIMIT:-128m}
     cpus: ${AUTOHEAL_CPUS:-0.1}
 
+  # Bootstrap - Orchestrates setup scripts
+  bootstrap:
+    image: python:3.11-alpine
+    container_name: bootstrap
+    profiles:
+      - bootstrap
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /app
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PROWLARR_URL=http://prowlarr:9696
+      - SONARR_URL=http://sonarr:8989
+      - RADARR_URL=http://radarr:7878
+      - BAZARR_URL=http://bazarr:6767
+      - QBIT_URL=http://gluetun:8080
+    command: >
+      sh -c "apk add --no-cache docker-cli docker-compose && pip install requests && python3 scripts/setup/bootstrap.py"
+    depends_on:
+      prowlarr:
+        condition: service_healthy
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+      bazarr:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_healthy
+    networks:
+      - torrent-services-network
+
 networks:
   torrent-services-network:
     name: torrent-net

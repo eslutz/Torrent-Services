@@ -45,8 +45,9 @@ docker compose up -d
 
 # 3. Configure authentication for each service (see Step 2 below for details)
 
-# 4. Run Bootstrap Script (automates API key extraction and connections)
-./scripts/bootstrap.sh
+# 4. Run Bootstrap Process (automates API key extraction and connections)
+# See scripts/setup/setup.md for more details
+docker compose --profile bootstrap up bootstrap
 
 # 5. Verify VPN and port forwarding
 docker exec gluetun wget -qO- https://protonwire.p3.pm/status/json
@@ -93,8 +94,8 @@ The docker compose stack ships with a lightweight Go qBittorrent exporter plus S
 
 #### Configuration
 
-- `./scripts/bootstrap.sh` reads API keys from each app and writes `SONARR_API_KEY`, `RADARR_API_KEY`, `PROWLARR_API_KEY`, and `BAZARR_API_KEY` into `.env`. Leave those values blank initially—the script will populate them for Scraparr.
-- Set `ENABLE_MONITORING_PROFILE=true` in `.env` before running the bootstrap script to automatically start the exporters, or launch them manually with `docker compose --profile monitoring up -d ...` once keys exist.
+- The bootstrap process (`docker compose --profile bootstrap up bootstrap`) reads API keys from each app and writes `SONARR_API_KEY`, `RADARR_API_KEY`, `PROWLARR_API_KEY`, and `BAZARR_API_KEY` into `.env`. Leave those values blank initially—the script will populate them for Scraparr.
+- Set `ENABLE_MONITORING_PROFILE=true` in `.env` before running the bootstrap process to automatically start the exporters, or launch them manually with `docker compose --profile monitoring up -d ...` once keys exist.
 - All exporter ports are bound to `127.0.0.1` to keep metrics private from the LAN. Point your Prometheus scrape config at the host loopback IP.
 
 | Exporter | Endpoint | Notes |
@@ -151,7 +152,7 @@ torrent-services/
 
 - **Config directories** are mounted to `/config` in each container
 - **Media directory** is mounted to `/media` in containers, providing a unified view of the data directory structure that allows all services to reference the same paths for media libraries and downloads
-- `.env` holds ProtonVPN credentials, qBittorrent credentials, and (after running `./scripts/bootstrap.sh`) the API keys required for the monitoring exporters.
+- `.env` holds ProtonVPN credentials, qBittorrent credentials, and (after running the bootstrap process) the API keys required for the monitoring exporters.
 - Optional CPU/RAM limits are controlled through `.env` (see **Resource Limit Overrides** below) so machines with different sizes can share the same compose file.
 
 ### Resource Limit Overrides
@@ -214,13 +215,13 @@ and re-run `docker compose up -d` to apply.
 
 > **Why manual setup?** Prowlarr, Sonarr, Radarr, and Bazarr use Forms-based authentication that must be configured through the web UI on first access. There is no API to set these credentials programmatically. The bootstrap script will automatically configure qBittorrent authentication (using credentials from your `.env` file) and extract API keys from all services after you complete the manual setup above.
 
-**After configuring authentication**, run the bootstrap script:
+**After configuring authentication**, run the bootstrap process:
 
 ```bash
-./scripts/bootstrap.sh
+docker compose --profile bootstrap up bootstrap
 ```
 
-The script will automatically:
+The process will automatically:
 - Configure qBittorrent authentication with your `.env` credentials
 - Extract API keys from all services
 - Connect Prowlarr → Sonarr/Radarr (indexer sync)
@@ -253,7 +254,7 @@ You should see logs like:
 
 ### Step 4: Manual Configuration (If Bootstrap Skipped)
 
-> **Note:** The `bootstrap.sh` script handles all of this automatically. Only follow these steps if you prefer manual configuration.
+> **Note:** The bootstrap process handles all of this automatically. Only follow these steps if you prefer manual configuration.
 
 #### Configure Prowlarr Indexers
 
@@ -484,7 +485,8 @@ When configuring services to talk to each other:
 
 ### Internal Docs
 
-- **[Bootstrap](./docs/BOOTSTRAP.md)** - Automated service configuration and inter-service connections
+- **[Setup & Bootstrap](./scripts/setup/setup.md)** - Automated service configuration and inter-service connections
+- **[Setup Scripts](./scripts/setup/setup.md)** - Detailed documentation for the Python setup scripts
 - **[Healthcheck](./docs/HEALTHCHECK.md)** - Container health monitoring and autoheal system
 - **[Monitoring](./docs/MONITORING.md)** - Prometheus metrics exporters setup
 

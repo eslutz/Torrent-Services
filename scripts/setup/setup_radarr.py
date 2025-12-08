@@ -43,7 +43,7 @@ def load_config():
         sys.exit(1)
 
 CONFIG = load_config()
-RADARR_URL = CONFIG.get("radarr", {}).get("url", "http://localhost:7878")
+RADARR_URL = os.environ.get("RADARR_URL", CONFIG.get("radarr", {}).get("url", "http://localhost:7878"))
 
 def log(msg, level="INFO"):
     colors = {

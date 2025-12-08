@@ -44,7 +44,7 @@ def load_config():
 
 CONFIG = load_config()
 PROWLARR_CONFIG = CONFIG.get("prowlarr", {})
-PROWLARR_URL = PROWLARR_CONFIG.get("url", "http://localhost:9696")
+PROWLARR_URL = os.environ.get("PROWLARR_URL", PROWLARR_CONFIG.get("url", "http://localhost:9696"))
 
 def log(msg, level="INFO"):
     colors = {

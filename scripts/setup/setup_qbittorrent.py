@@ -46,7 +46,7 @@ def load_config():
 
 CONFIG = load_config()
 QBIT_CONFIG = CONFIG.get("qbittorrent", {})
-QBIT_URL = QBIT_CONFIG.get("url", "http://localhost:8080")
+QBIT_URL = os.environ.get("QBIT_URL", QBIT_CONFIG.get("url", "http://localhost:8080"))
 
 def log(msg, level="INFO"):
     colors = {
