@@ -136,148 +136,7 @@ wait_for_service() {
     return 1
 }
 
-# =============================================================================
-# qBittorrent Credential Management
-# =============================================================================
 
-get_qbittorrent_temp_password() {
-    # Extract temporary password from qBittorrent logs if it exists
-    # Checks entire log to handle cases where bootstrap is run long after container startup
-    docker logs qbittorrent 2>&1 | grep "temporary password" | tail -1 | sed -E 's/.*temporary password is provided for this session: ([A-Za-z0-9]+).*/\1/' || echo ""
-}
-
-check_qbittorrent_auth() {
-    local user="$1"
-    local pass="$2"
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:8080/api/v2/auth/login" \
-        --data-urlencode "username=$user" \
-        --data-urlencode "password=$pass")
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-    local body
-    body=$(echo "$response" | sed '$d')
-    
-    # Log authentication attempts for debugging
-    if [ "$http_code" = "200" ]; then
-        if [ "$body" = "Ok." ]; then
-            log_info "Authentication successful for user: $user (password configured)"
-            return 0
-        else
-            log_warning "Authentication failed for user: $user (Response: $body)"
-            return 1
-        fi
-    else
-        log_info "Authentication failed for user: $user (HTTP $http_code)"
-        return 1
-    fi
-}
-
-update_qbittorrent_credentials() {
-    local current_user="$1"
-    local current_pass="$2"
-    local new_user="$3"
-    local new_pass="$4"
-
-    log_info "Updating qBittorrent credentials to match .env..."
-
-    # First, login with current credentials to get session cookie
-    local cookie
-    cookie=$(curl -s -i -X POST "http://localhost:8080/api/v2/auth/login" \
-        --data-urlencode "username=$current_user" \
-        --data-urlencode "password=$current_pass" | \
-        grep -i "set-cookie:" | sed -E 's/.*SID=([^;]+).*/SID=\1/')
-
-    if [ -z "$cookie" ]; then
-        log_error "Failed to authenticate with qBittorrent"
-        return 1
-    fi
-
-    # Disable authentication bypass (must be off to set credentials)
-    curl -s -X POST "http://localhost:8080/api/v2/app/setPreferences" \
-        -H "Cookie: $cookie" \
-        --data-urlencode "json={\"web_ui_upnp\":false,\"bypass_local_auth\":false,\"bypass_auth_subnet_whitelist_enabled\":false}" >/dev/null
-
-    # Update preferences with new credentials
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:8080/api/v2/app/setPreferences" \
-        -H "Cookie: $cookie" \
-        --data-urlencode "json={\"web_ui_username\":\"$new_user\",\"web_ui_password\":\"$new_pass\"}")
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [ "$http_code" = "200" ]; then
-        log_success "qBittorrent credentials updated"
-        
-        # Wait a moment for qBittorrent to save config
-        sleep 2
-        
-        # Verify the new credentials work
-        if check_qbittorrent_auth "$new_user" "$new_pass"; then
-            log_success "New credentials verified successfully"
-            return 0
-        else
-            log_warning "Credentials may not have persisted - retrying after restart"
-            docker restart qbittorrent >/dev/null 2>&1
-            sleep 10
-            
-            # Try again with temporary password if it was regenerated
-            local temp_pass
-            temp_pass=$(get_qbittorrent_temp_password)
-            if [ -n "$temp_pass" ] && check_qbittorrent_auth "admin" "$temp_pass"; then
-                log_info "Re-authenticated after restart, applying credentials again"
-                update_qbittorrent_credentials "admin" "$temp_pass" "$new_user" "$new_pass"
-                return $?
-            fi
-            return 1
-        fi
-    else
-        log_error "Failed to update qBittorrent credentials (HTTP $http_code)"
-        return 1
-    fi
-}
-
-configure_qbittorrent_auth() {
-    log_info "Checking qBittorrent authentication status..."
-
-    # 1. Check if .env credentials are already configured (Most likely scenario)
-    log_info "Checking if .env credentials are already configured..."
-    if check_qbittorrent_auth "$QBIT_USER" "$QBIT_PASS"; then
-        log_success "qBittorrent credentials already configured correctly"
-        return 0
-    fi
-    
-    # 2. Try to authenticate with admin/temporary password (indicates fresh install/no password set)
-    local temp_pass
-    temp_pass=$(get_qbittorrent_temp_password)
-
-    if [ -n "$temp_pass" ]; then
-        log_info "Found temporary password in logs: ${temp_pass:0:3}... (checking validity)"
-        if check_qbittorrent_auth "admin" "$temp_pass"; then
-            log_info "Temporary password is valid. Updating to .env credentials..."
-            update_qbittorrent_credentials "admin" "$temp_pass" "$QBIT_USER" "$QBIT_PASS"
-            return $?
-        fi
-    else
-        log_info "No temporary password found in logs"
-    fi
-
-    # 3. Try default admin/adminadmin (fresh install default)
-    log_info "Trying default credentials (admin/adminadmin)..."
-    if check_qbittorrent_auth "admin" "adminadmin"; then
-        log_info "Default credentials worked - setting to .env values"
-        update_qbittorrent_credentials "admin" "adminadmin" "$QBIT_USER" "$QBIT_PASS"
-        return $?
-    fi
-
-    # If we get here, we couldn't authenticate with any known credentials
-    log_error "Could not authenticate with qBittorrent using any known credentials"
-    log_info "Credentials may have been manually changed. Please verify:"
-    log_info "  Expected username: $QBIT_USER"
-    log_info "  You can reset by deleting config/qbittorrent and restarting"
-    return 1
-}
 
 # =============================================================================
 # API Key Extraction
@@ -315,14 +174,6 @@ get_bazarr_api_key() {
 # Connection Check Functions
 # =============================================================================
 
-check_prowlarr_app_exists() {
-    local app_name="$1"
-    local result
-    result=$(curl -s "http://localhost:9696/api/v1/applications" \
-        -H "X-Api-Key: $PROWLARR_API_KEY" | jq -r ".[] | select(.name == \"$app_name\") | .name" 2>/dev/null)
-    [ "$result" = "$app_name" ]
-}
-
 check_download_client_exists() {
     local port="$1"
     local api_key="$2"
@@ -337,288 +188,13 @@ check_download_client_exists() {
 # Configuration Functions
 # =============================================================================
 
-configure_prowlarr_sonarr() {
-    if check_prowlarr_app_exists "Sonarr"; then
-        log_success "Prowlarr → Sonarr already configured"
-        return 0
-    fi
 
-    log_info "Configuring Prowlarr → Sonarr..."
 
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:9696/api/v1/applications" \
-        -H "X-Api-Key: $PROWLARR_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "name": "Sonarr",
-            "syncLevel": "fullSync",
-            "implementation": "Sonarr",
-            "configContract": "SonarrSettings",
-            "fields": [
-                {"name": "prowlarrUrl", "value": "http://prowlarr:9696"},
-                {"name": "baseUrl", "value": "http://sonarr:8989"},
-                {"name": "apiKey", "value": "'"$SONARR_API_KEY"'"},
-                {"name": "syncCategories", "value": [5000, 5010, 5020, 5030, 5040, 5045, 5050]}
-            ],
-            "tags": []
-        }')
 
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
 
-    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
-        log_success "Prowlarr → Sonarr configured"
-    else
-        log_error "Failed to configure Prowlarr → Sonarr (HTTP $http_code)"
-        echo "$response" | sed '$d'
-        return 1
-    fi
-}
 
-configure_prowlarr_radarr() {
-    if check_prowlarr_app_exists "Radarr"; then
-        log_success "Prowlarr → Radarr already configured"
-        return 0
-    fi
 
-    log_info "Configuring Prowlarr → Radarr..."
 
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:9696/api/v1/applications" \
-        -H "X-Api-Key: $PROWLARR_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "name": "Radarr",
-            "syncLevel": "fullSync",
-            "implementation": "Radarr",
-            "configContract": "RadarrSettings",
-            "fields": [
-                {"name": "prowlarrUrl", "value": "http://prowlarr:9696"},
-                {"name": "baseUrl", "value": "http://radarr:7878"},
-                {"name": "apiKey", "value": "'"$RADARR_API_KEY"'"},
-                {"name": "syncCategories", "value": [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060]}
-            ],
-            "tags": []
-        }')
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
-        log_success "Prowlarr → Radarr configured"
-    else
-        log_error "Failed to configure Prowlarr → Radarr (HTTP $http_code)"
-        echo "$response" | sed '$d'
-        return 1
-    fi
-}
-
-configure_sonarr_qbittorrent() {
-    if check_download_client_exists "8989" "$SONARR_API_KEY" "qBittorrent"; then
-        log_success "Sonarr → qBittorrent already configured"
-        return 0
-    fi
-
-    log_info "Configuring Sonarr → qBittorrent..."
-
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:8989/api/v3/downloadclient" \
-        -H "X-Api-Key: $SONARR_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "name": "qBittorrent",
-            "enable": true,
-            "protocol": "torrent",
-            "priority": 1,
-            "removeCompletedDownloads": true,
-            "removeFailedDownloads": true,
-            "implementation": "QBittorrent",
-            "configContract": "QBittorrentSettings",
-            "fields": [
-                {"name": "host", "value": "gluetun"},
-                {"name": "port", "value": 8080},
-                {"name": "useSsl", "value": false},
-                {"name": "username", "value": "'"$QBIT_USER"'"},
-                {"name": "password", "value": "'"$QBIT_PASS"'"},
-                {"name": "tvCategory", "value": "tv"},
-                {"name": "recentTvPriority", "value": 0},
-                {"name": "olderTvPriority", "value": 0},
-                {"name": "initialState", "value": 0},
-                {"name": "sequentialOrder", "value": false},
-                {"name": "firstAndLast", "value": false}
-            ],
-            "tags": []
-        }')
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
-        log_success "Sonarr → qBittorrent configured"
-    else
-        log_error "Failed to configure Sonarr → qBittorrent (HTTP $http_code)"
-        echo "$response" | sed '$d'
-        return 1
-    fi
-}
-
-configure_radarr_qbittorrent() {
-    if check_download_client_exists "7878" "$RADARR_API_KEY" "qBittorrent"; then
-        log_success "Radarr → qBittorrent already configured"
-        return 0
-    fi
-
-    log_info "Configuring Radarr → qBittorrent..."
-
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:7878/api/v3/downloadclient" \
-        -H "X-Api-Key: $RADARR_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "name": "qBittorrent",
-            "enable": true,
-            "protocol": "torrent",
-            "priority": 1,
-            "removeCompletedDownloads": true,
-            "removeFailedDownloads": true,
-            "implementation": "QBittorrent",
-            "configContract": "QBittorrentSettings",
-            "fields": [
-                {"name": "host", "value": "gluetun"},
-                {"name": "port", "value": 8080},
-                {"name": "useSsl", "value": false},
-                {"name": "username", "value": "'"$QBIT_USER"'"},
-                {"name": "password", "value": "'"$QBIT_PASS"'"},
-                {"name": "movieCategory", "value": "movies"},
-                {"name": "recentMoviePriority", "value": 0},
-                {"name": "olderMoviePriority", "value": 0},
-                {"name": "initialState", "value": 0},
-                {"name": "sequentialOrder", "value": false},
-                {"name": "firstAndLast", "value": false}
-            ],
-            "tags": []
-        }')
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
-        log_success "Radarr → qBittorrent configured"
-    else
-        log_error "Failed to configure Radarr → qBittorrent (HTTP $http_code)"
-        echo "$response" | sed '$d'
-        return 1
-    fi
-}
-
-configure_bazarr_sonarr() {
-    # Check if already configured
-    local current_settings
-    current_settings=$(curl -s "http://localhost:6767/api/system/settings" \
-        -H "X-API-KEY: $BAZARR_API_KEY")
-
-    local use_sonarr
-    use_sonarr=$(echo "$current_settings" | jq -r '.general.use_sonarr' 2>/dev/null)
-
-    local sonarr_apikey
-    sonarr_apikey=$(echo "$current_settings" | jq -r '.sonarr.apikey' 2>/dev/null)
-
-    if [ "$use_sonarr" = "true" ] && [ "$sonarr_apikey" = "$SONARR_API_KEY" ]; then
-        log_success "Bazarr → Sonarr already configured"
-        return 0
-    fi
-
-    log_info "Configuring Bazarr → Sonarr..."
-
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:6767/api/system/settings" \
-        -H "X-API-KEY: $BAZARR_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "sonarr": {
-                "ip": "sonarr",
-                "port": 8989,
-                "base_url": "",
-                "ssl": false,
-                "apikey": "'"$SONARR_API_KEY"'",
-                "full_update": "Daily",
-                "full_update_day": 6,
-                "full_update_hour": 4,
-                "only_monitored": true,
-                "series_sync": 60,
-                "excluded_tags": [],
-                "excluded_series_types": []
-            },
-            "general": {
-                "use_sonarr": true
-            }
-        }')
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; then
-        log_success "Bazarr → Sonarr configured"
-    else
-        log_warning "Failed to configure Bazarr → Sonarr automatically (HTTP $http_code)"
-        log_info "Please configure manually: Settings → Sonarr → Add Sonarr server"
-        return 0
-    fi
-}
-
-configure_bazarr_radarr() {
-    # Check if already configured
-    local current_settings
-    current_settings=$(curl -s "http://localhost:6767/api/system/settings" \
-        -H "X-API-KEY: $BAZARR_API_KEY")
-
-    local use_radarr
-    use_radarr=$(echo "$current_settings" | jq -r '.general.use_radarr' 2>/dev/null)
-
-    local radarr_apikey
-    radarr_apikey=$(echo "$current_settings" | jq -r '.radarr.apikey' 2>/dev/null)
-
-    if [ "$use_radarr" = "true" ] && [ "$radarr_apikey" = "$RADARR_API_KEY" ]; then
-        log_success "Bazarr → Radarr already configured"
-        return 0
-    fi
-
-    log_info "Configuring Bazarr → Radarr..."
-
-    local response
-    response=$(curl -s -w "\n%{http_code}" -X POST "http://localhost:6767/api/system/settings" \
-        -H "X-API-KEY: $BAZARR_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "radarr": {
-                "ip": "radarr",
-                "port": 7878,
-                "base_url": "",
-                "ssl": false,
-                "apikey": "'"$RADARR_API_KEY"'",
-                "full_update": "Daily",
-                "full_update_day": 6,
-                "full_update_hour": 4,
-                "only_monitored": true,
-                "movies_sync": 60,
-                "excluded_tags": []
-            },
-            "general": {
-                "use_radarr": true
-            }
-        }')
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [ "$http_code" = "200" ] || [ "$http_code" = "204" ]; then
-        log_success "Bazarr → Radarr configured"
-    else
-        log_warning "Failed to configure Bazarr → Radarr automatically (HTTP $http_code)"
-        log_info "Please configure manually: Settings → Radarr → Add Radarr server"
-        return 0
-    fi
-}
 
 disable_analytics() {
     local service_name="$1"
@@ -761,28 +337,56 @@ main() {
 
     log_section "Disabling Analytics"
 
-    disable_analytics "Sonarr" "8989" "$SONARR_API_KEY" "v3"
-    disable_analytics "Radarr" "7878" "$RADARR_API_KEY" "v3"
-    disable_analytics "Prowlarr" "9696" "$PROWLARR_API_KEY" "v1"
 
-    log_section "Configuring qBittorrent Authentication"
+    log_section "Configuring qBittorrent"
 
-    configure_qbittorrent_auth
+    log_info "Running qBittorrent setup script..."
+    if python3 "$SCRIPT_DIR/setup/setup_qbittorrent.py"; then
+        log_success "qBittorrent setup completed"
+    else
+        log_error "qBittorrent setup failed"
+        exit 1
+    fi
 
-    log_section "Configuring Prowlarr Applications"
+    log_section "Configuring Prowlarr"
 
-    configure_prowlarr_sonarr
-    configure_prowlarr_radarr
+    log_info "Running Prowlarr setup script..."
+    if python3 "$SCRIPT_DIR/setup/setup_prowlarr.py"; then
+        log_success "Prowlarr setup completed"
+    else
+        log_error "Prowlarr setup failed"
+        exit 1
+    fi
 
-    log_section "Configuring Download Clients"
+    log_section "Configuring Sonarr"
 
-    configure_sonarr_qbittorrent
-    configure_radarr_qbittorrent
+    log_info "Running Sonarr setup script..."
+    if python3 "$SCRIPT_DIR/setup/setup_sonarr.py"; then
+        log_success "Sonarr setup completed"
+    else
+        log_error "Sonarr setup failed"
+        exit 1
+    fi
+
+    log_section "Configuring Radarr"
+
+    log_info "Running Radarr setup script..."
+    if python3 "$SCRIPT_DIR/setup/setup_radarr.py"; then
+        log_success "Radarr setup completed"
+    else
+        log_error "Radarr setup failed"
+        exit 1
+    fi
 
     log_section "Configuring Bazarr"
 
-    configure_bazarr_sonarr
-    configure_bazarr_radarr
+    log_info "Running Bazarr setup script..."
+    if python3 "$SCRIPT_DIR/setup/setup_bazarr.py"; then
+        log_success "Bazarr setup completed"
+    else
+        log_error "Bazarr setup failed"
+        exit 1
+    fi
 
     if is_truthy "$ENABLE_MONITORING_PROFILE"; then
         log_section "Starting Monitoring Stack"

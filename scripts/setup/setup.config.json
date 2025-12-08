@@ -1,0 +1,144 @@
+{
+    "prowlarr": {
+        "url": "http://localhost:9696",
+        "indexers": [
+            {
+                "name": "IPTorrents",
+                "priority": 1,
+                "secrets": [
+                    {"field": "cookie", "env": "IPTORRENTS_COOKIE"},
+                    {"field": "userAgent", "env": "IPTORRENTS_COOKIE_USER_AGENT"}
+                ]
+            },
+            {
+                "name": "1337x (Tor)",
+                "priority": 5,
+                "tags": ["tor-proxy"],
+                "fields": [
+                    {"name": "definitionFile", "value": "1337x-tor"}
+                ]
+            },
+            {
+                "name": "The Pirate Bay",
+                "priority": 12
+            },
+            {
+                "name": "Torrent Downloads",
+                "priority": 25
+            },
+            {
+                "name": "Knaben",
+                "priority": 35
+            },
+            {
+                "name": "Uindex",
+                "priority": 45
+            }
+        ]
+    },
+    "sonarr": {
+        "url": "http://localhost:8989",
+        "media_management": {
+            "copyUsingHardlinks": true,
+            "importExtraFiles": false,
+            "extraFileExtensions": "srt",
+            "enableMediaInfo": true
+        },
+        "naming": {
+            "renameEpisodes": true,
+            "replaceIllegalCharacters": true,
+            "multiEpisodeStyle": 5,
+            "standardEpisodeFormat": "{Series Title} {Series Year} - S{season:00}E{episode:00} - {Episode Title}",
+            "dailyEpisodeFormat": "{Series Title} - {Air-Date} - {Episode Title}",
+            "animeEpisodeFormat": "{Series Title} - S{season:00}E{episode:00} - {Episode Title}",
+            "seriesFolderFormat": "{Series Title} {Series Year}",
+            "seasonFolderFormat": "Season {season}",
+            "specialsFolderFormat": "Extras"
+        },
+        "root_folders": [
+            { "path": "/media/TV Shows" }
+        ],
+        "download_clients": [
+            {
+                "name": "qBittorrent",
+                "implementation": "QBittorrent",
+                "protocol": "torrent",
+                "fields": [
+                    {"name": "host", "value": "gluetun"},
+                    {"name": "port", "value": 8080},
+                    {"name": "useSsl", "value": false},
+                    {"name": "username", "env": "QBIT_USER"},
+                    {"name": "password", "env": "QBIT_PASS"},
+                    {"name": "tvCategory", "value": "tv"},
+                    {"name": "recentTvPriority", "value": 0},
+                    {"name": "olderTvPriority", "value": 0},
+                    {"name": "initialState", "value": 0}
+                ]
+            }
+        ]
+    },
+    "radarr": {
+        "url": "http://localhost:7878",
+        "media_management": {
+            "copyUsingHardlinks": true,
+            "importExtraFiles": false,
+            "extraFileExtensions": "srt",
+            "enableMediaInfo": true
+        },
+        "naming": {
+            "renameMovies": true,
+            "replaceIllegalCharacters": true,
+            "standardMovieFormat": "{Movie Title} ({Release Year}){ [Edition:ifexists]}{ [Quality Title]}{ [MediaInfo VideoDynamicRange:ifexists]}{ [MediaInfo AudioCodec}{ MediaInfo AudioChannels]}",
+            "movieFolderFormat": "{Movie Title} ({Release Year})"
+        },
+        "root_folders": [
+            { "path": "/media/Movies" }
+        ],
+        "download_clients": [
+            {
+                "name": "qBittorrent",
+                "implementation": "QBittorrent",
+                "protocol": "torrent",
+                "fields": [
+                    {"name": "host", "value": "gluetun"},
+                    {"name": "port", "value": 8080},
+                    {"name": "useSsl", "value": false},
+                    {"name": "username", "env": "QBIT_USER"},
+                    {"name": "password", "env": "QBIT_PASS"},
+                    {"name": "movieCategory", "value": "movies"},
+                    {"name": "recentMoviePriority", "value": 0},
+                    {"name": "olderMoviePriority", "value": 0},
+                    {"name": "initialState", "value": 0}
+                ]
+            }
+        ]
+    },
+    "bazarr": {
+        "url": "http://localhost:6767",
+        "general": {
+            "enabled_providers": ["addic7ed", "podnapisi", "opensubtitlescom"],
+            "adaptive_searching": true,
+            "minimum_score": 80,
+            "minimum_score_movie": 80,
+            "days_to_upgrade_subs": 7
+        }
+    },
+    "qbittorrent": {
+        "url": "http://localhost:8080",
+        "preferences": {
+            "save_path": "/media/downloads",
+            "temp_path": "/media/downloads/incomplete",
+            "temp_path_enabled": true,
+            "dht": true,
+            "pex": true,
+            "lsd": true,
+            "encryption": 1,
+            "anonymous_mode": true,
+            "reannounce_when_address_changed": true,
+            "queueing_enabled": true,
+            "max_active_torrents": 8,
+            "max_active_downloads": 3,
+            "max_active_uploads": 5
+        }
+    }
+}

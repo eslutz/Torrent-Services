@@ -139,6 +139,8 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
       - PROWLARR_API_KEY=${PROWLARR_API_KEY:-}
+      - COMPlus_EnableDiagnostics=0
+      - XDG_RUNTIME_DIR=/config/tmp
     volumes:
       - ./config/prowlarr:/config
       - ./scripts/healthchecks:/scripts:ro
@@ -150,13 +152,6 @@ services:
     restart: unless-stopped
     networks:
       - torrent-services-network
-    cap_drop:
-      - ALL
-    cap_add:
-      - SETUID
-      - SETGID
-    security_opt:
-      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/prowlarr.sh"]
       interval: 45s
@@ -193,13 +188,6 @@ services:
     stop_grace_period: 30s
     networks:
       - torrent-services-network
-    cap_drop:
-      - ALL
-    cap_add:
-      - SETUID
-      - SETGID
-    security_opt:
-      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/sonarr.sh"]
       interval: 45s
@@ -236,13 +224,6 @@ services:
     stop_grace_period: 30s
     networks:
       - torrent-services-network
-    cap_drop:
-      - ALL
-    cap_add:
-      - SETUID
-      - SETGID
-    security_opt:
-      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/radarr.sh"]
       interval: 45s
@@ -280,13 +261,6 @@ services:
     restart: unless-stopped
     networks:
       - torrent-services-network
-    cap_drop:
-      - ALL
-    cap_add:
-      - SETUID
-      - SETGID
-    security_opt:
-      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/bazarr.sh"]
       interval: 60s
