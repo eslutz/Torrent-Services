@@ -606,6 +606,11 @@ docker logs gluetun | grep -i "port forward"     # Check port forwarding logs
 2. Verify port is `8080`
 3. Test connection: `docker exec sonarr curl http://gluetun:8080`
 
+### Advanced Torrent Troubleshooting
+
+For issues with specific torrents (stalled, error state, path issues), use the included Python troubleshooting scripts.
+See the **[Troubleshooting Documentation](./scripts/troubleshooting/troubleshooting.md)** for full details.
+
 ## Security
 
 - Never commit `.env` (contains ProtonVPN credentials - excluded via `.gitignore`)
