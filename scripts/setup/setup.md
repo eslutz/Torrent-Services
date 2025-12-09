@@ -78,7 +78,7 @@ The configuration file is divided into sections for each service.
 The setup scripts run via the bootstrap orchestrator inside Docker Compose and are safe to re-run (idempotent):
 
 ```bash
-docker compose --profile bootstrap up bootstrap
+docker compose --profile bootstrap up
 ```
 
 This waits for services to be healthy, extracts API keys into `.env`, sets up authentication, and configures inter-service links.
@@ -134,7 +134,7 @@ Saved keys are reused by Prowlarr, Bazarr, and monitoring exporters.
 The orchestrator is idempotent; re-run the compose command any time to pick up new keys or credentials, or after deleting connections:
 
 ```bash
-docker compose --profile bootstrap up bootstrap
+docker compose --profile bootstrap up
 ```
 
 ## Verification

@@ -124,7 +124,7 @@ curl http://localhost:8080/api/v2/app/version
 
 **Checks**:
 
-When API keys are available (after running `bootstrap.sh`):
+When API keys are available (after the stack is running and you have run `docker compose --profile bootstrap up`):
 
 1. `/api/v*/health` endpoint responds with authentication
 2. Response contains no errors or warnings

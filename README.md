@@ -46,8 +46,8 @@ docker compose up -d
 # 3. Configure authentication for each service (see Step 2 below for details)
 
 # 4. Run Bootstrap Process (automates API key extraction and connections)
-# See scripts/setup/setup.md for more details
-docker compose --profile bootstrap up bootstrap
+# See scripts/setup/SETUP.md for more details
+docker compose --profile bootstrap up
 
 # 5. Verify VPN and port forwarding
 docker exec gluetun wget -qO- https://protonwire.p3.pm/status/json
@@ -94,7 +94,7 @@ The docker compose stack ships with a lightweight Go qBittorrent exporter plus S
 
 #### Configuration
 
-- The bootstrap process (`docker compose --profile bootstrap up bootstrap`) reads API keys from each app and writes `SONARR_API_KEY`, `RADARR_API_KEY`, `PROWLARR_API_KEY`, and `BAZARR_API_KEY` into `.env`. Leave those values blank initially—the script will populate them for Scraparr.
+- The bootstrap process (`docker compose --profile bootstrap up`) reads API keys from each app and writes `SONARR_API_KEY`, `RADARR_API_KEY`, `PROWLARR_API_KEY`, and `BAZARR_API_KEY` into `.env`. Leave those values blank initially—the script will populate them for Scraparr.
 - Set `ENABLE_MONITORING_PROFILE=true` in `.env` before running the bootstrap process to automatically start the exporters, or launch them manually with `docker compose --profile monitoring up -d ...` once keys exist.
 - All exporter ports are bound to `127.0.0.1` to keep metrics private from the LAN. Point your Prometheus scrape config at the host loopback IP.
 
@@ -199,34 +199,31 @@ and re-run `docker compose up -d` to apply.
    WIREGUARD_ADDRESSES=10.2.0.2/32
    ```
 
-### Step 2: Configure Authentication (Required)
+### Step 2: Configure Authentication
 
-**⚠️ IMPORTANT:** Before running the bootstrap script, you must configure authentication for each service.
+**Automated Setup:**
+The bootstrap script uses Playwright to automatically configure authentication for Prowlarr, Sonarr, Radarr, and Bazarr using the credentials in your `.env` file.
 
-**Access each service and set up authentication:**
+1.  **Define credentials in `.env`:**
+    Ensure you have set the following variables (defaults are provided in `.env.example`):
+    -   `QBIT_USER` / `QBIT_PASS`
+    -   `PROWLARR_USER` / `PROWLARR_PASS`
+    -   `SONARR_USER` / `SONARR_PASS`
+    -   `RADARR_USER` / `RADARR_PASS`
+    -   `BAZARR_USER` / `BAZARR_PASS`
 
-| Service | URL | Authentication Setup |
-|---------|-----|---------------------|
-| **Prowlarr** | <http://localhost:9696> | On first access: Select "Forms (Login Page)" → Create username/password |
-| **Sonarr** | <http://localhost:8989> | On first access: Select "Forms (Login Page)" → Create username/password |
-| **Radarr** | <http://localhost:7878> | On first access: Select "Forms (Login Page)" → Create username/password |
-| **Bazarr** | <http://localhost:6767> | Settings → General → Security: Select "Forms" → Create username/password |
-| **qBittorrent** | <http://localhost:8080> | ✅ Automated - bootstrap script configures this |
+2.  **Run the Bootstrap Process:**
+    ```bash
+    docker compose --profile bootstrap up
+    ```
 
-> **Why manual setup?** Prowlarr, Sonarr, Radarr, and Bazarr use Forms-based authentication that must be configured through the web UI on first access. There is no API to set these credentials programmatically. The bootstrap script will automatically configure qBittorrent authentication (using credentials from your `.env` file) and extract API keys from all services after you complete the manual setup above.
+    The process will automatically:
+    -   Initialize authentication for all services.
+    -   Configure qBittorrent authentication.
+    -   Extract API keys from all services.
+    -   Configure inter-service connections.
 
-**After configuring authentication**, run the bootstrap process:
-
-```bash
-docker compose --profile bootstrap up bootstrap
-```
-
-The process will automatically:
-- Configure qBittorrent authentication with your `.env` credentials
-- Extract API keys from all services
-- Connect Prowlarr → Sonarr/Radarr (indexer sync)
-- Connect Sonarr/Radarr → qBittorrent (download client)
-- Connect Bazarr → Sonarr/Radarr (subtitle integration)
+> **Note:** If you have already manually configured authentication via the Web UI, the script will detect this and proceed to API key extraction.
 
 ### Step 3: Verify Automatic Port Forwarding
 
@@ -485,8 +482,8 @@ When configuring services to talk to each other:
 
 ### Internal Docs
 
-- **[Setup & Bootstrap](./scripts/setup/setup.md)** - Automated service configuration and inter-service connections
-- **[Setup Scripts](./scripts/setup/setup.md)** - Detailed documentation for the Python setup scripts
+- **[Setup & Bootstrap](./scripts/setup/SETUP.md)** - Automated service configuration and inter-service connections
+- **[Setup Scripts](./scripts/setup/SETUP.md)** - Detailed documentation for the Python setup scripts
 - **[Healthcheck](./docs/HEALTHCHECK.md)** - Container health monitoring and autoheal system
 - **[Monitoring](./docs/MONITORING.md)** - Prometheus metrics exporters setup
 
@@ -611,7 +608,7 @@ docker logs gluetun | grep -i "port forward"     # Check port forwarding logs
 ### Advanced Torrent Troubleshooting
 
 For issues with specific torrents (stalled, error state, path issues), use the included Python troubleshooting scripts.
-See the **[Troubleshooting Documentation](./scripts/troubleshooting/troubleshooting.md)** for full details.
+See the **[Troubleshooting Documentation](./scripts/troubleshooting/TROUBLESHOOTING.md)** for full details.
 
 ## Security
 

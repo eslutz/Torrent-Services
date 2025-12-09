@@ -37,7 +37,10 @@ These exporters expose metrics at `/metrics` endpoints in Prometheus format. The
 
 ### Prerequisites
 
-1. Run `./scripts/bootstrap.sh` first—it extracts API keys and saves them to `.env`
+1. Run the bootstrap process first—it extracts API keys and saves them to `.env`
+   ```bash
+   docker compose --profile bootstrap up
+   ```
 2. API keys in `.env`: `SONARR_API_KEY`, `RADARR_API_KEY`, `PROWLARR_API_KEY`, `BAZARR_API_KEY`
 
 ### Start Monitoring
@@ -51,7 +54,7 @@ Set `ENABLE_MONITORING_PROFILE=true` in `.env` before running bootstrap:
 ENABLE_MONITORING_PROFILE=true
 
 # Bootstrap will start monitoring containers automatically
-./scripts/bootstrap.sh
+docker compose --profile bootstrap up
 ```
 
 **Option B. Manual start:**
@@ -191,7 +194,7 @@ API keys are missing or incorrect:
 grep "_API_KEY" .env
 
 # If empty, re-run bootstrap
-./scripts/bootstrap.sh
+docker compose --profile bootstrap up
 ```
 
 ### Exporter Container Won't Start
