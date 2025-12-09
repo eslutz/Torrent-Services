@@ -81,8 +81,8 @@ def main():
     load_env()
 
     # Validate required environment variables
-    if not os.environ.get("QBIT_USER") or not os.environ.get("QBIT_PASS"):
-        log("QBIT_USER and QBIT_PASS must be set in .env", "ERROR")
+    if not os.environ.get("SERVICE_USER"):
+        log("SERVICE_USER must be set in .env", "ERROR")
         sys.exit(1)
 
     # Determine URLs (use env vars if set, else default to localhost for host execution)
@@ -106,6 +106,9 @@ def main():
     # Reload env to get the new keys
     load_env()
 
+    # Run Authentication Setup (Playwright)
+    run_script("setup_auth.py")
+
     # Run Setup Scripts
     run_script("setup_qbittorrent.py")
     run_script("setup_prowlarr.py")
@@ -116,11 +119,29 @@ def main():
     # Monitoring
     if os.environ.get("ENABLE_MONITORING_PROFILE", "").lower() in ["true", "1", "yes", "on"]:
         log("Starting Monitoring Stack...", "INFO")
+        
+        # Handle Docker-in-Docker volume mounting issues on macOS/Windows
+        # We need to tell docker-compose to use the HOST's path for relative volumes,
+        # not the container's path (/app), otherwise bind mounts will be empty/broken.
+        host_project_dir = os.environ.get("HOST_PROJECT_DIR")
+        env = os.environ.copy()
+        
+        if host_project_dir:
+            log(f"Detected host project directory: {host_project_dir}", "INFO")
+            env["COMPOSE_PROJECT_DIR"] = host_project_dir
+        else:
+            log("HOST_PROJECT_DIR not set. Volume mounts for monitoring stack might fail or be empty.", "WARNING")
+
         try:
-            subprocess.run(["docker", "compose", "--profile", "monitoring", "up", "-d"], check=True)
+            subprocess.run(
+                ["docker", "compose", "--profile", "monitoring", "up", "-d"], 
+                env=env,
+                check=True
+            )
             log("Monitoring stack started", "SUCCESS")
         except (subprocess.CalledProcessError, FileNotFoundError):
-            log("Failed to start monitoring stack (docker compose not found or failed)", "WARNING")
+            log("Failed to auto-start monitoring stack.", "WARNING")
+            log("You can start it manually by running: docker compose --profile monitoring up -d", "INFO")
 
     print("")
     print("\033[0;32m╔══════════════════════════════════════════════════════════════╗\033[0m")

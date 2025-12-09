@@ -6,6 +6,7 @@ This directory contains Python scripts and configuration files for automating th
 
 - **`bootstrap.py`**: The main orchestrator script that runs health checks, extracts keys, and executes service setup scripts.
 - **`extract_api_keys.py`**: Extracts API keys from service configuration files and saves them to `.env`.
+- **`setup_auth.py`**: Automates the initial authentication setup for all services using Playwright.
 - **`setup_prowlarr.py`**: Configures Prowlarr indexers, proxies, and application links.
 - **`setup_sonarr.py`**: Configures Sonarr media management, naming, root folders, and download clients.
 - **`setup_radarr.py`**: Configures Radarr media management, naming, root folders, and download clients.
@@ -20,9 +21,10 @@ This directory contains Python scripts and configuration files for automating th
     -   Credentials: `QBIT_USER`, `QBIT_PASS`.
     -   Secrets: e.g., `IPTORRENTS_COOKIE`.
 2.  **Python Dependencies**:
-    -   `requests` library is required.
+    -   `requests` and `playwright` libraries are required.
     ```bash
-    pip install requests
+    pip install requests playwright
+    playwright install chromium
     ```
 
 ## Configuration (`setup.config.json`)
@@ -79,7 +81,15 @@ The setup scripts run via the bootstrap orchestrator inside Docker Compose and a
 docker compose --profile bootstrap up bootstrap
 ```
 
-This waits for services to be healthy, extracts API keys into `.env`, and configures inter-service links.
+This waits for services to be healthy, extracts API keys into `.env`, sets up authentication, and configures inter-service links.
+
+#### With Monitoring
+
+To automatically start the monitoring stack (Prometheus exporters) after setup:
+
+1.  Set `ENABLE_MONITORING_PROFILE="true"` in `.env`.
+2.  **Windows Users**: Set `HOST_PROJECT_DIR` in `.env` to your project path (e.g., `C:\Users\Name\Docker\Torrent-Services`).
+3.  Run the bootstrap command as usual.
 
 ### Manual execution
 
@@ -96,8 +106,10 @@ python3 scripts/setup/setup_sonarr.py
 ## What the bootstrap orchestrator does
 
 - Zero-config in Git: services generate configs and API keys on first boot; secrets stay out of Git.
-- Waits for health, reads API keys from configs, writes them to `.env`, and runs the service setup scripts.
-- Configures authentication and all inter-service connections (Prowlarr↔Sonarr/Radarr, Sonarr/Radarr→qBittorrent, Bazarr→Sonarr/Radarr).
+- Waits for health, reads API keys from configs, writes them to `.env`.
+- **Sets up Authentication**: Uses Playwright to automatically set the username and password for Prowlarr, Sonarr, Radarr, and Bazarr based on `.env` credentials.
+- Configures all inter-service connections (Prowlarr↔Sonarr/Radarr, Sonarr/Radarr→qBittorrent, Bazarr→Sonarr/Radarr).
+- Optionally starts the monitoring stack.
 
 ## Authentication and API keys
 

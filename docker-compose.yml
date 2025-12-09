@@ -403,7 +403,7 @@ services:
 
   # Bootstrap - Orchestrates setup scripts
   bootstrap:
-    image: python:3.11-alpine
+    image: mcr.microsoft.com/playwright/python:v1.49.0-jammy
     container_name: bootstrap
     profiles:
       - bootstrap
@@ -418,8 +418,11 @@ services:
       - RADARR_URL=http://radarr:7878
       - BAZARR_URL=http://bazarr:6767
       - QBIT_URL=http://gluetun:8080
+      # Pass host project directory for correct volume mounting in dind
+      # Uses HOST_PROJECT_DIR from .env if set (Windows), otherwise falls back to shell PWD (macOS/Linux)
+      - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-${PWD}}
     command: >
-      sh -c "apk add --no-cache docker-cli docker-compose && pip install requests && python3 scripts/setup/bootstrap.py"
+      sh -c "apt-get update && apt-get install -y docker.io docker-compose-plugin && pip install requests && python3 scripts/setup/bootstrap.py"
     depends_on:
       prowlarr:
         condition: service_healthy

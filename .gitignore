@@ -96,4 +96,9 @@ backups/
 logs/
 !logs/.gitkeep
 
+# Python
+venv/
+__pycache__/
+*.py[cod]
+
 # End of https://www.toptal.com/developers/gitignore/api/macos,visualstudiocode

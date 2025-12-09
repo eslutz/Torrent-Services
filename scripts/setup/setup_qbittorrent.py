@@ -2,8 +2,6 @@ import os
 import json
 import requests
 import sys
-import subprocess
-import re
 from common import load_env, load_config, log, get_api_key
 
 load_env()
@@ -11,20 +9,6 @@ load_env()
 CONFIG = load_config()
 QBIT_CONFIG = CONFIG.get("qbittorrent", {})
 QBIT_URL = os.environ.get("QBIT_URL", QBIT_CONFIG.get("url", "http://localhost:8080"))
-
-def get_qbittorrent_temp_password():
-    try:
-        # Run docker logs command
-        result = subprocess.check_output(["docker", "logs", "qbittorrent"], stderr=subprocess.STDOUT)
-        logs = result.decode("utf-8")
-        
-        # Find the temporary password
-        match = re.search(r"temporary password is provided for this session: ([A-Za-z0-9]+)", logs)
-        if match:
-            return match.group(1)
-    except Exception as e:
-        log(f"Failed to check docker logs: {e}", "WARNING")
-    return None
 
 def login(username, password):
     try:
@@ -44,8 +28,10 @@ def login(username, password):
     return None
 
 def authenticate():
-    target_user = get_api_key("QBIT_USER")
-    target_pass = get_api_key("QBIT_PASS")
+
+def authenticate():
+    target_user = get_api_key("SERVICE_USER")
+    target_pass = get_api_key("QBIT_PASSWORD")
     
     log("Checking qBittorrent authentication status...", "INFO")
     
@@ -56,19 +42,7 @@ def authenticate():
         log("Authenticated with .env credentials", "SUCCESS")
         return session
         
-    # 2. Try temp password
-    temp_pass = get_qbittorrent_temp_password()
-    if temp_pass:
-        log(f"Found temporary password: {temp_pass}", "INFO")
-        session = login("admin", temp_pass)
-        if session:
-            log("Authenticated with temporary password", "SUCCESS")
-            update_credentials(session, target_user, target_pass)
-            return session
-    else:
-        log("No temporary password found in logs", "INFO")
-        
-    log("Could not authenticate with qBittorrent using any known credentials", "ERROR")
+    log("Could not authenticate with qBittorrent using .env credentials. Ensure setup_auth.py ran successfully.", "ERROR")
     sys.exit(1)
 
 def update_credentials(session, new_user, new_pass):
