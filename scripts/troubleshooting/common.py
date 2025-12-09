@@ -143,3 +143,14 @@ class QBitClient:
         except Exception as e:
             print(f"Error adding torrent: {e}")
             return False
+
+    def get_preferences(self):
+        if not self.login(): return {}
+        url = f"{self.config.base_url}/api/v2/app/preferences"
+        try:
+            response = self.session.get(url)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error getting preferences: {e}")
+            return {}

@@ -135,6 +135,7 @@
             "encryption": 1,
             "anonymous_mode": true,
             "reannounce_when_address_changed": true,
+            "auto_delete_mode": 1,
             "queueing_enabled": true,
             "max_active_torrents": 8,
             "max_active_downloads": 3,

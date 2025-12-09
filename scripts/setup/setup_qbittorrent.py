@@ -28,8 +28,6 @@ def login(username, password):
     return None
 
 def authenticate():
-
-def authenticate():
     target_user = get_api_key("SERVICE_USER")
     target_pass = get_api_key("QBIT_PASSWORD")
     
