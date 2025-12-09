@@ -10,7 +10,7 @@ This directory contains Python scripts and configuration files for automating th
 - **`setup_prowlarr.py`**: Configures Prowlarr indexers, proxies, and application links.
 - **`setup_sonarr.py`**: Configures Sonarr media management, naming, root folders, and download clients.
 - **`setup_radarr.py`**: Configures Radarr media management, naming, root folders, and download clients.
-- **`setup_bazarr.py`**: Configures Bazarr providers and links to Sonarr/Radarr.
+- **`setup_bazarr.py`**: Configures Bazarr subtitle providers, language profiles, scoring settings, and links to Sonarr/Radarr. Uses direct YAML and database modification for reliable persistence.
 - **`setup_qbittorrent.py`**: Configures qBittorrent authentication and preferences.
 - **`setup.config.json`**: The central configuration file defining settings for all services.
 
@@ -55,7 +55,10 @@ The configuration file is divided into sections for each service.
     },
     "bazarr": {
         "url": "http://localhost:6767",
-        "general": { ... }
+        "general": { ... },
+        "sonarr": { ... },
+        "radarr": { ... },
+        "language_profiles": [ ... ]
     },
     "qbittorrent": {
         "url": "http://localhost:8080",
@@ -68,6 +71,7 @@ The configuration file is divided into sections for each service.
 
 -   **Prowlarr Indexers**: Defines indexers, priorities, and secrets (mapped to `.env`).
 -   **Sonarr/Radarr Naming**: Defines file and folder naming formats.
+-   **Bazarr Configuration**: Defines subtitle providers, language profiles, scoring thresholds, and service integrations. Note: Bazarr settings are applied via direct YAML file and SQLite database modification (not API) to ensure persistence.
 -   **Download Clients**: Configures the connection to qBittorrent (using `.env` credentials).
 -   **qBittorrent Preferences**: Sets internal qBittorrent settings (e.g., paths, limits).
 
@@ -128,6 +132,7 @@ Saved keys are reused by Prowlarr, Bazarr, and monitoring exporters.
 - Prowlarr → Sonarr/Radarr (apps) using each app's API key.
 - Sonarr/Radarr → qBittorrent download client using `QBIT_USER`/`QBIT_PASS`.
 - Bazarr → Sonarr/Radarr using their API keys.
+  - **Note**: Bazarr configuration includes subtitle providers (Addic7ed, Podnapisi, OpenSubtitles), language profiles, minimum scoring thresholds, and adaptive search settings.
 
 ## Re-running bootstrap
 
@@ -141,7 +146,10 @@ docker compose --profile bootstrap up
 
 - Prowlarr UI: Settings → Apps shows Sonarr and Radarr.
 - Sonarr/Radarr UI: Settings → Download Clients shows qBittorrent (tests green).
-- Bazarr UI: Settings shows Sonarr/Radarr connected.
+- Bazarr UI: 
+  - Settings → General shows enabled providers (Addic7ed, Podnapisi, OpenSubtitles) and minimum score thresholds.
+  - Settings → Languages shows configured language profiles (e.g., "English", "Forced English").
+  - Settings → Sonarr/Radarr shows connected services.
 - Optional end-to-end: search and grab an item; confirm it lands in qBittorrent with the right category.
 
 ## Troubleshooting

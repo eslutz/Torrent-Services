@@ -314,6 +314,8 @@ Since qBittorrent runs inside Gluetun's network, access it via `gluetun:8080`
 
 #### Configure Bazarr with Sonarr and Radarr
 
+> **Note**: The bootstrap script automatically configures Bazarr including Sonarr/Radarr connections, subtitle providers (Addic7ed, Podnapisi, OpenSubtitles), language profiles, and scoring settings. Manual configuration is only needed if customizing beyond the defaults in `scripts/setup/setup.config.json`.
+
 **Connect Bazarr to Sonarr (TV Subtitles):**
 
 1. Go to `http://localhost:6767`

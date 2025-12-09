@@ -116,12 +116,64 @@
     "bazarr": {
         "url": "http://localhost:6767",
         "general": {
+            "analytics_enabled": false,
+            "use_sonarr": true,
+            "use_radarr": true,
             "enabled_providers": ["addic7ed", "podnapisi", "opensubtitlescom"],
             "adaptive_searching": true,
             "minimum_score": 80,
             "minimum_score_movie": 80,
             "days_to_upgrade_subs": 7
-        }
+        },
+        "sonarr": {
+            "ip": "sonarr",
+            "port": 8989,
+            "base_url": "",
+            "ssl": false,
+            "full_update": "Daily",
+            "full_update_day": 6,
+            "full_update_hour": 4,
+            "only_monitored": true,
+            "series_sync": 60,
+            "excluded_tags": [],
+            "excluded_series_types": []
+        },
+        "radarr": {
+            "ip": "radarr",
+            "port": 7878,
+            "base_url": "",
+            "ssl": false,
+            "full_update": "Daily",
+            "full_update_day": 6,
+            "full_update_hour": 4,
+            "only_monitored": true,
+            "movies_sync": 60,
+            "excluded_tags": []
+        },
+        "language_profiles": [
+            {
+                "name": "English",
+                "languages": [
+                    {
+                        "language": "en",
+                        "forced": false,
+                        "hi": false,
+                        "audio_exclude": "False"
+                    }
+                ]
+            },
+            {
+                "name": "Forced English",
+                "languages": [
+                    {
+                        "language": "en",
+                        "forced": true,
+                        "hi": false,
+                        "audio_exclude": "False"
+                    }
+                ]
+            }
+        ]
     },
     "qbittorrent": {
         "url": "http://localhost:8080",

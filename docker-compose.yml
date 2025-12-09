@@ -319,7 +319,7 @@ services:
       qbittorrent:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8090:8090"
+      - "8090:8090"
     networks:
       - torrent-services-network
     restart: unless-stopped
@@ -362,7 +362,7 @@ services:
       bazarr:
         condition: service_healthy
     ports:
-      - "127.0.0.1:7100:7100"
+      - "7100:7100"
     networks:
       - torrent-services-network
     restart: unless-stopped
