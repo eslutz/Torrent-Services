@@ -51,7 +51,7 @@
             "standardEpisodeFormat": "{Series Title} {Series Year} - S{season:00}E{episode:00} - {Episode Title}",
             "dailyEpisodeFormat": "{Series Title} - {Air-Date} - {Episode Title}",
             "animeEpisodeFormat": "{Series Title} - S{season:00}E{episode:00} - {Episode Title}",
-            "seriesFolderFormat": "{Series Title} {Series Year}",
+            "seriesFolderFormat": "{Series Title} ({Series Year})",
             "seasonFolderFormat": "Season {season}",
             "specialsFolderFormat": "Extras"
         },
@@ -137,9 +137,9 @@
             "reannounce_when_address_changed": true,
             "auto_delete_mode": 1,
             "queueing_enabled": true,
-            "max_active_torrents": 8,
-            "max_active_downloads": 3,
-            "max_active_uploads": 5
+            "max_active_torrents": 10,
+            "max_active_downloads": 4,
+            "max_active_uploads": 6
         }
     }
 }
