@@ -206,11 +206,12 @@ The bootstrap script uses Playwright to automatically configure authentication f
 
 1.  **Define credentials in `.env`:**
     Ensure you have set the following variables (defaults are provided in `.env.example`):
-    -   `QBIT_USER` / `QBIT_PASS`
-    -   `PROWLARR_USER` / `PROWLARR_PASS`
-    -   `SONARR_USER` / `SONARR_PASS`
-    -   `RADARR_USER` / `RADARR_PASS`
-    -   `BAZARR_USER` / `BAZARR_PASS`
+    -   `SERVICE_USER` (used for all services)
+    -   `QBIT_PASS`
+    -   `PROWLARR_PASS`
+    -   `SONARR_PASS`
+    -   `RADARR_PASS`
+    -   `BAZARR_PASS`
 
 2.  **Run the Bootstrap Process:**
     ```bash
@@ -476,7 +477,7 @@ When configuring services to talk to each other:
 - **qBittorrent:** `gluetun:8080` (qBittorrent shares Gluetun's network)
 - **Other services:** Use container name (e.g., `prowlarr:9696`, `sonarr:8989`)
 
-**Authentication:** Each service uses Forms-based authentication. The `QBIT_USER` and `QBIT_PASS` in `.env` are used for API communication between Sonarr/Radarr and qBittorrent.
+**Authentication:** Each service uses Forms-based authentication. The `SERVICE_USER` and `QBIT_PASS` in `.env` are used for API communication between Sonarr/Radarr and qBittorrent.
 
 **qBittorrent temporary password:** `docker logs qbittorrent 2>&1 | grep "temporary password"`
 

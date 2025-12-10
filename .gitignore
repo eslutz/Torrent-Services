@@ -59,7 +59,7 @@ Temporary Items
 # Service Configuration Directories
 # =============================================================================
 # All config files are auto-generated at first run. API keys are unique per install.
-# Use bootstrap.sh to configure inter-service connections after containers start.
+# Use bootstrap.py to configure inter-service connections after containers start.
 
 # Gluetun - VPN configuration
 config/gluetun/

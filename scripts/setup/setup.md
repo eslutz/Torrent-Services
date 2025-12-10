@@ -16,12 +16,13 @@ This directory contains Python scripts and configuration files for automating th
 
 ## Prerequisites
 
-1.  **Environment Variables**: The scripts rely on the `.env` file in the project root.
-    -   API Keys: `PROWLARR_API_KEY`, `SONARR_API_KEY`, `RADARR_API_KEY`, `BAZARR_API_KEY`.
-    -   Credentials: `QBIT_USER`, `QBIT_PASS`.
-    -   Secrets: e.g., `IPTORRENTS_COOKIE`.
-2.  **Python Dependencies**:
-    -   `requests` and `playwright` libraries are required.
+1. **Environment Variables**: The scripts rely on the `.env` file in the project root.
+    - API Keys: `PROWLARR_API_KEY`, `SONARR_API_KEY`, `RADARR_API_KEY`, `BAZARR_API_KEY`.
+    - Credentials: `SERVICE_USER`, `QBIT_PASS`.
+    - Secrets: e.g., `IPTORRENTS_COOKIE`.
+2. **Python Dependencies**:
+    - `requests` and `playwright` libraries are required.
+
     ```bash
     pip install requests playwright
     playwright install chromium
@@ -69,11 +70,11 @@ The configuration file is divided into sections for each service.
 
 ### Key Sections
 
--   **Prowlarr Indexers**: Defines indexers, priorities, and secrets (mapped to `.env`).
--   **Sonarr/Radarr Naming**: Defines file and folder naming formats.
--   **Bazarr Configuration**: Defines subtitle providers, language profiles, scoring thresholds, and service integrations. Note: Bazarr settings are applied via direct YAML file and SQLite database modification (not API) to ensure persistence.
--   **Download Clients**: Configures the connection to qBittorrent (using `.env` credentials).
--   **qBittorrent Preferences**: Sets internal qBittorrent settings (e.g., paths, limits).
+- **Prowlarr Indexers**: Defines indexers, priorities, and secrets (mapped to `.env`).
+- **Sonarr/Radarr Naming**: Defines file and folder naming formats.
+- **Bazarr Configuration**: Defines subtitle providers, language profiles, scoring thresholds, and service integrations. Note: Bazarr settings are applied via direct YAML file and SQLite database modification (not API) to ensure persistence.
+- **Download Clients**: Configures the connection to qBittorrent (using `.env` credentials).
+- **qBittorrent Preferences**: Sets internal qBittorrent settings (e.g., paths, limits).
 
 ## Usage
 
@@ -91,9 +92,9 @@ This waits for services to be healthy, extracts API keys into `.env`, sets up au
 
 To automatically start the monitoring stack (Prometheus exporters) after setup:
 
-1.  Set `ENABLE_MONITORING_PROFILE="true"` in `.env`.
-2.  **Windows Users**: Set `HOST_PROJECT_DIR` in `.env` to your project path (e.g., `C:\Users\Name\Docker\Torrent-Services`).
-3.  Run the bootstrap command as usual.
+1. Set `ENABLE_MONITORING_PROFILE="true"` in `.env`.
+2. **Windows Users**: Set `HOST_PROJECT_DIR` in `.env` to your project path (e.g., `C:\Users\Name\Docker\Torrent-Services`).
+3. Run the bootstrap command as usual.
 
 ### Manual execution
 
@@ -119,11 +120,11 @@ python3 scripts/setup/setup_sonarr.py
 
 | Service | Auth source | API key location | .env variable |
 |---------|-------------|------------------|---------------|
-| qBittorrent | `QBIT_USER` / `QBIT_PASS` | N/A (cookie-based) | N/A |
-| Sonarr | `SONARR_USER` / `SONARR_PASS` | `config/sonarr/config.xml` | `SONARR_API_KEY` |
-| Radarr | `RADARR_USER` / `RADARR_PASS` | `config/radarr/config.xml` | `RADARR_API_KEY` |
-| Prowlarr | `PROWLARR_USER` / `PROWLARR_PASS` | `config/prowlarr/config.xml` | `PROWLARR_API_KEY` |
-| Bazarr | `BAZARR_USER` / `BAZARR_PASS` | `config/bazarr/config/config.yaml` | `BAZARR_API_KEY` |
+| qBittorrent | `SERVICE_USER` / `QBIT_PASS` | N/A (cookie-based) | N/A |
+| Sonarr | `SERVICE_USER` / `SONARR_PASS` | `config/sonarr/config.xml` | `SONARR_API_KEY` |
+| Radarr | `SERVICE_USER` / `RADARR_PASS` | `config/radarr/config.xml` | `RADARR_API_KEY` |
+| Prowlarr | `SERVICE_USER` / `PROWLARR_PASS` | `config/prowlarr/config.xml` | `PROWLARR_API_KEY` |
+| Bazarr | `SERVICE_USER` / `BAZARR_PASS` | `config/bazarr/config/config.yaml` | `BAZARR_API_KEY` |
 
 Saved keys are reused by Prowlarr, Bazarr, and monitoring exporters.
 
@@ -146,7 +147,7 @@ docker compose --profile bootstrap up
 
 - Prowlarr UI: Settings → Apps shows Sonarr and Radarr.
 - Sonarr/Radarr UI: Settings → Download Clients shows qBittorrent (tests green).
-- Bazarr UI: 
+- Bazarr UI:
   - Settings → General shows enabled providers (Addic7ed, Podnapisi, OpenSubtitles) and minimum score thresholds.
   - Settings → Languages shows configured language profiles (e.g., "English", "Forced English").
   - Settings → Sonarr/Radarr shows connected services.

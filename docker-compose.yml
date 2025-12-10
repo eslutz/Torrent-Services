@@ -63,7 +63,7 @@ services:
     environment:
       - GLUETUN_PORT_FILE=/tmp/gluetun/forwarded_port
       - QBIT_ADDR=http://gluetun:8080
-      - QBIT_USER=${QBIT_USER:-admin}
+      - QBIT_USER=${SERVICE_USER:-admin}
       - QBIT_PASS=${QBIT_PASS}
       - SYNC_INTERVAL=${GLUETARR_SYNC_INTERVAL:-60}
       - LOG_LEVEL=${GLUETARR_LOG_LEVEL:-info}
@@ -310,7 +310,7 @@ services:
     container_name: qbittorrent-exporter
     environment:
       - QBITTORRENT_BASE_URL=http://gluetun:8080
-      - QBITTORRENT_USERNAME=${QBIT_USER:-admin}
+      - QBITTORRENT_USERNAME=${SERVICE_USER:-admin}
       - QBITTORRENT_PASSWORD=${QBIT_PASS}
       - EXPORTER_PORT=8090
       - LOG_LEVEL=INFO
