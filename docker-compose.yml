@@ -56,17 +56,17 @@ services:
     mem_limit: ${GLUETUN_MEM_LIMIT:-256m}
     cpus: ${GLUETUN_CPUS:-0.5}
 
-  # Gluetarr - Sync Gluetun forwarded port to qBittorrent with metrics + health endpoints
-  gluetarr:
-    image: ghcr.io/eslutz/gluetarr:latest
-    container_name: gluetarr
+  # Forwardarr - Sync Gluetun forwarded port to qBittorrent with metrics + health endpoints
+  forwardarr:
+    image: ghcr.io/eslutz/forwardarr:latest
+    container_name: forwardarr
     environment:
       - GLUETUN_PORT_FILE=/tmp/gluetun/forwarded_port
       - QBIT_ADDR=http://gluetun:8080
-      - QBIT_USER=${SERVICE_USER:-admin}
-      - QBIT_PASS=${QBIT_PASS}
-      - SYNC_INTERVAL=${GLUETARR_SYNC_INTERVAL:-60}
-      - LOG_LEVEL=${GLUETARR_LOG_LEVEL:-info}
+      - TORRENT_CLIENT_USER=${SERVICE_USER:-admin}
+      - TORRENT_CLIENT_PASSWORD=${QBITTORRENT_PASSWORD}
+      - SYNC_INTERVAL=${FORWARDARR_SYNC_INTERVAL:-60}
+      - LOG_LEVEL=${FORWARDARR_LOG_LEVEL:-info}
     volumes:
       - gluetun-tmp:/tmp/gluetun:ro
     ports:
@@ -90,8 +90,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${QBIT_PORT_SYNC_MEM_LIMIT:-128m}
-    cpus: ${QBIT_PORT_SYNC_CPUS:-0.1}
+    mem_limit: ${FORWARDARR_MEM_LIMIT:-128m}
+    cpus: ${FORWARDARR_CPUS:-0.1}
 
   # qBittorrent - Torrent Client
   # Routes through Gluetun VPN with automatic port forwarding
@@ -311,7 +311,7 @@ services:
     environment:
       - QBITTORRENT_BASE_URL=http://gluetun:8080
       - QBITTORRENT_USERNAME=${SERVICE_USER:-admin}
-      - QBITTORRENT_PASSWORD=${QBIT_PASS}
+      - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
       - EXPORTER_PORT=8090
       - LOG_LEVEL=INFO
       - ENABLE_TRACKER=true

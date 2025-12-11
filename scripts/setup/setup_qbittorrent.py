@@ -33,7 +33,7 @@ def login(username, password):
 
 def authenticate():
     target_user = get_api_key("SERVICE_USER")
-    target_pass = get_api_key("QBIT_PASSWORD")
+    target_pass = get_api_key("QBITTORRENT_PASSWORD")
 
     log("Checking qBittorrent authentication status...", "INFO")
 

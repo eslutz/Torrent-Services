@@ -130,7 +130,7 @@ jobs:
         run: |
           cat > .env << EOF
           SERVICE_USER=testuser
-          QBIT_PASS=testpass
+          QBITTORRENT_PASSWORD=testpass
           SONARR_PASS=testpass
           RADARR_PASS=testpass
           PROWLARR_PASS=testpass

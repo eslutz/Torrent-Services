@@ -18,7 +18,7 @@ This directory contains Python scripts and configuration files for automating th
 
 1. **Environment Variables**: The scripts rely on the `.env` file in the project root.
     - API Keys: `PROWLARR_API_KEY`, `SONARR_API_KEY`, `RADARR_API_KEY`, `BAZARR_API_KEY`.
-    - Credentials: `SERVICE_USER`, `QBIT_PASS`.
+    - Credentials: `SERVICE_USER`, `QBITTORRENT_PASSWORD`.
     - Secrets: e.g., `IPTORRENTS_COOKIE`.
 2. **Python Dependencies**:
     - `requests` and `playwright` libraries are required.
@@ -120,7 +120,7 @@ python3 scripts/setup/setup_sonarr.py
 
 | Service | Auth source | API key location | .env variable |
 |---------|-------------|------------------|---------------|
-| qBittorrent | `SERVICE_USER` / `QBIT_PASS` | N/A (cookie-based) | N/A |
+| qBittorrent | `SERVICE_USER` / `QBITTORRENT_PASSWORD` | N/A (cookie-based) | N/A |
 | Sonarr | `SERVICE_USER` / `SONARR_PASS` | `config/sonarr/config.xml` | `SONARR_API_KEY` |
 | Radarr | `SERVICE_USER` / `RADARR_PASS` | `config/radarr/config.xml` | `RADARR_API_KEY` |
 | Prowlarr | `SERVICE_USER` / `PROWLARR_PASS` | `config/prowlarr/config.xml` | `PROWLARR_API_KEY` |
@@ -131,7 +131,7 @@ Saved keys are reused by Prowlarr, Bazarr, and monitoring exporters.
 ## Service connections configured
 
 - Prowlarr → Sonarr/Radarr (apps) using each app's API key.
-- Sonarr/Radarr → qBittorrent download client using `QBIT_USER`/`QBIT_PASS`.
+- Sonarr/Radarr → qBittorrent download client using `SERVICE_USER`/`QBITTORRENT_PASSWORD`.
 - Bazarr → Sonarr/Radarr using their API keys.
   - **Note**: Bazarr configuration includes subtitle providers (Addic7ed, Podnapisi, OpenSubtitles), language profiles, minimum scoring thresholds, and adaptive search settings.
 

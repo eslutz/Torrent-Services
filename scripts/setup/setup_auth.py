@@ -186,11 +186,11 @@ def main():
 
     # qBittorrent Setup (Requests based)
     qbit_url = os.environ.get("QBIT_URL", "http://localhost:8080")
-    qbit_pass = os.environ.get("QBIT_PASSWORD")
+    qbit_pass = os.environ.get("QBITTORRENT_PASSWORD")
     if qbit_pass:
         setup_qbittorrent_auth(qbit_url, username, qbit_pass)
     else:
-        log("QBIT_PASSWORD not set. Skipping qBittorrent auth setup.", "WARNING")
+        log("QBITTORRENT_PASSWORD not set. Skipping qBittorrent auth setup.", "WARNING")
 
     # *Arr + Bazarr Setup (Playwright based)
     services = [

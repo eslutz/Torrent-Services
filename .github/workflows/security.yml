@@ -55,7 +55,7 @@ jobs:
       matrix:
         image:
           - qmcgaw/gluetun:latest
-          - ghcr.io/eslutz/gluetarr:latest
+          - ghcr.io/eslutz/forwardarr:latest
           - lscr.io/linuxserver/qbittorrent:latest
           - lscr.io/linuxserver/prowlarr:latest
           - lscr.io/linuxserver/sonarr:latest
