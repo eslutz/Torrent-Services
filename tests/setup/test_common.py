@@ -101,9 +101,7 @@ class TestWaitForService:
             status=200,
         )
 
-        result = wait_for_service(
-            "http://localhost:8989", "test_key", "Sonarr", max_retries=1
-        )
+        result = wait_for_service("http://localhost:8989", "test_key", "Sonarr", max_retries=1)
         assert result is True
 
     @responses.activate
@@ -170,9 +168,7 @@ class TestConfigureRootFolders:
             status=201,
         )
 
-        configure_root_folders(
-            "http://localhost:8989", "test_key", [{"path": "/data/tv"}]
-        )
+        configure_root_folders("http://localhost:8989", "test_key", [{"path": "/data/tv"}])
         assert len(responses.calls) == 2
 
     @responses.activate
@@ -185,9 +181,7 @@ class TestConfigureRootFolders:
             status=200,
         )
 
-        configure_root_folders(
-            "http://localhost:8989", "test_key", [{"path": "/data/tv"}]
-        )
+        configure_root_folders("http://localhost:8989", "test_key", [{"path": "/data/tv"}])
         assert len(responses.calls) == 1
 
 

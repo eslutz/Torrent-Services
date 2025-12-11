@@ -6,8 +6,9 @@ import requests
 
 # Constants
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, '../../'))
-ENV_FILE = os.path.join(PROJECT_DIR, '.env')
+PROJECT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "../../"))
+ENV_FILE = os.path.join(PROJECT_DIR, ".env")
+
 
 def log(msg, level="INFO"):
     colors = {
@@ -15,9 +16,10 @@ def log(msg, level="INFO"):
         "SUCCESS": "\033[0;32m",
         "WARNING": "\033[1;33m",
         "ERROR": "\033[0;31m",
-        "NC": "\033[0m"
+        "NC": "\033[0m",
     }
     print(f"{colors.get(level, '')}[{level}] {msg}{colors['NC']}")
+
 
 def load_env():
     if os.path.exists(ENV_FILE):
@@ -32,10 +34,11 @@ def load_env():
                         key, value = line.split("=", 1)
                         key = key.strip()
                         value = value.strip()
-                        if (value.startswith('"') and value.endswith('"')) or \
-                           (value.startswith("'") and value.endswith("'")):
+                        if (value.startswith('"') and value.endswith('"')) or (
+                            value.startswith("'") and value.endswith("'")
+                        ):
                             value = value[1:-1]
-                        
+
                         if key not in os.environ:
                             os.environ[key] = value
         except Exception as e:
@@ -43,6 +46,7 @@ def load_env():
     else:
         log(f".env file not found at {ENV_FILE}", "ERROR")
         sys.exit(1)
+
 
 def wait_for_service(name, url):
     log(f"Waiting for {name} to be ready...", "INFO")
@@ -56,9 +60,10 @@ def wait_for_service(name, url):
         except requests.RequestException:
             pass
         time.sleep(2)
-    
+
     log(f"{name} failed to become ready after {max_attempts} attempts", "ERROR")
     sys.exit(1)
+
 
 def run_script(script_name):
     script_path = os.path.join(SCRIPT_DIR, script_name)
@@ -70,6 +75,7 @@ def run_script(script_name):
     except subprocess.CalledProcessError:
         log(f"{script_name} failed", "ERROR")
         sys.exit(1)
+
 
 def main():
     print("")
@@ -102,7 +108,7 @@ def main():
 
     # Extract API Keys
     run_script("extract_api_keys.py")
-    
+
     # Reload env to get the new keys
     load_env()
 
@@ -119,29 +125,33 @@ def main():
     # Monitoring
     if os.environ.get("ENABLE_MONITORING_PROFILE", "").lower() in ["true", "1", "yes", "on"]:
         log("Starting Monitoring Stack...", "INFO")
-        
+
         # Handle Docker-in-Docker volume mounting issues on macOS/Windows
         # We need to tell docker-compose to use the HOST's path for relative volumes,
         # not the container's path (/app), otherwise bind mounts will be empty/broken.
         host_project_dir = os.environ.get("HOST_PROJECT_DIR")
         env = os.environ.copy()
-        
+
         if host_project_dir:
             log(f"Detected host project directory: {host_project_dir}", "INFO")
             env["COMPOSE_PROJECT_DIR"] = host_project_dir
         else:
-            log("HOST_PROJECT_DIR not set. Volume mounts for monitoring stack might fail or be empty.", "WARNING")
+            log(
+                "HOST_PROJECT_DIR not set. Volume mounts for monitoring stack might fail or be empty.",
+                "WARNING",
+            )
 
         try:
             subprocess.run(
-                ["docker", "compose", "--profile", "monitoring", "up", "-d"], 
-                env=env,
-                check=True
+                ["docker", "compose", "--profile", "monitoring", "up", "-d"], env=env, check=True
             )
             log("Monitoring stack started", "SUCCESS")
         except (subprocess.CalledProcessError, FileNotFoundError):
             log("Failed to auto-start monitoring stack.", "WARNING")
-            log("You can start it manually by running: docker compose --profile monitoring up -d", "INFO")
+            log(
+                "You can start it manually by running: docker compose --profile monitoring up -d",
+                "INFO",
+            )
 
     print("")
     print("\033[0;32m╔══════════════════════════════════════════════════════════════╗\033[0m")
@@ -157,6 +167,7 @@ def main():
     print("")
     print(f"Configuration saved to: {ENV_FILE}")
     print("")
+
 
 if __name__ == "__main__":
     main()

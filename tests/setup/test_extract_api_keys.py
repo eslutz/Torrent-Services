@@ -141,9 +141,7 @@ class TestUpdateEnvFile:
 
         with pytest.MonkeyPatch.context() as m:
             m.setattr("extract_api_keys.ENV_FILE", str(env_file))
-            result = update_env_file(
-                {"SONARR_API_KEY": "new1", "RADARR_API_KEY": "new2"}
-            )
+            result = update_env_file({"SONARR_API_KEY": "new1", "RADARR_API_KEY": "new2"})
 
         assert result is True
         content = env_file.read_text()

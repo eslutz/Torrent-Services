@@ -159,3 +159,44 @@ docker compose --profile bootstrap up
 - Inspect logs for failures: `docker compose logs <service> --tail 100`.
 - Confirm API keys exist in configs (`config/*/config.xml` or `bazarr/config.yaml`) and in `.env`.
 - Re-run the bootstrap compose command after fixing credentials or deleting stale connections.
+
+## Testing
+
+The setup scripts include comprehensive unit tests to ensure reliability.
+
+### Running Tests
+
+From the project root:
+
+```bash
+# Install test dependencies
+pip install -r requirements-dev.txt
+
+# Run all tests
+pytest tests/
+
+# Run tests with coverage
+pytest tests/ --cov=scripts --cov-report=html --cov-report=term-missing
+
+# Run specific test file
+pytest tests/setup/test_common.py
+```
+
+### Test Coverage
+
+Current test coverage includes:
+- **common.py utilities**: API key handling, service configuration, error handling
+- **extract_api_keys.py**: XML and YAML parsing, env file updates
+- **bootstrap.py**: Service initialization and orchestration
+
+### CI/CD Pipeline
+
+All changes to setup scripts are automatically tested via GitHub Actions:
+- Unit tests with pytest
+- Code linting with black and pylint  
+- Shell script linting with shellcheck
+- Security analysis with CodeQL
+
+### Contributing
+
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines on writing tests and contributing to the project.

@@ -1,5 +1,8 @@
 # Media Automation Stack (Torrent Services)
 
+[![CI/CD Pipeline](https://github.com/eslutz/Torrent-Services/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/eslutz/Torrent-Services/actions/workflows/ci-cd.yml)
+[![CodeQL](https://github.com/eslutz/Torrent-Services/actions/workflows/codeql.yml/badge.svg)](https://github.com/eslutz/Torrent-Services/actions/workflows/codeql.yml)
+
 Automated media download and management using Docker with qBittorrent, Gluetun, Prowlarr, Sonarr, Radarr, Bazarr, and ProtonVPN port forwarding.
 
 ## Features

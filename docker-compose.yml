@@ -422,7 +422,7 @@ services:
       # Uses HOST_PROJECT_DIR from .env if set (Windows), otherwise falls back to shell PWD (macOS/Linux)
       - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-${PWD}}
     command: >
-      sh -c "apt-get update && apt-get install -y docker.io docker-compose-plugin && pip install requests && python3 scripts/setup/bootstrap.py"
+      sh -c "apt-get update && apt-get install -y docker.io docker-compose-plugin && pip install -r requirements.txt && python3 scripts/setup/bootstrap.py"
     depends_on:
       prowlarr:
         condition: service_healthy
