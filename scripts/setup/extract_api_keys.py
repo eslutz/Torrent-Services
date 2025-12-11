@@ -44,8 +44,8 @@ def extract_bazarr_key(filepath):
     try:
         with open(filepath, 'r') as f:
             content = f.read()
-            # Look for 'apikey: value'
-            match = re.search(r'^\s*apikey:\s*[\'"]?([a-zA-Z0-9]+)[\'"]?', content, re.MULTILINE)
+            # Look for 'apikey: value' - API keys can contain alphanumeric and underscores
+            match = re.search(r'^\s*apikey:\s*[\'"]?([a-zA-Z0-9_]+)[\'"]?', content, re.MULTILINE)
             if match:
                 return match.group(1)
     except Exception as e:

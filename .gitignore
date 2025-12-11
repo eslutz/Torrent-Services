@@ -100,5 +100,12 @@ logs/
 venv/
 __pycache__/
 *.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.mypy_cache/
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,visualstudiocode
