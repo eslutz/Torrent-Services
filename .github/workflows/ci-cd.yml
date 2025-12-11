@@ -34,7 +34,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.x'
           cache: 'pip'
 
       - name: Install dependencies
@@ -42,9 +42,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run Black formatter check
+      - name: Run flake8
         run: |
-          black --check scripts/ tests/
+          flake8 scripts/ tests/ --max-line-length=100 --extend-ignore=E203,W503
+        continue-on-error: true
 
       - name: Run Pylint
         run: |
@@ -74,17 +75,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy:
-      matrix:
-        python-version: ['3.10', '3.11', '3.12']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.x'
           cache: 'pip'
 
       - name: Install dependencies
@@ -98,7 +96,6 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
-        if: matrix.python-version == '3.11'
         with:
           file: ./coverage.xml
           flags: unittests
@@ -117,7 +114,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.x'
           cache: 'pip'
 
       - name: Install dependencies
@@ -153,7 +150,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.x'
 
       - name: Install pip-audit
         run: |

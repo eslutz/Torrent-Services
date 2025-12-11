@@ -1,10 +1,8 @@
 import os
 import sys
-import tempfile
 import pytest
 import responses
-from unittest.mock import patch, MagicMock
-from pathlib import Path
+from unittest.mock import patch
 
 # Add scripts directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../scripts/setup"))
@@ -16,7 +14,6 @@ from common import (
     get_headers,
     wait_for_service,
     disable_analytics,
-    configure_config_endpoint,
     configure_root_folders,
     configure_download_clients,
 )

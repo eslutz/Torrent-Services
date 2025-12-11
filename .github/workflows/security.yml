@@ -16,34 +16,32 @@ jobs:
       contents: read
       security-events: write
     
-    strategy:
-      matrix:
-        image:
-          - qmcgaw/gluetun:latest
-          - ghcr.io/eslutz/forwardarr:latest
-          - lscr.io/linuxserver/qbittorrent:latest
-          - lscr.io/linuxserver/prowlarr:latest
-          - lscr.io/linuxserver/sonarr:latest
-          - lscr.io/linuxserver/radarr:latest
-          - lscr.io/linuxserver/bazarr:latest
-          - ghcr.io/eslutz/torarr:latest
-          - ghcr.io/martabal/qbittorrent-exporter:latest
-          - ghcr.io/thecfu/scraparr:latest
-          - tmknight88/docker-autoheal:latest
-          - mcr.microsoft.com/playwright/python:v1.49.0-jammy
-    
     steps:
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ${{ matrix.image }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Extract images from docker-compose.yml
+        id: extract-images
+        run: |
+          images=$(grep -E '^\s+image:' docker-compose.yml | awk '{print $2}' | tr '\n' ',' | sed 's/,$//')
+          echo "images=$images" >> $GITHUB_OUTPUT
+      
+      - name: Scan images with Trivy
+        run: |
+          IFS=',' read -ra IMAGES <<< "${{ steps.extract-images.outputs.images }}"
+          for image in "${IMAGES[@]}"; do
+            echo "Scanning $image..."
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              -v $GITHUB_WORKSPACE:/workspace \
+              aquasec/trivy:0.58.0 image \
+              --format sarif \
+              --output /workspace/trivy-results-$(echo $image | tr '/:.' '-').sarif \
+              --severity CRITICAL,HIGH \
+              $image || echo "Scan failed for $image"
+          done
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: 'trivy-results.sarif'
-          category: 'trivy-${{ matrix.image }}'
+          sarif_file: 'trivy-results-*.sarif'

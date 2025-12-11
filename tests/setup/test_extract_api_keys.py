@@ -1,18 +1,11 @@
 import os
 import sys
-import tempfile
 import pytest
-from pathlib import Path
 
 # Add scripts directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../scripts/setup"))
 
-from extract_api_keys import (
-    extract_xml_key,
-    extract_bazarr_key,
-    update_env_file,
-    get_config_path,
-)
+from extract_api_keys import extract_xml_key, extract_bazarr_key, update_env_file
 
 
 class TestExtractXmlKey:
