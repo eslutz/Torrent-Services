@@ -62,7 +62,7 @@ services:
     container_name: forwardarr
     environment:
       - GLUETUN_PORT_FILE=/tmp/gluetun/forwarded_port
-      - QBIT_ADDR=http://gluetun:8080
+      - TORRENT_CLIENT_URL=http://gluetun:8080
       - TORRENT_CLIENT_USER=${SERVICE_USER:-admin}
       - TORRENT_CLIENT_PASSWORD=${QBITTORRENT_PASSWORD}
       - SYNC_INTERVAL=${FORWARDARR_SYNC_INTERVAL:-60}
