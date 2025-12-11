@@ -6,6 +6,9 @@ import time
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "setup.config.json")
 
+# Default timeout for HTTP requests in seconds
+DEFAULT_TIMEOUT = 10
+
 
 def load_env():
     """Load environment variables from .env file in the repository root."""
@@ -87,7 +90,7 @@ def wait_for_service(
 
     for attempt in range(1, max_retries + 1):
         try:
-            response = requests.get(f"{url}{endpoint}", headers=headers, timeout=10)
+            response = requests.get(f"{url}{endpoint}", headers=headers, timeout=DEFAULT_TIMEOUT)
             response.raise_for_status()
             log(f"{service_name} API is ready", "SUCCESS")
             return True
@@ -121,7 +124,7 @@ def disable_analytics(url, api_key, service_name, api_version="v3", header_name=
     config_url = f"{url}/api/{api_version}/config/host"
 
     try:
-        resp = requests.get(config_url, headers=headers, timeout=10)
+        resp = requests.get(config_url, headers=headers, timeout=DEFAULT_TIMEOUT)
         resp.raise_for_status()
         config = resp.json()
 
@@ -132,7 +135,7 @@ def disable_analytics(url, api_key, service_name, api_version="v3", header_name=
         log("Disabling analytics...", "INFO")
         config["analyticsEnabled"] = False
 
-        resp = requests.put(config_url, headers=headers, json=config, timeout=10)
+        resp = requests.put(config_url, headers=headers, json=config, timeout=DEFAULT_TIMEOUT)
         resp.raise_for_status()
         log("Analytics disabled", "SUCCESS")
 
@@ -152,7 +155,7 @@ def configure_config_endpoint(
         return
 
     try:
-        resp = requests.get(config_url, headers=headers, timeout=10)
+        resp = requests.get(config_url, headers=headers, timeout=DEFAULT_TIMEOUT)
         resp.raise_for_status()
         current_config = resp.json()
 
@@ -163,7 +166,7 @@ def configure_config_endpoint(
                 needs_update = True
 
         if needs_update:
-            resp = requests.put(config_url, headers=headers, json=current_config, timeout=10)
+            resp = requests.put(config_url, headers=headers, json=current_config, timeout=DEFAULT_TIMEOUT)
             resp.raise_for_status()
             log(f"{config_name} configuration updated", "SUCCESS")
         else:
@@ -180,7 +183,7 @@ def configure_root_folders(url, api_key, root_folders, api_version="v3", header_
     rootfolder_url = f"{url}/api/{api_version}/rootfolder"
 
     try:
-        response = requests.get(rootfolder_url, headers=headers, timeout=10)
+        response = requests.get(rootfolder_url, headers=headers, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         existing_folders = response.json()
         existing_paths = {f["path"]: f for f in existing_folders}
@@ -202,7 +205,7 @@ def configure_root_folders(url, api_key, root_folders, api_version="v3", header_
         payload = {"path": path}
 
         try:
-            response = requests.post(rootfolder_url, headers=headers, json=payload, timeout=10)
+            response = requests.post(rootfolder_url, headers=headers, json=payload, timeout=DEFAULT_TIMEOUT)
             response.raise_for_status()
             log(f"Root folder {path} created", "SUCCESS")
         except requests.exceptions.RequestException as e:
@@ -219,7 +222,7 @@ def configure_download_clients(
     downloadclient_url = f"{url}/api/{api_version}/downloadclient"
 
     try:
-        response = requests.get(downloadclient_url, headers=headers, timeout=10)
+        response = requests.get(downloadclient_url, headers=headers, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         existing_clients = response.json()
         existing_map = {c["name"]: c for c in existing_clients}
@@ -278,7 +281,7 @@ def configure_download_clients(
                     f"{downloadclient_url}/{payload['id']}",
                     headers=headers,
                     json=payload,
-                    timeout=10,
+                    timeout=DEFAULT_TIMEOUT,
                 )
                 response.raise_for_status()
                 log(f"Download client {name} updated", "SUCCESS")
@@ -288,7 +291,7 @@ def configure_download_clients(
         else:
             try:
                 response = requests.post(
-                    downloadclient_url, headers=headers, json=payload, timeout=10
+                    downloadclient_url, headers=headers, json=payload, timeout=DEFAULT_TIMEOUT
                 )
                 response.raise_for_status()
                 log(f"Download client {name} created", "SUCCESS")
