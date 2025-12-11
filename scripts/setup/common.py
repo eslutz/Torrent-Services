@@ -95,7 +95,7 @@ def wait_for_service(
             log(f"{service_name} API is ready", "SUCCESS")
             return True
         except requests.exceptions.Timeout as e:
-            last_error = f"Timeout after 10s: {str(e)}"
+            last_error = f"Timeout after {DEFAULT_TIMEOUT}s: {str(e)}"
         except requests.exceptions.ConnectionError as e:
             last_error = f"Connection error: {str(e)}"
         except requests.exceptions.HTTPError as e:

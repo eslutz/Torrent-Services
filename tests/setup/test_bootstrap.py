@@ -49,11 +49,3 @@ class TestBootstrapWaitForService:
         from bootstrap import wait_for_service
 
         wait_for_service("Prowlarr", "http://localhost:9696/ping")
-
-
-class TestBootstrapValidation:
-    def test_missing_service_user_validation(self):
-        """Test that SERVICE_USER is required"""
-        # This test validates the main function requires SERVICE_USER
-        # but doesn't actually run main to avoid complexity
-        assert "SERVICE_USER" in os.environ or True  # SERVICE_USER validation happens in main()
