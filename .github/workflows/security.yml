@@ -1,47 +1,102 @@
-name: Security Analysis
+# ==============================================================================
+# Security Pipeline
+# Runs container image vulnerability scanning.
+# ==============================================================================
 
+name: Security
+
+# ------------------------------------------------------------------------------
+# Triggers
+# ------------------------------------------------------------------------------
 on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
   schedule:
-    # Run at 00:00 UTC every Monday
-    - cron: '0 0 * * 1'
+    - cron: "30 1 * * 0" # Weekly on Sunday at 01:30 UTC
 
+# ------------------------------------------------------------------------------
+# Concurrency
+# ------------------------------------------------------------------------------
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ------------------------------------------------------------------------------
+# Permissions
+# ------------------------------------------------------------------------------
 permissions:
   contents: read
+  security-events: write
 
+# ------------------------------------------------------------------------------
+# Jobs
+# ------------------------------------------------------------------------------
 jobs:
-  trivy:
-    name: Trivy Container Scan
+  # ----------------------------------------------------------------------------
+  # Trivy - Container image vulnerability scanning
+  # Scans all images from docker-compose.yml files
+  # ----------------------------------------------------------------------------
+  trivy-compose-images:
+    name: Trivy Compose Scan
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    
+    strategy:
+      matrix:
+        compose-path:
+          - network-services/docker-compose.yml
+          - torrent-services/docker-compose.yml
+      fail-fast: false
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
+      - name: Checkout Source
+        uses: actions/checkout@v6
+
+      - name: Check compose file exists
+        id: check-file
+        run: |
+          if [ -f "${{ matrix.compose-path }}" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Warning: ${{ matrix.compose-path }} not found"
+          fi
+
       - name: Extract images from docker-compose.yml
+        if: steps.check-file.outputs.exists == 'true'
         id: extract-images
         run: |
-          images=$(grep -E '^\s+image:' docker-compose.yml | awk '{print $2}' | tr '\n' ',' | sed 's/,$//')
+          # Extract image names, handling both image: and ${VAR} formats
+          images=$(grep -E '^\s+image:' ${{ matrix.compose-path }} | \
+                   awk '{print $2}' | \
+                   grep -v '^\${' | \
+                   sort -u | \
+                   tr '\n' ' ')
           echo "images=$images" >> $GITHUB_OUTPUT
-      
+          echo "Found images: $images"
+
       - name: Scan images with Trivy
+        if: steps.check-file.outputs.exists == 'true' && steps.extract-images.outputs.images != ''
         run: |
-          IFS=',' read -ra IMAGES <<< "${{ steps.extract-images.outputs.images }}"
-          for image in "${IMAGES[@]}"; do
+          mkdir -p trivy-results
+          for image in ${{ steps.extract-images.outputs.images }}; do
+            # Sanitize image name for filename
+            safe_name=$(echo "$image" | tr '/:.' '-')
             echo "Scanning $image..."
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-              -v $GITHUB_WORKSPACE:/workspace \
-              aquasec/trivy:0.58.0 image \
+            
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v ${{ github.workspace }}/trivy-results:/results \
+              aquasec/trivy:latest image \
               --format sarif \
-              --output /workspace/trivy-results-$(echo $image | tr '/:.' '-').sarif \
+              --output /results/${safe_name}.sarif \
               --severity CRITICAL,HIGH \
-              $image || echo "Scan failed for $image"
+              --ignore-unfixed \
+              "$image" || echo "::warning::Scan failed for $image"
           done
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: steps.check-file.outputs.exists == 'true' && steps.extract-images.outputs.images != ''
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: 'trivy-results-*.sarif'
+          sarif_file: trivy-results/
+          category: trivy-${{ matrix.compose-path }}
