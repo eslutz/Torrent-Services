@@ -432,7 +432,7 @@ The Forwardarr container replaces the legacy script-based port updater:
 
 ### Forwardarr Configuration
 
-Refer to [`.env.example`](.env.example) for optional Forwardarr tuning (`GLUETARR_SYNC_INTERVAL`, `GLUETARR_LOG_LEVEL`). Defaults work for most setups.
+Refer to [`.env.example`](.env.example) for optional Forwardarr tuning (`FORWARDARR_SYNC_INTERVAL`, `FORWARDARR_LOG_LEVEL`). Defaults work for most setups.
 
 ### Monitoring
 
