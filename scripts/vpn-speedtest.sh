@@ -14,7 +14,6 @@ TEST_URL_UL="http://speedtest.tele2.net/upload.php"
 # Colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
-YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Convert a size like 50MB or 1GB to bytes
@@ -42,12 +41,15 @@ spinner() {
     local remote_path=$4
     local spin='|/-\\'
     local i=0
-    local start=$(date +%s)
+    local start
+    start=$(date +%s)
+    # shellcheck disable=SC2034
     SPINNER_ELAPSED_SECONDS=0
 
     tput civis 2>/dev/null
     while kill -0 "$pid" 2>/dev/null; do
-        local now=$(date +%s)
+        local now
+        now=$(date +%s)
         local elapsed=$((now - start))
         local progress=""
 
@@ -55,9 +57,12 @@ spinner() {
             # Query size inside container; ignore errors
             local current_bytes
             current_bytes=$(docker exec $CONTAINER_NAME sh -c "stat -c%s $remote_path 2>/dev/null" 2>/dev/null || echo 0)
-            local current_mb=$(awk -v c="$current_bytes" 'BEGIN {printf "%.1f", c / (1024 * 1024)}')
-            local total_mb=$(awk -v t="$total_bytes" 'BEGIN {printf "%.0f", t / (1024 * 1024)}')
-            local percent=$(awk -v c="$current_bytes" -v t="$total_bytes" 'BEGIN {printf "%.1f", (c/t)*100}')
+            local current_mb
+            current_mb=$(awk -v c="$current_bytes" 'BEGIN {printf "%.1f", c / (1024 * 1024)}')
+            local total_mb
+            total_mb=$(awk -v t="$total_bytes" 'BEGIN {printf "%.0f", t / (1024 * 1024)}')
+            local percent
+            percent=$(awk -v c="$current_bytes" -v t="$total_bytes" 'BEGIN {printf "%.1f", (c/t)*100}')
             progress=$(printf " %sMB of %sMB | %s%%" "$current_mb" "$total_mb" "$percent")
         fi
 
@@ -65,7 +70,8 @@ spinner() {
         i=$(( (i + 1) % ${#spin} ))
         sleep 0.2
     done
-    local end=$(date +%s)
+    local end
+    end=$(date +%s)
     SPINNER_ELAPSED_SECONDS=$((end - start))
     printf "\r\033[K"
     tput cnorm 2>/dev/null
@@ -135,7 +141,7 @@ UPLOAD_BYTES=$(bytes_from_size "$UPLOAD_SIZE")
 
 # Cleanup trap
 cleanup() {
-    docker exec $CONTAINER_NAME rm -f /tmp/speedtest.tmp /tmp/upload_test.tmp 2>/dev/null
+    docker exec "$CONTAINER_NAME" rm -f /tmp/speedtest.tmp /tmp/upload_test.tmp 2>/dev/null
 }
 trap cleanup EXIT
 
@@ -143,7 +149,7 @@ trap cleanup EXIT
 DL_START=$(date +%s)
 echo "Download testing..."
 # Run curl with progress bar on stderr (terminal) and speed on stdout (file)
-docker exec -t $CONTAINER_NAME sh -c "curl -L --progress-bar -w '%{speed_download}' -o /tmp/speedtest.tmp '$TEST_URL_DL' 2>&2 > /tmp/dl_speed.tmp"
+docker exec -t "$CONTAINER_NAME" sh -c "curl -L --progress-bar -w '%{speed_download}' -o /tmp/speedtest.tmp '$TEST_URL_DL' 2>&2 > /tmp/dl_speed.tmp"
 DL_END=$(date +%s)
 DL_ELAPSED=$((DL_END - DL_START))
 DL_SPEED_BPS=$(docker exec $CONTAINER_NAME cat /tmp/dl_speed.tmp 2>/dev/null)
@@ -162,11 +168,11 @@ fi
 # Upload Test with curl progress bar
 # Create dummy file based on UPLOAD_SIZE
 UPLOAD_MB=$(echo "$UPLOAD_SIZE" | sed 's/[^0-9.]//g')
-docker exec $CONTAINER_NAME dd if=/dev/zero of=/tmp/upload_test.tmp bs=1M count="$UPLOAD_MB" status=none
+docker exec "$CONTAINER_NAME" dd if=/dev/zero of=/tmp/upload_test.tmp bs=1M count="$UPLOAD_MB" status=none
 UL_START=$(date +%s)
 echo "Upload testing..."
 # Run curl with progress bar on stderr (terminal) and speed on stdout (file)
-docker exec -t $CONTAINER_NAME sh -c "curl --progress-bar -w '%{speed_upload}' -T /tmp/upload_test.tmp -o /dev/null '$TEST_URL_UL' 2>&2 > /tmp/ul_speed.tmp"
+docker exec -t "$CONTAINER_NAME" sh -c "curl --progress-bar -w '%{speed_upload}' -T /tmp/upload_test.tmp -o /dev/null '$TEST_URL_UL' 2>&2 > /tmp/ul_speed.tmp"
 UL_END=$(date +%s)
 UL_ELAPSED=$((UL_END - UL_START))
 UL_SPEED_BPS=$(docker exec $CONTAINER_NAME cat /tmp/ul_speed.tmp 2>/dev/null)

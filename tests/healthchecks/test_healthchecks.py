@@ -29,7 +29,12 @@ exit 1
     _write_executable(
         bin_dir / "wget",
         """#!/bin/sh
-url=${@: -1}
+# Extract the last argument (URL) without using bash-only features
+url=""
+for arg in "$@"; do
+  url="$arg"
+done
+
 case "$url" in
   http://localhost:8000/v1/vpn/status)
     echo '{"status":"running"}'
