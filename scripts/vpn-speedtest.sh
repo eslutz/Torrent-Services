@@ -56,7 +56,7 @@ spinner() {
         if [ "$total_bytes" -gt 0 ] && [ -n "$remote_path" ]; then
             # Query size inside container; ignore errors
             local current_bytes
-            current_bytes=$(docker exec $CONTAINER_NAME sh -c "stat -c%s $remote_path 2>/dev/null" 2>/dev/null || echo 0)
+            current_bytes=$(docker exec "$CONTAINER_NAME" sh -c "stat -c%s $remote_path 2>/dev/null" 2>/dev/null || echo 0)
             local current_mb
             current_mb=$(awk -v c="$current_bytes" 'BEGIN {printf "%.1f", c / (1024 * 1024)}')
             local total_mb
@@ -72,6 +72,7 @@ spinner() {
     done
     local end
     end=$(date +%s)
+    # shellcheck disable=SC2034
     SPINNER_ELAPSED_SECONDS=$((end - start))
     printf "\r\033[K"
     tput cnorm 2>/dev/null
@@ -116,7 +117,7 @@ echo -e "\n--- 🔒 VPN Status ---"
 # Get Host IP (ISP)
 HOST_IP=$(curl -s https://ipinfo.io/json | grep '"ip"' | cut -d'"' -f4)
 # Get Container IP (VPN)
-CONTAINER_JSON=$(docker exec $CONTAINER_NAME curl -s https://ipinfo.io/json)
+CONTAINER_JSON=$(docker exec "$CONTAINER_NAME" curl -s https://ipinfo.io/json)
 CONTAINER_IP=$(echo "$CONTAINER_JSON" | grep '"ip"' | cut -d'"' -f4)
 CITY=$(echo "$CONTAINER_JSON" | grep '"city"' | cut -d'"' -f4)
 COUNTRY=$(echo "$CONTAINER_JSON" | grep '"country"' | cut -d'"' -f4)
@@ -132,12 +133,8 @@ if [ "$HOST_IP" != "$CONTAINER_IP" ] && [ -n "$CONTAINER_IP" ]; then
 else
     echo -e "Status:             ${RED}WARNING: IPs match or lookup failed! VPN might be down.${NC}"
 fi
-
 # 3. Speed Test
 echo -e "\n--- 🚀 Speed Test ---"
-
-DOWNLOAD_BYTES=$(bytes_from_size "$DOWNLOAD_SIZE")
-UPLOAD_BYTES=$(bytes_from_size "$UPLOAD_SIZE")
 
 # Cleanup trap
 cleanup() {
@@ -152,7 +149,7 @@ echo "Download testing..."
 docker exec -t "$CONTAINER_NAME" sh -c "curl -L --progress-bar -w '%{speed_download}' -o /tmp/speedtest.tmp '$TEST_URL_DL' 2>&2 > /tmp/dl_speed.tmp"
 DL_END=$(date +%s)
 DL_ELAPSED=$((DL_END - DL_START))
-DL_SPEED_BPS=$(docker exec $CONTAINER_NAME cat /tmp/dl_speed.tmp 2>/dev/null)
+DL_SPEED_BPS=$(docker exec "$CONTAINER_NAME" cat /tmp/dl_speed.tmp 2>/dev/null)
 printf "Download (${DOWNLOAD_SIZE}):  "
 
 # Convert to Mbps (Bits per second / 1,000,000)
@@ -175,7 +172,7 @@ echo "Upload testing..."
 docker exec -t "$CONTAINER_NAME" sh -c "curl --progress-bar -w '%{speed_upload}' -T /tmp/upload_test.tmp -o /dev/null '$TEST_URL_UL' 2>&2 > /tmp/ul_speed.tmp"
 UL_END=$(date +%s)
 UL_ELAPSED=$((UL_END - UL_START))
-UL_SPEED_BPS=$(docker exec $CONTAINER_NAME cat /tmp/ul_speed.tmp 2>/dev/null)
+UL_SPEED_BPS=$(docker exec "$CONTAINER_NAME" cat /tmp/ul_speed.tmp 2>/dev/null)
 printf "Upload (${UPLOAD_SIZE}):    "
 
 if [ -n "$UL_SPEED_BPS" ]; then
