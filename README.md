@@ -16,7 +16,7 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Radarr** | Movie management | [Radarr](https://radarr.video/) |
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 | **Torarr** | Optional SOCKS5 proxy for Tor-only indexers | [Torarr](https://github.com/eslutz/Torarr) |
-| **Forwardarr** | Syncs Gluetun forwarded port into qBittorrent + metrics/health | [Forwardarr](https://github.com/eslutz/Forwardarr) |
+| **Forwardarr** | Syncs Gluetun forwarded port into qBittorrent | [Forwardarr](https://github.com/eslutz/Forwardarr) |
 | **Monitoring Exporters** | Prometheus metrics via Scraparr (*arr apps) + martabal/qbittorrent-exporter | [Scraparr](https://github.com/thecfu/scraparr) / [martabal/qbittorrent-exporter](https://github.com/martabal/qbittorrent-exporter) |
 
 **VPN:** ProtonVPN with automatic port forwarding via Gluetun for optimal torrent performance and privacy.
@@ -49,7 +49,7 @@ docker compose up -d
 # 3. Configure authentication for each service (see Step 2 below for details)
 
 # 4. Run Bootstrap Process (automates API key extraction and connections)
-# See scripts/setup/SETUP.md for more details
+# See scripts/setup/README.md for more details
 docker compose --profile bootstrap up
 
 # 5. Verify VPN and port forwarding
@@ -207,25 +207,26 @@ and re-run `docker compose up -d` to apply.
 **Automated Setup:**
 The bootstrap script uses Playwright to automatically configure authentication for Prowlarr, Sonarr, Radarr, and Bazarr using the credentials in your `.env` file.
 
-1.  **Define credentials in `.env`:**
+1. **Define credentials in `.env`:**
     Ensure you have set the following variables (defaults are provided in `.env.example`):
-    -   `SERVICE_USER` (used for all services)
-    -   `QBITTORRENT_PASSWORD`
-    -   `PROWLARR_PASS`
-    -   `SONARR_PASS`
-    -   `RADARR_PASS`
-    -   `BAZARR_PASS`
+    - `SERVICE_USER` (used for all services)
+    - `QBITTORRENT_PASSWORD`
+    - `PROWLARR_PASS`
+    - `SONARR_PASS`
+    - `RADARR_PASS`
+    - `BAZARR_PASS`
 
-2.  **Run the Bootstrap Process:**
+2. **Run the Bootstrap Process:**
+
     ```bash
     docker compose --profile bootstrap up
     ```
 
     The process will automatically:
-    -   Initialize authentication for all services.
-    -   Configure qBittorrent authentication.
-    -   Extract API keys from all services.
-    -   Configure inter-service connections.
+    - Initialize authentication for all services.
+    - Configure qBittorrent authentication.
+    - Extract API keys from all services.
+    - Configure inter-service connections.
 
 > **Note:** If you have already manually configured authentication via the Web UI, the script will detect this and proceed to API key extraction.
 
@@ -488,10 +489,10 @@ When configuring services to talk to each other:
 
 ### Internal Docs
 
-- **[Setup & Bootstrap](./scripts/setup/SETUP.md)** - Automated service configuration and inter-service connections
-- **[Setup Scripts](./scripts/setup/SETUP.md)** - Detailed documentation for the Python setup scripts
-- **[Healthcheck](./docs/HEALTHCHECK.md)** - Container health monitoring and autoheal system
-- **[Monitoring](./docs/MONITORING.md)** - Prometheus metrics exporters setup
+- **[Setup & Bootstrap](./scripts/setup/README.md)** - Automated service configuration and inter-service connections
+- **[Setup Scripts](./scripts/setup/README.md)** - Detailed documentation for the Python setup scripts
+- **[Healthcheck](../docs/torrent-services/healthcheck.md)** - Container health monitoring and autoheal system
+- **[Monitoring](../docs/torrent-services/monitoring.md)** - Prometheus metrics exporters setup
 
 ### Network Integration Docs
 

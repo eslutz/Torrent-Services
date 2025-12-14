@@ -201,4 +201,8 @@ All changes to setup scripts are automatically tested via GitHub Actions:
 
 ### Contributing
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines on writing tests and contributing to the project.
+Follow the project's coding standards:
+
+- Run `pytest` before submitting changes
+- Ensure `black` and `pylint` pass
+- Add tests for new functionality
