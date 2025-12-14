@@ -128,9 +128,6 @@ jobs:
         with:
           scandir: "./scripts"
           severity: warning
-          ignore_paths: |
-            node_modules
-            .git
 
   # ----------------------------------------------------------------------------
   # Integration: Import and Playwright setup checks
