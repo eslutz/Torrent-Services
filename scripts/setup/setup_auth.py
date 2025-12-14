@@ -67,7 +67,7 @@ def setup_qbittorrent_auth(url, target_user, target_pass):
     # 2. Try temp password
     temp_pass = get_qbittorrent_temp_password()
     if temp_pass:
-        log(f"Found temporary password: {temp_pass}", "INFO")
+        log("Found temporary password in logs", "INFO")
         session = qbit_login(url, "admin", temp_pass)
         if session:
             log("Authenticated with temporary password", "SUCCESS")
@@ -104,7 +104,7 @@ def setup_qbittorrent_auth(url, target_user, target_pass):
 
 
 def setup_auth_for_service(page, name, url, username, password):
-    log(f"Checking authentication for {name} at {url}...", "INFO")
+    log(f"Checking authentication for {name}...", "INFO")
     try:
         page.goto(url)
         page.wait_for_load_state("networkidle")
@@ -193,27 +193,12 @@ def main():
         log("QBITTORRENT_PASSWORD not set. Skipping qBittorrent auth setup.", "WARNING")
 
     # *Arr + Bazarr Setup (Playwright based)
-    services = [
-        (
-            "Prowlarr",
-            os.environ.get("PROWLARR_URL", "http://localhost:9696"),
-            os.environ.get("PROWLARR_PASSWORD"),
-        ),
-        (
-            "Sonarr",
-            os.environ.get("SONARR_URL", "http://localhost:8989"),
-            os.environ.get("SONARR_PASSWORD"),
-        ),
-        (
-            "Radarr",
-            os.environ.get("RADARR_URL", "http://localhost:7878"),
-            os.environ.get("RADARR_PASSWORD"),
-        ),
-        (
-            "Bazarr",
-            os.environ.get("BAZARR_URL", "http://localhost:6767"),
-            os.environ.get("BAZARR_PASSWORD"),
-        ),
+    # Define service configuration: (Name, URL_Env_Var, Default_URL, Password_Env_Var)
+    service_configs = [
+        ("Prowlarr", "PROWLARR_URL", "http://localhost:9696", "PROWLARR_PASSWORD"),
+        ("Sonarr", "SONARR_URL", "http://localhost:8989", "SONARR_PASSWORD"),
+        ("Radarr", "RADARR_URL", "http://localhost:7878", "RADARR_PASSWORD"),
+        ("Bazarr", "BAZARR_URL", "http://localhost:6767", "BAZARR_PASSWORD"),
     ]
 
     with sync_playwright() as p:
@@ -222,7 +207,10 @@ def main():
         context = browser.new_context()
         page = context.new_page()
 
-        for name, url, password in services:
+        for name, url_env, default_url, pass_env in service_configs:
+            url = os.environ.get(url_env, default_url)
+            password = os.environ.get(pass_env)
+
             if not password:
                 log(f"No password found for {name}. Skipping.", "WARNING")
                 continue
