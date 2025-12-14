@@ -170,7 +170,7 @@ From the project root:
 
 ```bash
 # Install test dependencies
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 
 # Run all tests
 pytest tests/
@@ -185,6 +185,7 @@ pytest tests/setup/test_common.py
 ### Test Coverage
 
 Current test coverage includes:
+
 - **common.py utilities**: API key handling, service configuration, error handling
 - **extract_api_keys.py**: XML and YAML parsing, env file updates
 - **bootstrap.py**: Service initialization and orchestration
@@ -192,8 +193,9 @@ Current test coverage includes:
 ### CI/CD Pipeline
 
 All changes to setup scripts are automatically tested via GitHub Actions:
+
 - Unit tests with pytest
-- Code linting with black and pylint  
+- Code linting with black and pylint
 - Shell script linting with shellcheck
 - Security analysis with CodeQL
 
