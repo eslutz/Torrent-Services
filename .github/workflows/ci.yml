@@ -223,3 +223,23 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
+
+  # ----------------------------------------------------------------------------
+  # Trivy: Vulnerability and misconfiguration scanning
+  # ----------------------------------------------------------------------------
+  trivy:
+    name: Trivy Image Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          ignore-unfixed: true
+          format: "table"
+          exit-code: "1"
+          severity: "CRITICAL,HIGH"
+        continue-on-error: true

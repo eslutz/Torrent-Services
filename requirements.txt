@@ -7,3 +7,4 @@ flake8>=7.1.0
 pylint>=3.2.0
 pytest>=8.2.0
 pytest-cov>=5.0.0
+responses>=0.25.0
