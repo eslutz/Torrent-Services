@@ -68,7 +68,7 @@ jobs:
         run: |
           echo "Verifying health check scripts for all services..."
           for service in gluetun qbittorrent sonarr radarr prowlarr bazarr; do
-            if ! grep -q "test:.*healthchecks/${service}.sh" docker-compose.yml; then
+            if ! grep -q "test:.*\/scripts\/${service}.sh" docker-compose.yml; then
               echo "ERROR: Missing health check for ${service}"
               exit 1
             fi
