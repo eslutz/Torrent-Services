@@ -121,10 +121,10 @@ python3 scripts/setup/setup_sonarr.py
 | Service | Auth source | API key location | .env variable |
 |---------|-------------|------------------|---------------|
 | qBittorrent | `SERVICE_USER` / `QBITTORRENT_PASSWORD` | N/A (cookie-based) | N/A |
-| Sonarr | `SERVICE_USER` / `SONARR_PASS` | `config/sonarr/config.xml` | `SONARR_API_KEY` |
-| Radarr | `SERVICE_USER` / `RADARR_PASS` | `config/radarr/config.xml` | `RADARR_API_KEY` |
-| Prowlarr | `SERVICE_USER` / `PROWLARR_PASS` | `config/prowlarr/config.xml` | `PROWLARR_API_KEY` |
-| Bazarr | `SERVICE_USER` / `BAZARR_PASS` | `config/bazarr/config/config.yaml` | `BAZARR_API_KEY` |
+| Sonarr | `SERVICE_USER` / `SONARR_PASSWORD` | `config/sonarr/config.xml` | `SONARR_API_KEY` |
+| Radarr | `SERVICE_USER` / `RADARR_PASSWORD` | `config/radarr/config.xml` | `RADARR_API_KEY` |
+| Prowlarr | `SERVICE_USER` / `PROWLARR_PASSWORD` | `config/prowlarr/config.xml` | `PROWLARR_API_KEY` |
+| Bazarr | `SERVICE_USER` / `BAZARR_PASSWORD` | `config/bazarr/config/config.yaml` | `BAZARR_API_KEY` |
 
 Saved keys are reused by Prowlarr, Bazarr, and monitoring exporters.
 

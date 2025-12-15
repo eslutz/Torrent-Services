@@ -211,10 +211,10 @@ The bootstrap script uses Playwright to automatically configure authentication f
     Ensure you have set the following variables (defaults are provided in `.env.example`):
     - `SERVICE_USER` (used for all services)
     - `QBITTORRENT_PASSWORD`
-    - `PROWLARR_PASS`
-    - `SONARR_PASS`
-    - `RADARR_PASS`
-    - `BAZARR_PASS`
+    - `PROWLARR_PASSWORD`
+    - `SONARR_PASSWORD`
+    - `RADARR_PASSWORD`
+    - `BAZARR_PASSWORD`
 
 2. **Run the Bootstrap Process:**
 
