@@ -1,5 +1,8 @@
 # Media Automation Stack (Torrent Services)
 
+[![CI Pipeline](https://github.com/eslutz/Torrent-Services/actions/workflows/ci.yml/badge.svg)](https://github.com/eslutz/Torrent-Services/actions/workflows/ci.yml)
+[![Security Analysis](https://github.com/eslutz/Torrent-Services/actions/workflows/security.yml/badge.svg)](https://github.com/eslutz/Torrent-Services/actions/workflows/security.yml)
+
 Automated media download and management using Docker with qBittorrent, Gluetun, Prowlarr, Sonarr, Radarr, Bazarr, and ProtonVPN port forwarding.
 
 ## Features
@@ -13,7 +16,7 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Radarr** | Movie management | [Radarr](https://radarr.video/) |
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 | **Torarr** | Optional SOCKS5 proxy for Tor-only indexers | [Torarr](https://github.com/eslutz/Torarr) |
-| **Gluetarr** | Syncs Gluetun forwarded port into qBittorrent + metrics/health | [Gluetarr](https://github.com/eslutz/Gluetarr) |
+| **Forwardarr** | Syncs Gluetun forwarded port into qBittorrent | [Forwardarr](https://github.com/eslutz/Forwardarr) |
 | **Monitoring Exporters** | Prometheus metrics via Scraparr (*arr apps) + martabal/qbittorrent-exporter | [Scraparr](https://github.com/thecfu/scraparr) / [martabal/qbittorrent-exporter](https://github.com/martabal/qbittorrent-exporter) |
 
 **VPN:** ProtonVPN with automatic port forwarding via Gluetun for optimal torrent performance and privacy.
@@ -25,7 +28,7 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 - Service dependencies wait for healthy upstream services (e.g., Sonarr/Radarr wait for Prowlarr).
 - Autoheal container watches Docker health status and restarts stuck services automatically.
 - Cgroup CPU/RAM limits, stop_grace_periods, and `init: true` guard the host from runaway containers.
-- Hardened helpers: Gluetarr handles port sync with built-in health/metrics endpoints.
+- Hardened helpers: Forwardarr handles port sync with built-in health/metrics endpoints.
 - Optional monitoring profile exposes native Prometheus metrics without touching production services.
 - Resource budgets live in `.env`, so you can scale limits up/down without editing `docker-compose.yml`.
 
@@ -46,13 +49,13 @@ docker compose up -d
 # 3. Configure authentication for each service (see Step 2 below for details)
 
 # 4. Run Bootstrap Process (automates API key extraction and connections)
-# See scripts/setup/SETUP.md for more details
+# See scripts/setup/README.md for more details
 docker compose --profile bootstrap up
 
 # 5. Verify VPN and port forwarding
 docker exec gluetun wget -qO- https://protonwire.p3.pm/status/json
 docker exec gluetun cat /tmp/gluetun/forwarded_port
-docker logs gluetarr --tail 20
+docker logs forwardarr --tail 20
 
 # 6. (Optional) Start monitoring exporters after API keys exist
 # Start manually any time:
@@ -101,7 +104,7 @@ The docker compose stack ships with a lightweight Go qBittorrent exporter plus S
 | Exporter | Endpoint | Notes |
 |----------|----------|-------|
 | qBittorrent | <http://127.0.0.1:8090/metrics> | `martabal/qbittorrent-exporter` with per-tracker stats enabled |
-| Gluetarr | <http://127.0.0.1:9090/metrics> | Native metrics: current forwarded port, sync operations, qBit API call counts/errors, last sync timestamp |
+| Forwardarr | <http://127.0.0.1:9090/metrics> | Native metrics: current forwarded port, sync operations, qBit API call counts/errors, last sync timestamp |
 | Torarr | <http://127.0.0.1:8085/metrics> | Native metrics: Tor bootstrap progress, circuit status, bytes read/written, external check results |
 | Scraparr (*arr aggregate) | <http://127.0.0.1:7100/metrics> | Unified endpoint for Sonarr/Radarr/Prowlarr/Bazarr: queue sizes, calendar items, disk usage, health checks |
 
@@ -114,7 +117,7 @@ scrape_configs:
       - targets:
           - '127.0.0.1:8080'  # qBittorrent WebUI (optional, for up/down checks)
           - '127.0.0.1:8090'  # qBittorrent exporter (Prometheus metrics)
-          - '127.0.0.1:9090'  # Gluetarr (port sync metrics)
+          - '127.0.0.1:9090'  # Forwardarr (port sync metrics)
           - '127.0.0.1:8085'  # Torarr (Tor proxy metrics)
           - '127.0.0.1:7100'  # Scraparr (Sonarr/Radarr/Prowlarr/Bazarr metrics)
           - '127.0.0.1:9696'  # Prowlarr (native /ping for up check, no /metrics)
@@ -204,38 +207,39 @@ and re-run `docker compose up -d` to apply.
 **Automated Setup:**
 The bootstrap script uses Playwright to automatically configure authentication for Prowlarr, Sonarr, Radarr, and Bazarr using the credentials in your `.env` file.
 
-1.  **Define credentials in `.env`:**
+1. **Define credentials in `.env`:**
     Ensure you have set the following variables (defaults are provided in `.env.example`):
-    -   `SERVICE_USER` (used for all services)
-    -   `QBIT_PASS`
-    -   `PROWLARR_PASS`
-    -   `SONARR_PASS`
-    -   `RADARR_PASS`
-    -   `BAZARR_PASS`
+    - `SERVICE_USER` (used for all services)
+    - `QBITTORRENT_PASSWORD`
+    - `PROWLARR_PASSWORD`
+    - `SONARR_PASSWORD`
+    - `RADARR_PASSWORD`
+    - `BAZARR_PASSWORD`
 
-2.  **Run the Bootstrap Process:**
+2. **Run the Bootstrap Process:**
+
     ```bash
     docker compose --profile bootstrap up
     ```
 
     The process will automatically:
-    -   Initialize authentication for all services.
-    -   Configure qBittorrent authentication.
-    -   Extract API keys from all services.
-    -   Configure inter-service connections.
+    - Initialize authentication for all services.
+    - Configure qBittorrent authentication.
+    - Extract API keys from all services.
+    - Configure inter-service connections.
 
 > **Note:** If you have already manually configured authentication via the Web UI, the script will detect this and proceed to API key extraction.
 
 ### Step 3: Verify Automatic Port Forwarding
 
-The `gluetarr` container automatically watches for port changes and updates qBittorrent instantly when they occur.
+The `forwardarr` container automatically watches for port changes and updates qBittorrent instantly when they occur.
 
 ```bash
 # Check Gluetun's forwarded port
 docker exec gluetun cat /tmp/gluetun/forwarded_port
 
 # View port updater logs
-docker logs gluetarr --tail 20
+docker logs forwardarr --tail 20
 
 # Verify qBittorrent is connectable (check status bar at http://localhost:8080)
 ```
@@ -296,7 +300,7 @@ Since qBittorrent runs inside Gluetun's network, access it via `gluetun:8080`
    - **Host:** `gluetun`
    - **Port:** `8080`
    - **Username:** admin
-   - **Password:** (your qBittorrent API password from .env: QBIT_PASS)
+   - **Password:** (your qBittorrent API password from .env: QBITTORRENT_PASSWORD)
    - **Category:** `tv` (recommended for organization)
 4. Click **Test** → **Save**
 
@@ -309,7 +313,7 @@ Since qBittorrent runs inside Gluetun's network, access it via `gluetun:8080`
    - **Host:** `gluetun`
    - **Port:** `8080`
    - **Username:** admin
-   - **Password:** (your qBittorrent API password from .env: QBIT_PASS)
+   - **Password:** (your qBittorrent API password from .env: QBITTORRENT_PASSWORD)
    - **Category:** `movies` (recommended for organization)
 4. Click **Test** → **Save**
 
@@ -415,30 +419,30 @@ Since qBittorrent runs inside Gluetun's network, access it via `gluetun:8080`
 1. **Gluetun starts** and connects to ProtonVPN P2P server
 2. **ProtonVPN assigns** a forwarded port (changes on each connection)
 3. **Gluetun saves** the port to `/tmp/gluetun/forwarded_port`
-4. **Gluetarr watches** the file for changes using fsnotify
+4. **Forwardarr watches** the file for changes using fsnotify
 5. **Port automatically updates** in qBittorrent instantly when detected
 
-### Gluetarr Port Sync
+### Forwardarr Port Sync
 
-The Gluetarr container replaces the legacy script-based port updater:
+The Forwardarr container replaces the legacy script-based port updater:
 
 - **Watches** Gluetun's forwarded port file for changes
 - **Authenticates** with qBittorrent using credentials from `.env`
 - **Updates** qBittorrent's listening port automatically
 - **Exports** `/metrics`, `/health`, and `/ready` on port `9090` (bound to localhost)
 
-### Gluetarr Configuration
+### Forwardarr Configuration
 
-Refer to [`.env.example`](.env.example) for optional Gluetarr tuning (`GLUETARR_SYNC_INTERVAL`, `GLUETARR_LOG_LEVEL`). Defaults work for most setups.
+Refer to [`.env.example`](.env.example) for optional Forwardarr tuning (`FORWARDARR_SYNC_INTERVAL`, `FORWARDARR_LOG_LEVEL`). Defaults work for most setups.
 
 ### Monitoring
 
 ```bash
 # Live monitoring
-docker logs -f gluetarr
+docker logs -f forwardarr
 
 # Last 20 lines
-docker logs gluetarr --tail 20
+docker logs forwardarr --tail 20
 
 # Health / readiness (inside host)
 curl -sf http://127.0.0.1:9090/ready
@@ -477,7 +481,7 @@ When configuring services to talk to each other:
 - **qBittorrent:** `gluetun:8080` (qBittorrent shares Gluetun's network)
 - **Other services:** Use container name (e.g., `prowlarr:9696`, `sonarr:8989`)
 
-**Authentication:** Each service uses Forms-based authentication. The `SERVICE_USER` and `QBIT_PASS` in `.env` are used for API communication between Sonarr/Radarr and qBittorrent.
+**Authentication:** Each service uses Forms-based authentication. The `SERVICE_USER` and `QBITTORRENT_PASSWORD` in `.env` are used for API communication between Sonarr/Radarr and qBittorrent.
 
 **qBittorrent temporary password:** `docker logs qbittorrent 2>&1 | grep "temporary password"`
 
@@ -485,10 +489,10 @@ When configuring services to talk to each other:
 
 ### Internal Docs
 
-- **[Setup & Bootstrap](./scripts/setup/SETUP.md)** - Automated service configuration and inter-service connections
-- **[Setup Scripts](./scripts/setup/SETUP.md)** - Detailed documentation for the Python setup scripts
-- **[Healthcheck](./docs/HEALTHCHECK.md)** - Container health monitoring and autoheal system
-- **[Monitoring](./docs/MONITORING.md)** - Prometheus metrics exporters setup
+- **[Setup & Bootstrap](./scripts/setup/README.md)** - Automated service configuration and inter-service connections
+- **[Setup Scripts](./scripts/setup/README.md)** - Detailed documentation for the Python setup scripts
+- **[Healthcheck](../docs/torrent-services/healthcheck.md)** - Container health monitoring and autoheal system
+- **[Monitoring](../docs/torrent-services/monitoring.md)** - Prometheus metrics exporters setup
 
 ### Network Integration Docs
 
@@ -516,8 +520,8 @@ docker exec gluetun cat /tmp/gluetun/forwarded_port                  # Get forwa
 
 # Port Forwarding
 docker exec gluetun cat /tmp/gluetun/forwarded_port  # Check current forwarded port
-docker logs gluetarr --tail 20                     # View port updater logs
-docker logs -f gluetarr                            # Live monitoring of port updates
+docker logs forwardarr --tail 20                     # View port updater logs
+docker logs -f forwardarr                            # Live monitoring of port updates
 
 # Troubleshooting
 docker compose ps                                 # Check container status
@@ -548,7 +552,7 @@ docker logs gluetun | grep -i "port forward"     # Check port forwarding logs
 3. **Check port updater:**
 
    ```bash
-   docker logs gluetarr --tail 20
+   docker logs forwardarr --tail 20
    curl -sf http://127.0.0.1:9090/ready
    ```
 
@@ -564,28 +568,28 @@ docker logs gluetun | grep -i "port forward"     # Check port forwarding logs
 1. **Check port updater is running:**
 
    ```bash
-   docker ps | grep gluetarr
-   docker logs gluetarr --tail 20
+   docker ps | grep forwardarr
+   docker logs forwardarr --tail 20
    curl -sf http://127.0.0.1:9090/ready
    ```
 
-2. **Verify QBIT_PASS is set in .env:**
+2. **Verify QBITTORRENT_PASSWORD is set in .env:**
 
    ```bash
-   grep QBIT_PASS .env
+   grep QBITTORRENT_PASSWORD .env
    ```
 
-   If not set, add it and restart (QBIT_PASS is used for API communication):
+   If not set, add it and restart (QBITTORRENT_PASSWORD is used for API communication):
 
    ```bash
-   echo "QBIT_PASS=your_api_password" >> .env
-   docker compose restart gluetarr
+   echo "QBITTORRENT_PASSWORD=your_api_password" >> .env
+   docker compose restart forwardarr
    ```
 
 3. **Restart services:**
 
    ```bash
-   docker compose restart qbittorrent gluetarr
+   docker compose restart qbittorrent forwardarr
    sleep 30
    ```
 

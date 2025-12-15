@@ -4,7 +4,7 @@ This directory contains a set of Python scripts to help troubleshoot and manage 
 
 ## Configuration
 
-1. **Credentials**: The scripts automatically pull `SERVICE_USER` and `QBIT_PASS` from the `.env` file in the project root.
+1. **Credentials**: The scripts automatically pull `SERVICE_USER` and `QBITTORRENT_PASSWORD` from the `.env` file in the project root.
 2. **Settings**: Non-secret settings are configured in `troubleshooting.config.json`.
     * `qbittorrent_url`: URL of the Web UI (default: `http://localhost:8080`)
     * `bt_backup_path`: Path to qBittorrent's `BT_backup` folder.

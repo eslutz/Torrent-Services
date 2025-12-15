@@ -14,7 +14,7 @@ class Config:
         self.settings = self._load_config()
         
         self.qbit_user = self.env.get("SERVICE_USER", "admin")
-        self.qbit_pass = self.env.get("QBIT_PASSWORD")
+        self.qbit_pass = self.env.get("QBITTORRENT_PASSWORD")
         self.base_url = self.settings.get("qbittorrent_url", "http://localhost:8080")
         
         _bt_backup = self.settings.get("bt_backup_path")

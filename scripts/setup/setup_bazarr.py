@@ -8,10 +8,12 @@ CONFIG = load_config()
 BAZARR_CONFIG = CONFIG.get("bazarr", {})
 BAZARR_URL = os.environ.get("BAZARR_URL", BAZARR_CONFIG.get("url", "http://localhost:6767"))
 
+
 def wait_for_bazarr(api_key):
     log("Waiting for Bazarr API...", "INFO")
     headers = get_headers(api_key, "X-API-KEY")
     import time
+
     for _ in range(30):
         try:
             requests.get(f"{BAZARR_URL}/api/system/status", headers=headers)
@@ -21,7 +23,9 @@ def wait_for_bazarr(api_key):
             time.sleep(2)
     log("Bazarr not reachable", "ERROR")
     import sys
+
     sys.exit(1)
+
 
 def configure_sonarr(bazarr_api_key, sonarr_api_key):
     log("Configuring Bazarr -> Sonarr...", "INFO")
@@ -60,11 +64,9 @@ def configure_sonarr(bazarr_api_key, sonarr_api_key):
             "only_monitored": sonarr_config.get("only_monitored", True),
             "series_sync": sonarr_config.get("series_sync", 60),
             "excluded_tags": sonarr_config.get("excluded_tags", []),
-            "excluded_series_types": sonarr_config.get("excluded_series_types", [])
+            "excluded_series_types": sonarr_config.get("excluded_series_types", []),
         },
-        "general": {
-            "use_sonarr": True
-        }
+        "general": {"use_sonarr": True},
     }
 
     try:
@@ -73,8 +75,10 @@ def configure_sonarr(bazarr_api_key, sonarr_api_key):
         log("Bazarr -> Sonarr configured", "SUCCESS")
     except Exception as e:
         import sys
+
         log(f"Failed to configure Bazarr -> Sonarr: {e}", "ERROR")
         sys.exit(1)
+
 
 def configure_radarr(bazarr_api_key, radarr_api_key):
     log("Configuring Bazarr -> Radarr...", "INFO")
@@ -112,11 +116,9 @@ def configure_radarr(bazarr_api_key, radarr_api_key):
             "full_update_hour": radarr_config.get("full_update_hour", 4),
             "only_monitored": radarr_config.get("only_monitored", True),
             "movies_sync": radarr_config.get("movies_sync", 60),
-            "excluded_tags": radarr_config.get("excluded_tags", [])
+            "excluded_tags": radarr_config.get("excluded_tags", []),
         },
-        "general": {
-            "use_radarr": True
-        }
+        "general": {"use_radarr": True},
     }
 
     try:
@@ -125,8 +127,10 @@ def configure_radarr(bazarr_api_key, radarr_api_key):
         log("Bazarr -> Radarr configured", "SUCCESS")
     except Exception as e:
         import sys
+
         log(f"Failed to configure Bazarr -> Radarr: {e}", "ERROR")
         sys.exit(1)
+
 
 def configure_general_settings(bazarr_api_key):
     log("Configuring Bazarr general settings...", "INFO")
@@ -152,6 +156,7 @@ def configure_general_settings(bazarr_api_key):
     except Exception as e:
         log(f"Failed to configure Bazarr general settings: {e}", "ERROR")
 
+
 def configure_language_profiles(api_key):
     log("Configuring language profiles...", "INFO")
     headers = get_headers(api_key, "X-API-KEY")
@@ -168,20 +173,21 @@ def configure_language_profiles(api_key):
 
         for profile_config in profiles_config:
             profile_name = profile_config["name"]
-            existing_profile = next((p for p in existing_profiles if p.get("name") == profile_name), None)
+            existing_profile = next(
+                (p for p in existing_profiles if p.get("name") == profile_name), None
+            )
 
-            payload = {
-                "name": profile_name,
-                "items": []
-            }
+            payload = {"name": profile_name, "items": []}
 
             for lang in profile_config.get("languages", []):
-                payload["items"].append({
-                    "language": lang["language"],
-                    "forced": "True" if lang.get("forced", False) else "False",
-                    "hi": "True" if lang.get("hi", False) else "False",
-                    "audio_exclude": lang.get("audio_exclude", "False")
-                })
+                payload["items"].append(
+                    {
+                        "language": lang["language"],
+                        "forced": "True" if lang.get("forced", False) else "False",
+                        "hi": "True" if lang.get("hi", False) else "False",
+                        "audio_exclude": lang.get("audio_exclude", "False"),
+                    }
+                )
 
             if existing_profile:
                 profile_id = existing_profile.get("profileId")
@@ -190,17 +196,22 @@ def configure_language_profiles(api_key):
                 # Check if update is needed (simple comparison)
                 # Note: This might need more robust comparison logic
                 log(f"Updating language profile: {profile_name}", "INFO")
-                resp = requests.post(f"{BAZARR_URL}/api/system/languages-profiles", headers=headers, json=payload)
+                resp = requests.post(
+                    f"{BAZARR_URL}/api/system/languages-profiles", headers=headers, json=payload
+                )
                 resp.raise_for_status()
                 log(f"Language profile '{profile_name}' updated", "SUCCESS")
             else:
                 log(f"Creating language profile: {profile_name}", "INFO")
-                resp = requests.put(f"{BAZARR_URL}/api/system/languages-profiles", headers=headers, json=payload)
+                resp = requests.put(
+                    f"{BAZARR_URL}/api/system/languages-profiles", headers=headers, json=payload
+                )
                 resp.raise_for_status()
                 log(f"Language profile '{profile_name}' created", "SUCCESS")
 
     except Exception as e:
         log(f"Failed to configure language profiles: {e}", "ERROR")
+
 
 def configure_providers(api_key):
     log("Configuring subtitle providers...", "INFO")
@@ -217,7 +228,7 @@ def configure_providers(api_key):
     provider_credentials = {
         "opensubtitlescom": ("SERVICE_USER", "OPENSUBTITLESCOM_PASS"),
         "addic7ed": ("SERVICE_USER", "ADDIC7ED_PASS"),
-        "podnapisi": (None, None) # No auth required usually
+        "podnapisi": (None, None),  # No auth required usually
     }
 
     try:
@@ -264,11 +275,13 @@ def configure_providers(api_key):
                 log(f"Updating provider: {provider_name}", "INFO")
                 # We need to use the specific endpoint for the provider or the general one?
                 # Bazarr API is a bit inconsistent. Let's try PUT /api/providers/{id}
-                resp = requests.put(f"{BAZARR_URL}/api/providers/{provider_id}", headers=headers, json=payload)
+                resp = requests.put(
+                    f"{BAZARR_URL}/api/providers/{provider_id}", headers=headers, json=payload
+                )
                 if resp.status_code == 204 or resp.status_code == 200:
-                     log(f"Provider '{provider_name}' updated", "SUCCESS")
+                    log(f"Provider '{provider_name}' updated", "SUCCESS")
                 else:
-                     log(f"Failed to update '{provider_name}': {resp.text}", "ERROR")
+                    log(f"Failed to update '{provider_name}': {resp.text}", "ERROR")
             else:
                 # Create new - Bazarr might not support creating arbitrary providers via API
                 # if they are not "known" types. But usually /api/providers lists available ones too?
@@ -287,6 +300,7 @@ def configure_providers(api_key):
     except Exception as e:
         log(f"Failed to configure providers: {e}", "ERROR")
 
+
 def main():
     log("Starting Bazarr setup...", "INFO")
 
@@ -303,6 +317,7 @@ def main():
     configure_providers(bazarr_api_key)
 
     log("Bazarr setup completed successfully", "SUCCESS")
+
 
 if __name__ == "__main__":
     main()

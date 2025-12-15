@@ -18,7 +18,7 @@ This directory contains Python scripts and configuration files for automating th
 
 1. **Environment Variables**: The scripts rely on the `.env` file in the project root.
     - API Keys: `PROWLARR_API_KEY`, `SONARR_API_KEY`, `RADARR_API_KEY`, `BAZARR_API_KEY`.
-    - Credentials: `SERVICE_USER`, `QBIT_PASS`.
+    - Credentials: `SERVICE_USER`, `QBITTORRENT_PASSWORD`.
     - Secrets: e.g., `IPTORRENTS_COOKIE`.
 2. **Python Dependencies**:
     - `requests` and `playwright` libraries are required.
@@ -120,18 +120,18 @@ python3 scripts/setup/setup_sonarr.py
 
 | Service | Auth source | API key location | .env variable |
 |---------|-------------|------------------|---------------|
-| qBittorrent | `SERVICE_USER` / `QBIT_PASS` | N/A (cookie-based) | N/A |
-| Sonarr | `SERVICE_USER` / `SONARR_PASS` | `config/sonarr/config.xml` | `SONARR_API_KEY` |
-| Radarr | `SERVICE_USER` / `RADARR_PASS` | `config/radarr/config.xml` | `RADARR_API_KEY` |
-| Prowlarr | `SERVICE_USER` / `PROWLARR_PASS` | `config/prowlarr/config.xml` | `PROWLARR_API_KEY` |
-| Bazarr | `SERVICE_USER` / `BAZARR_PASS` | `config/bazarr/config/config.yaml` | `BAZARR_API_KEY` |
+| qBittorrent | `SERVICE_USER` / `QBITTORRENT_PASSWORD` | N/A (cookie-based) | N/A |
+| Sonarr | `SERVICE_USER` / `SONARR_PASSWORD` | `config/sonarr/config.xml` | `SONARR_API_KEY` |
+| Radarr | `SERVICE_USER` / `RADARR_PASSWORD` | `config/radarr/config.xml` | `RADARR_API_KEY` |
+| Prowlarr | `SERVICE_USER` / `PROWLARR_PASSWORD` | `config/prowlarr/config.xml` | `PROWLARR_API_KEY` |
+| Bazarr | `SERVICE_USER` / `BAZARR_PASSWORD` | `config/bazarr/config/config.yaml` | `BAZARR_API_KEY` |
 
 Saved keys are reused by Prowlarr, Bazarr, and monitoring exporters.
 
 ## Service connections configured
 
 - Prowlarr → Sonarr/Radarr (apps) using each app's API key.
-- Sonarr/Radarr → qBittorrent download client using `QBIT_USER`/`QBIT_PASS`.
+- Sonarr/Radarr → qBittorrent download client using `SERVICE_USER`/`QBITTORRENT_PASSWORD`.
 - Bazarr → Sonarr/Radarr using their API keys.
   - **Note**: Bazarr configuration includes subtitle providers (Addic7ed, Podnapisi, OpenSubtitles), language profiles, minimum scoring thresholds, and adaptive search settings.
 
@@ -159,3 +159,50 @@ docker compose --profile bootstrap up
 - Inspect logs for failures: `docker compose logs <service> --tail 100`.
 - Confirm API keys exist in configs (`config/*/config.xml` or `bazarr/config.yaml`) and in `.env`.
 - Re-run the bootstrap compose command after fixing credentials or deleting stale connections.
+
+## Testing
+
+The setup scripts include comprehensive unit tests to ensure reliability.
+
+### Running Tests
+
+From the project root:
+
+```bash
+# Install test dependencies
+pip install -r requirements.txt
+
+# Run all tests
+pytest tests/
+
+# Run tests with coverage
+pytest tests/ --cov=scripts --cov-report=html --cov-report=term-missing
+
+# Run specific test file
+pytest tests/setup/test_common.py
+```
+
+### Test Coverage
+
+Current test coverage includes:
+
+- **common.py utilities**: API key handling, service configuration, error handling
+- **extract_api_keys.py**: XML and YAML parsing, env file updates
+- **bootstrap.py**: Service initialization and orchestration
+
+### CI/CD Pipeline
+
+All changes to setup scripts are automatically tested via GitHub Actions:
+
+- Unit tests with pytest
+- Code linting with black and pylint
+- Shell script linting with shellcheck
+- Security analysis with CodeQL
+
+### Contributing
+
+Follow the project's coding standards:
+
+- Run `pytest` before submitting changes
+- Ensure `black` and `pylint` pass
+- Add tests for new functionality
