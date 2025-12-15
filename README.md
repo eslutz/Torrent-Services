@@ -1,6 +1,6 @@
 # Media Automation Stack (Torrent Services)
 
-[![CI/CD Pipeline](https://github.com/eslutz/Torrent-Services/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/eslutz/Torrent-Services/actions/workflows/ci-cd.yml)
+[![CI Pipeline](https://github.com/eslutz/Torrent-Services/actions/workflows/ci.yml/badge.svg)](https://github.com/eslutz/Torrent-Services/actions/workflows/ci.yml)
 [![Security Analysis](https://github.com/eslutz/Torrent-Services/actions/workflows/security.yml/badge.svg)](https://github.com/eslutz/Torrent-Services/actions/workflows/security.yml)
 
 Automated media download and management using Docker with qBittorrent, Gluetun, Prowlarr, Sonarr, Radarr, Bazarr, and ProtonVPN port forwarding.
