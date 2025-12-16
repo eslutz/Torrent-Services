@@ -225,3 +225,35 @@ pyrightconfig.json
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,visualstudiocode,python
+
+# =============================================================================
+# Service Configuration Directories
+# =============================================================================
+# All config files are auto-generated at first run. API keys are unique per install.
+# Use bootstrap.py to configure inter-service connections after containers start.
+
+# Gluetun - VPN configuration
+config/gluetun/
+
+# qBittorrent - all config auto-generated
+config/qBittorrent/
+
+# Prowlarr - all config auto-generated, EXCEPT custom indexer definitions
+config/prowlarr/*
+!config/prowlarr/Definitions/
+config/prowlarr/Definitions/*
+!config/prowlarr/Definitions/Custom/
+
+# Sonarr - all config auto-generated
+config/sonarr/
+
+# Radarr - all config auto-generated
+config/radarr/
+
+# Bazarr - all config auto-generated
+config/bazarr/
+
+# =============================================================================
+# Media Directory
+# =============================================================================
+media/
