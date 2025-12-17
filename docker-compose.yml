@@ -112,6 +112,7 @@ services:
       - ./config/qbittorrent:/config
       - ${DATA_DIR:-./media}:/media
       - ./scripts/healthchecks:/scripts:ro
+      - ${DATA_DIR_2}:/media2
     depends_on:
       gluetun:
         condition: service_healthy
@@ -182,6 +183,7 @@ services:
       - ./config/sonarr:/config
       - ${DATA_DIR:-./media}:/media
       - ./scripts/healthchecks:/scripts:ro
+      - ${DATA_DIR_2}:/media2
     ports:
       - 8989:8989
     depends_on:
@@ -218,6 +220,7 @@ services:
       - ./config/radarr:/config
       - ${DATA_DIR:-./media}:/media
       - ./scripts/healthchecks:/scripts:ro
+      - ${DATA_DIR_2}:/media2
     ports:
       - 7878:7878
     depends_on:
@@ -254,6 +257,7 @@ services:
       - ./config/bazarr:/config
       - ${DATA_DIR:-./media}:/media
       - ./scripts/healthchecks:/scripts:ro
+      - ${DATA_DIR_2}:/media2
     ports:
       - 6767:6767
     depends_on:
@@ -396,6 +400,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/localtime:/etc/localtime:ro
       - autoheal-logs:/opt/docker-autoheal
+    healthcheck:
+      test: ["CMD", "sh", "-c", "ps aux | grep '[a]utoheal' > /dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     logging:
       driver: "json-file"
       options:

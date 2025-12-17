@@ -1,6 +1,0 @@
-{
-    "qbittorrent_url": "http://localhost:8080",
-    "bt_backup_path": "~/Docker/Torrent-Services/config/qbittorrent/qBittorrent/BT_backup",
-    "default_save_path": "/media/downloads",
-    "default_scan_path": "~/Downloads"
-}

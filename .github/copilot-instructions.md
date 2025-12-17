@@ -28,6 +28,8 @@ docker compose --profile bootstrap up
 
 **Tests**: `pytest` (min 60% coverage enforced). Mirror `scripts/` structure. Use `unittest.mock` + `responses` for HTTP mocking.
 
+**Python Environment**: Always use a virtual environment (`venv`) when running Python scripts locally. Activate with `source venv/bin/activate` or use `venv/bin/python3`.
+
 **Code style**: Black (line-length=100), Pylint (max-line-length=100). Run `black .` before committing.
 
 **Env var pattern**: All Python scripts use `from common import load_env; load_env()` to support both Docker (service names) and host (localhost) execution.

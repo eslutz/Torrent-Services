@@ -1,9 +1,12 @@
 import json
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import Config, QBitClient
 
 def main():
     config = Config()
-    client = QBitClient(config)
+    client = QBitClient(config.base_url, config.qbit_user, config.qbit_pass)
     
     print("Fetching preferences from qBittorrent...")
     prefs = client.get_preferences()

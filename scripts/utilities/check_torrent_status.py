@@ -1,5 +1,7 @@
 import argparse
 import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import Config, QBitClient
 
 def print_table(headers, rows):
@@ -112,7 +114,7 @@ def main():
     args = parser.parse_args()
     
     config = Config()
-    client = QBitClient(config)
+    client = QBitClient(config.base_url, config.qbit_user, config.qbit_pass)
     
     if args.action == "all":
         check_all(client)

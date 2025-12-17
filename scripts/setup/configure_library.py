@@ -3,8 +3,8 @@ import sys
 import requests
 import time
 
-# Add current directory to sys.path to import common
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add scripts directory to sys.path to import common
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import (
     load_env,
     log,

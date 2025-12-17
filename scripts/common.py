@@ -4,16 +4,14 @@ import requests
 import sys
 import time
 
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), "setup.config.json")
-
 # Default timeout for HTTP requests in seconds
 DEFAULT_TIMEOUT = 10
-
 
 def load_env():
     """Load environment variables from .env file in the repository root."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.abspath(os.path.join(script_dir, "../../"))
+    # scripts/common.py -> root is ../
+    root_dir = os.path.abspath(os.path.join(script_dir, "../"))
     env_path = os.path.join(root_dir, ".env")
 
     if os.path.exists(env_path):
@@ -37,16 +35,20 @@ def load_env():
         except Exception as e:
             print(f"Warning: Failed to load .env file: {e}")
 
-
-def load_config():
-    """Load configuration from setup.config.json."""
+def load_config(config_path=None):
+    """Load configuration from a JSON file."""
+    if not config_path:
+        # Default to setup/setup.config.json for backward compatibility if needed,
+        # or maybe we should require it.
+        # Let's try to find setup.config.json relative to this file
+        config_path = os.path.join(os.path.dirname(__file__), "setup", "setup.config.json")
+    
     try:
-        with open(CONFIG_FILE, "r") as f:
+        with open(config_path, "r") as f:
             return json.load(f)
     except Exception as e:
-        print(f"Failed to load config file: {e}")
+        print(f"Failed to load config file {config_path}: {e}")
         sys.exit(1)
-
 
 def log(msg, level="INFO"):
     """Print colored log messages."""
@@ -59,7 +61,6 @@ def log(msg, level="INFO"):
     }
     print(f"{colors.get(level, '')}[{level}] {msg}{colors['NC']}")
 
-
 def get_api_key(env_var):
     """Get API key from environment variable."""
     api_key = os.environ.get(env_var)
@@ -68,11 +69,9 @@ def get_api_key(env_var):
         sys.exit(1)
     return api_key
 
-
 def get_headers(api_key, header_name="X-Api-Key"):
     """Get standard headers for API requests."""
     return {header_name: api_key, "Content-Type": "application/json"}
-
 
 def wait_for_service(
     url,
@@ -99,7 +98,10 @@ def wait_for_service(
         except requests.exceptions.ConnectionError as e:
             last_error = f"Connection error: {str(e)}"
         except requests.exceptions.HTTPError as e:
-            last_error = f"HTTP {response.status_code}: {str(e)}"
+            # Use the HTTPError's response attribute safely to avoid referencing an unbound variable
+            resp = getattr(e, "response", None)
+            status = resp.status_code if resp is not None else "unknown"
+            last_error = f"HTTP {status}: {str(e)}"
         except Exception as e:
             last_error = f"Unexpected error: {str(e)}"
 
@@ -115,7 +117,6 @@ def wait_for_service(
         "ERROR",
     )
     sys.exit(1)
-
 
 def disable_analytics(url, api_key, service_name, api_version="v3", header_name="X-Api-Key"):
     """Disable analytics for *arr services."""
@@ -141,7 +142,6 @@ def disable_analytics(url, api_key, service_name, api_version="v3", header_name=
 
     except requests.exceptions.RequestException as e:
         log(f"Failed to disable analytics: {e}", "ERROR")
-
 
 def configure_config_endpoint(
     url, api_key, endpoint, target_config, config_name, api_version="v3", header_name="X-Api-Key"
@@ -174,7 +174,6 @@ def configure_config_endpoint(
 
     except requests.exceptions.RequestException as e:
         log(f"Failed to configure {config_name}: {e}", "ERROR")
-
 
 def configure_root_folders(url, api_key, root_folders, api_version="v3", header_name="X-Api-Key"):
     """Configure root folders for *arr services."""
@@ -211,7 +210,6 @@ def configure_root_folders(url, api_key, root_folders, api_version="v3", header_
         except requests.exceptions.RequestException as e:
             error_msg = e.response.text if hasattr(e, "response") and e.response else str(e)
             log(f"Failed to create root folder {path}: {error_msg}", "ERROR")
-
 
 def configure_download_clients(
     url, api_key, download_clients, api_version="v3", header_name="X-Api-Key"
@@ -298,3 +296,190 @@ def configure_download_clients(
             except requests.exceptions.RequestException as e:
                 error_msg = e.response.text if hasattr(e, "response") and e.response else str(e)
                 log(f"Failed to create {name}: {error_msg}", "ERROR")
+
+class QBitClient:
+    def __init__(self, base_url, username, password):
+        self.base_url = base_url
+        self.username = username
+        self.password = password
+        self.session = requests.Session()
+        self.logged_in = False
+
+    def login(self):
+        if self.logged_in:
+            return True
+            
+        url = f"{self.base_url}/api/v2/auth/login"
+        data = {"username": self.username, "password": self.password}
+        try:
+            response = self.session.post(url, data=data)
+            response.raise_for_status()
+            if response.text == "Ok.":
+                self.logged_in = True
+                return True
+        except Exception as e:
+            print(f"Login error: {e}")
+        return False
+
+    def get_torrents(self, hashes=None):
+        if not self.login(): return []
+        url = f"{self.base_url}/api/v2/torrents/info"
+        params = {}
+        if hashes:
+            params["hashes"] = hashes
+        try:
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error getting torrents: {e}")
+            return []
+
+    def get_trackers(self, hash_val):
+        if not self.login(): return []
+        url = f"{self.base_url}/api/v2/torrents/trackers"
+        params = {"hash": hash_val}
+        try:
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            return []
+
+    def pause_torrent(self, hashes):
+        if not self.login(): return
+        url = f"{self.base_url}/api/v2/torrents/pause"
+        self.session.post(url, data={"hashes": hashes})
+
+    def resume_torrent(self, hashes):
+        if not self.login(): return
+        url = f"{self.base_url}/api/v2/torrents/resume"
+        self.session.post(url, data={"hashes": hashes})
+
+    def recheck_torrent(self, hashes):
+        if not self.login(): return
+        url = f"{self.base_url}/api/v2/torrents/recheck"
+        self.session.post(url, data={"hashes": hashes})
+
+    def reannounce_torrent(self, hashes):
+        if not self.login(): return
+        url = f"{self.base_url}/api/v2/torrents/reannounce"
+        self.session.post(url, data={"hashes": hashes})
+
+    def set_location(self, hashes, location):
+        if not self.login(): return
+        url = f"{self.base_url}/api/v2/torrents/setLocation"
+        self.session.post(url, data={"hashes": hashes, "location": location})
+
+    def delete_torrents(self, hashes, delete_files=False):
+        if not self.login(): return
+        url = f"{self.base_url}/api/v2/torrents/delete"
+        data = {
+            "hashes": hashes,
+            "deleteFiles": "true" if delete_files else "false"
+        }
+        self.session.post(url, data=data)
+
+    def add_torrent_file(self, file_path, save_path=None):
+        if not self.login(): return False
+        url = f"{self.base_url}/api/v2/torrents/add"
+        files = {'torrents': open(file_path, 'rb')}
+        data = {}
+        if save_path:
+            data['savepath'] = save_path
+        try:
+            self.session.post(url, files=files, data=data)
+            return True
+        except Exception as e:
+            print(f"Error adding torrent: {e}")
+            return False
+
+    def get_preferences(self):
+        if not self.login(): return {}
+        url = f"{self.base_url}/api/v2/app/preferences"
+        try:
+            response = self.session.get(url)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error getting preferences: {e}")
+            return {}
+
+    def set_preferences(self, prefs):
+        if not self.login(): return False
+        url = f"{self.base_url}/api/v2/app/setPreferences"
+        try:
+            # qBittorrent expects 'json' parameter with JSON string
+            self.session.post(url, data={"json": json.dumps(prefs)})
+            return True
+        except Exception as e:
+            print(f"Error setting preferences: {e}")
+            return False
+
+    def create_category(self, category):
+        if not self.login(): return False
+        url = f"{self.base_url}/api/v2/torrents/createCategory"
+        try:
+            self.session.post(url, data={"category": category})
+            return True
+        except Exception as e:
+            print(f"Error creating category {category}: {e}")
+            return False
+
+    def set_category_save_path(self, category, save_path):
+        if not self.login(): return False
+        url = f"{self.base_url}/api/v2/torrents/setCategorySavePath"
+        try:
+            self.session.post(url, data={"category": category, "savePath": save_path})
+            return True
+        except Exception as e:
+            print(f"Error setting category save path: {e}")
+            return False
+
+class Config:
+    def __init__(self):
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.root_dir = os.path.abspath(os.path.join(self.script_dir, "../"))
+        self.env_path = os.path.join(self.root_dir, ".env")
+        self.config_path = os.path.join(self.script_dir, "setup", "setup.config.json")
+        
+        self.env = self._load_env()
+        self.settings = self._load_config()
+        
+        self.qbit_user = self.env.get("SERVICE_USER", "admin")
+        self.qbit_pass = self.env.get("QBITTORRENT_PASSWORD")
+        
+        # Extract qBittorrent URL from settings or default
+        # setup.config.json might not have qbittorrent section, so default to localhost:8080
+        self.base_url = "http://localhost:8080"
+        if "qbittorrent" in self.settings and "url" in self.settings["qbittorrent"]:
+             self.base_url = self.settings["qbittorrent"]["url"]
+        
+        # These paths are specific to the host machine for troubleshooting scripts
+        # We can default them or look for env vars
+        self.bt_backup_path = os.environ.get("BT_BACKUP_PATH")
+        self.default_save_path = os.environ.get("DEFAULT_SAVE_PATH", "/media/downloads")
+        self.default_scan_path = os.environ.get("DEFAULT_SCAN_PATH")
+
+    def _load_env(self):
+        env_vars = {}
+        if os.path.exists(self.env_path):
+            with open(self.env_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        key, value = line.split("=", 1)
+                        value = value.strip()
+                        if (value.startswith('"') and value.endswith('"')) or \
+                           (value.startswith("'") and value.endswith("'")):
+                            value = value[1:-1]
+                        env_vars[key.strip()] = value
+        return env_vars
+
+    def _load_config(self):
+        if os.path.exists(self.config_path):
+            with open(self.config_path, "r") as f:
+                return json.load(f)
+        return {}

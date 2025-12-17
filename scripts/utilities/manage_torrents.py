@@ -1,8 +1,8 @@
 import argparse
 import sys
 import os
-import hashlib
 import glob
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import Config, QBitClient
 
 def fix_paths(client, config):
@@ -105,7 +105,7 @@ def main():
     args = parser.parse_args()
     
     config = Config()
-    client = QBitClient(config)
+    client = QBitClient(config.base_url, config.qbit_user, config.qbit_pass)
     
     if args.command == "fix-paths":
         fix_paths(client, config)

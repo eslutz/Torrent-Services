@@ -6,7 +6,8 @@ import json
 import subprocess
 import re
 from pathlib import Path
-from common import load_env, log
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common import load_env, log, QBitClient
 
 try:
     from playwright.sync_api import sync_playwright
@@ -101,33 +102,13 @@ def get_qbittorrent_temp_password():
     return None
 
 
-def qbittorrent_login(url, username, password):
-    try:
-        session = requests.Session()
-        resp = session.post(
-            f"{url}/api/v2/auth/login", data={"username": username, "password": password}
-        )
-
-        if resp.status_code == 200 and resp.text != "Fails.":
-            # Verify login by checking version
-            try:
-                v_resp = session.get(f"{url}/api/v2/app/version")
-                if v_resp.status_code == 200:
-                    return session
-            except:
-                pass
-    except Exception as e:
-        pass
-    return None
-
-
 def setup_qbittorrent_auth(url, target_user, target_pass):
     log("Checking qBittorrent authentication status...", "INFO")
 
     # 1. Try target credentials
     log("Checking if .env credentials are already configured...", "INFO")
-    session = qbittorrent_login(url, target_user, target_pass)
-    if session:
+    client = QBitClient(url, target_user, target_pass)
+    if client.login():
         log("Authenticated with .env credentials", "SUCCESS")
         return
 
@@ -135,32 +116,23 @@ def setup_qbittorrent_auth(url, target_user, target_pass):
     temp_pass = get_qbittorrent_temp_password()
     if temp_pass:
         log("Found temporary password in logs", "INFO")
-        session = qbittorrent_login(url, "admin", temp_pass)
-        if session:
+        # Try logging in with admin/temp_pass
+        temp_client = QBitClient(url, "admin", temp_pass)
+        if temp_client.login():
             log("Authenticated with temporary password", "SUCCESS")
 
             # Update credentials
             log("Updating qBittorrent credentials to match .env...", "INFO")
             try:
-                # Disable subnet whitelist to ensure we can access
-                session.post(
-                    f"{url}/api/v2/app/setPreferences",
-                    data={"json": json.dumps({"bypass_auth_subnet_whitelist_enabled": False})},
-                )
+                # Disable subnet whitelist
+                temp_client.set_preferences({"bypass_auth_subnet_whitelist_enabled": False})
 
                 payload = {"web_ui_username": target_user, "web_ui_password": target_pass}
-
-                resp = session.post(
-                    f"{url}/api/v2/app/setPreferences", data={"json": json.dumps(payload)}
-                )
-
-                if resp.status_code == 200:
+                
+                if temp_client.set_preferences(payload):
                     log("qBittorrent credentials updated successfully", "SUCCESS")
                 else:
-                    log(
-                        f"Failed to update qBittorrent credentials: {resp.status_code} {resp.text}",
-                        "ERROR",
-                    )
+                    log("Failed to update qBittorrent credentials", "ERROR")
             except Exception as e:
                 log(f"Error updating qBittorrent credentials: {e}", "ERROR")
             return
