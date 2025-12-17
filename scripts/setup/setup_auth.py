@@ -5,6 +5,7 @@ import requests
 import json
 import subprocess
 import re
+from pathlib import Path
 from common import load_env, log
 
 try:
@@ -15,6 +16,72 @@ except ImportError:
         "ERROR",
     )
     sys.exit(1)
+
+
+def generate_gluetun_apikey():
+    """Generate a secure random API key using gluetun's genkey command."""
+    try:
+        result = subprocess.check_output(
+            ["docker", "run", "--rm", "qmcgaw/gluetun", "genkey"],
+            stderr=subprocess.STDOUT
+        )
+        apikey = result.decode("utf-8").strip()
+        log(f"Generated gluetun API key", "SUCCESS")
+        return apikey
+    except Exception as e:
+        log(f"Failed to generate gluetun API key: {e}", "ERROR")
+        return None
+
+
+def setup_gluetun_control_server():
+    """Setup gluetun control server authentication via .env."""
+    log("Setting up Gluetun control server authentication...", "INFO")
+    
+    # Generate new API key
+    apikey = generate_gluetun_apikey()
+    if not apikey:
+        log("Could not generate gluetun API key, skipping control server setup", "ERROR")
+        return None
+    
+    return apikey
+
+
+def update_env_apikey(apikey):
+    """Update .env with GLUETUN_CONTROL_APIKEY."""
+    if not apikey:
+        return
+    
+    env_path = Path(".env")
+    if not env_path.exists():
+        log(".env file not found", "ERROR")
+        return
+    
+    try:
+        with open(env_path, 'r') as f:
+            content = f.read()
+        
+        # Check if key already exists
+        if re.search(r'GLUETUN_CONTROL_APIKEY\s*=', content):
+            # Replace existing key
+            content = re.sub(
+                r'GLUETUN_CONTROL_APIKEY\s*=.*',
+                f'GLUETUN_CONTROL_APIKEY="{apikey}"',
+                content
+            )
+            log("Updated existing GLUETUN_CONTROL_APIKEY in .env", "SUCCESS")
+        else:
+            # Add the key to .env
+            if not content.endswith('\n'):
+                content += '\n'
+            content += f'GLUETUN_CONTROL_APIKEY="{apikey}"\n'
+            log("Added GLUETUN_CONTROL_APIKEY to .env", "SUCCESS")
+        
+        with open(env_path, 'w') as f:
+            f.write(content)
+            
+    except Exception as e:
+        log(f"Failed to update .env with gluetun API key: {e}", "ERROR")
+
 
 
 def get_qbittorrent_temp_password():
@@ -34,7 +101,7 @@ def get_qbittorrent_temp_password():
     return None
 
 
-def qbit_login(url, username, password):
+def qbittorrent_login(url, username, password):
     try:
         session = requests.Session()
         resp = session.post(
@@ -59,7 +126,7 @@ def setup_qbittorrent_auth(url, target_user, target_pass):
 
     # 1. Try target credentials
     log("Checking if .env credentials are already configured...", "INFO")
-    session = qbit_login(url, target_user, target_pass)
+    session = qbittorrent_login(url, target_user, target_pass)
     if session:
         log("Authenticated with .env credentials", "SUCCESS")
         return
@@ -68,7 +135,7 @@ def setup_qbittorrent_auth(url, target_user, target_pass):
     temp_pass = get_qbittorrent_temp_password()
     if temp_pass:
         log("Found temporary password in logs", "INFO")
-        session = qbit_login(url, "admin", temp_pass)
+        session = qbittorrent_login(url, "admin", temp_pass)
         if session:
             log("Authenticated with temporary password", "SUCCESS")
 
@@ -184,11 +251,20 @@ def main():
         log("SERVICE_USER not set in .env", "ERROR")
         sys.exit(1)
 
+    # Gluetun Control Server Setup
+    log("=" * 50, "INFO")
+    log("Setting up Gluetun control server authentication", "INFO")
+    log("=" * 50, "INFO")
+    gluetun_apikey = setup_gluetun_control_server()
+    if gluetun_apikey:
+        update_env_apikey(gluetun_apikey)
+    log("", "INFO")
+
     # qBittorrent Setup (Requests based)
-    qbit_url = os.environ.get("QBIT_URL", "http://localhost:8080")
-    qbit_pass = os.environ.get("QBITTORRENT_PASSWORD")
-    if qbit_pass:
-        setup_qbittorrent_auth(qbit_url, username, qbit_pass)
+    qbittorrent_url = os.environ.get("QBIT_URL", "http://localhost:8080")
+    qbittorrent_pass = os.environ.get("QBITTORRENT_PASSWORD")
+    if qbittorrent_pass:
+        setup_qbittorrent_auth(qbittorrent_url, username, qbittorrent_pass)
     else:
         log("QBITTORRENT_PASSWORD not set. Skipping qBittorrent auth setup.", "WARNING")
 

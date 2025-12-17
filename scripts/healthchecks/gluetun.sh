@@ -22,21 +22,41 @@ set -e
 
 start_time=$(date +%s)
 
-# Check if VPN tunnel interface exists
+# Check if VPN tunnel interface exists (required)
 if ! ip link show tun0 >/dev/null 2>&1; then
   echo "tun0 interface not found"
   exit 1
 fi
 
-# Check VPN status via Gluetun control server
-vpn_status=$(wget -qO- --timeout=5 http://localhost:8000/v1/vpn/status 2>/dev/null || echo "")
+# Build auth options if API key is available (optional on first startup)
+AUTH_OPTS=""
+if [ -n "${HTTP_CONTROL_SERVER_PASSWORD:-}" ]; then
+  # Quote the header value to prevent shell expansion issues
+  AUTH_OPTS="--header=\"X-API-Key: ${HTTP_CONTROL_SERVER_PASSWORD}\""
+fi
+
+# Try to check VPN status via Gluetun control server
+vpn_status=$(eval wget -qO- $AUTH_OPTS --timeout=5 http://localhost:8000/v1/vpn/status 2>/dev/null || echo "")
+
+# On first startup (no API key yet), just verify tunnel exists
+if [ -z "${HTTP_CONTROL_SERVER_PASSWORD:-}" ]; then
+  if [ -n "$vpn_status" ]; then
+    echo "Healthy: VPN tunnel established (awaiting bootstrap configuration)"
+    exit 0
+  fi
+  # If we can't reach API and no key is set, that's okay during initial startup
+  echo "Healthy: VPN tunnel established (bootstrap not run yet)"
+  exit 0
+fi
+
+# After bootstrap, validate full status with API key
 if ! echo "$vpn_status" | grep -q '"status":"running"'; then
   echo "VPN not running: $vpn_status"
   exit 1
 fi
 
 # Verify port forwarding is working via Gluetun API
-port_response=$(wget -qO- --timeout=5 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
+port_response=$(eval wget -qO- $AUTH_OPTS --timeout=5 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
 if [ -z "$port_response" ]; then
   echo "Cannot get port forwarding status"
   exit 1

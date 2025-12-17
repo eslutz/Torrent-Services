@@ -24,6 +24,9 @@ services:
       - VPN_PORT_FORWARDING=on
       - VPN_PORT_FORWARDING_PROVIDER=protonvpn
 
+      # Control Server API Key (for healthcheck authentication)
+      - HTTP_CONTROL_SERVER_PASSWORD=${GLUETUN_CONTROL_APIKEY:-}
+
       # Timezone
       - TZ=${TZ:-America/New_York}
     ports:
@@ -403,7 +406,7 @@ services:
 
   # Bootstrap - Orchestrates setup scripts
   bootstrap:
-    image: mcr.microsoft.com/playwright/python:v1.49.0-jammy
+    image: mcr.microsoft.com/playwright/python:latest
     container_name: bootstrap
     profiles:
       - bootstrap
@@ -422,7 +425,7 @@ services:
       # Uses HOST_PROJECT_DIR from .env if set (Windows), otherwise falls back to shell PWD (macOS/Linux)
       - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-${PWD}}
     command: >
-      sh -c "apt-get update && apt-get install -y docker.io docker-compose-plugin && pip install -r requirements.txt && python3 scripts/setup/bootstrap.py"
+      sh -c "apt-get update && apt-get install -y docker.io && pip install -r requirements.txt && python3 scripts/setup/bootstrap.py && echo 'Bootstrap completed successfully' || (echo 'Bootstrap failed'; exit 1)"
     depends_on:
       prowlarr:
         condition: service_healthy
