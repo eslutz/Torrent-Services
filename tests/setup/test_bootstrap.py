@@ -1,3 +1,13 @@
+def test_main(monkeypatch):
+    import bootstrap
+    monkeypatch.setattr(bootstrap, "load_env", lambda: None)
+    monkeypatch.setattr(bootstrap, "log", lambda *a, **k: None)
+    monkeypatch.setattr(bootstrap, "wait_for_service", lambda *a, **k: None)
+    monkeypatch.setattr(bootstrap, "run_script", lambda *a, **k: None)
+    monkeypatch.setattr(bootstrap.os, "environ", {"SERVICE_USER": "x"})
+    import builtins
+    monkeypatch.setattr(builtins, "print", lambda *a, **k: None)
+    bootstrap.main()
 import os
 import sys
 import responses

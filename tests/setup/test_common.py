@@ -5,7 +5,7 @@ import responses
 from unittest.mock import patch
 
 # Add scripts directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../scripts/setup"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../scripts"))
 
 from common import (
     load_config,
@@ -24,17 +24,13 @@ class TestLoadConfig:
         """Test loading configuration from JSON file"""
         config_file = tmp_path / "setup.config.json"
         config_file.write_text('{"prowlarr": {"url": "http://localhost:9696"}}')
-
-        with patch("common.CONFIG_FILE", str(config_file)):
-            config = load_config()
-
+        config = load_config(config_path=str(config_file))
         assert config["prowlarr"]["url"] == "http://localhost:9696"
 
     def test_load_config_missing_file(self, capsys):
         """Test loading from non-existent config file"""
-        with patch("common.CONFIG_FILE", "/nonexistent/config.json"):
-            with pytest.raises(SystemExit):
-                load_config()
+        with pytest.raises(SystemExit):
+            load_config(config_path="/nonexistent/config.json")
 
 
 class TestLog:
