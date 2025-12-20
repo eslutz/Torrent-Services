@@ -11,29 +11,20 @@ services:
       - /dev/net/tun:/dev/net/tun
     environment:
       # ProtonVPN Configuration
-      - VPN_SERVICE_PROVIDER=protonvpn
-      - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
-      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
-
+      VPN_SERVICE_PROVIDER: protonvpn
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
       # Server Selection
-      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-}
-      - FREE_ONLY=${FREE_ONLY:-}
-
-      # Port Forwarding (automatic)
-      - VPN_PORT_FORWARDING=on
-      - VPN_PORT_FORWARDING_PROVIDER=protonvpn
-
+      SERVER_COUNTRIES: ${SERVER_COUNTRIES:-}
+      FREE_ONLY: ${FREE_ONLY:-}
+      VPN_PORT_FORWARDING: on
+      VPN_PORT_FORWARDING_PROVIDER: protonvpn
       # Control Server API Key (for healthcheck authentication)
-      - HTTP_CONTROL_SERVER_PASSWORD=${GLUETUN_CONTROL_APIKEY:-}
-
-      # Timezone
-      - TZ=${TZ:-America/New_York}
+      HTTP_CONTROL_SERVER_PASSWORD: ${GLUETUN_CONTROL_APIKEY:-}
+      TZ: ${TZ:-America/New_York}
     ports:
-      # qBittorrent Web UI
       - 8080:8080
-      # Forwarded port will be automatically assigned by ProtonVPN
-      # Check with: docker exec gluetun cat /tmp/gluetun/forwarded_port
     volumes:
       - ./config/gluetun:/gluetun
       - gluetun-tmp:/tmp/gluetun
@@ -46,7 +37,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "sh", "/scripts/gluetun.sh"]
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/gluetun.sh"]
       interval: 15s
       timeout: 20s
       retries: 3
@@ -59,17 +50,225 @@ services:
     mem_limit: ${GLUETUN_MEM_LIMIT:-256m}
     cpus: ${GLUETUN_CPUS:-0.5}
 
+
+  # qBittorrent - Torrent Client
+  # Routes through Gluetun VPN with automatic port forwarding
+  # Port forwarding enables incoming peer connections for optimal performance
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    network_mode: "service:gluetun"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      WEBUI_PORT: 8080
+    volumes:
+      - ./config/qbittorrent:/config
+      - ${DATA_DIR:-./media}:/media
+      - ./scripts/healthchecks:/scripts:ro
+      - ${DATA_DIR_2}:/media2
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/qbittorrent.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${QBITTORRENT_MEM_LIMIT:-2g}
+    cpus: ${QBITTORRENT_CPUS:-2.0}
+
+  # Prowlarr - Indexer Manager
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      PROWLARR_API_KEY: ${PROWLARR_API_KEY:-}
+      # .NET Diagnostics
+      COMPlus_EnableDiagnostics: 0
+      # Runtime Dir
+      XDG_RUNTIME_DIR: /config/tmp
+    volumes:
+      - ./config/prowlarr:/config
+      - ./scripts/healthchecks:/scripts:ro
+    ports:
+      - 9696:9696
+    depends_on:
+      torarr:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - torrent-services-network
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/prowlarr.sh"]
+      interval: 45s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${PROWLARR_MEM_LIMIT:-512m}
+    cpus: ${PROWLARR_CPUS:-1.0}
+
+  # Sonarr - TV Show Management
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      SONARR_API_KEY: ${SONARR_API_KEY:-}
+    volumes:
+      - ./config/sonarr:/config
+      - ${DATA_DIR:-./media}:/media
+      - ./scripts/healthchecks:/scripts:ro
+      - ${DATA_DIR_2}:/media2
+    ports:
+      - 8989:8989
+    depends_on:
+      prowlarr:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - torrent-services-network
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/sonarr.sh"]
+      interval: 45s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${SONARR_MEM_LIMIT:-1g}
+    cpus: ${SONARR_CPUS:-1.0}
+
+  # Radarr - Movie Management
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      RADARR_API_KEY: ${RADARR_API_KEY:-}
+    volumes:
+      - ./config/radarr:/config
+      - ${DATA_DIR:-./media}:/media
+      - ./scripts/healthchecks:/scripts:ro
+      - ${DATA_DIR_2}:/media2
+    ports:
+      - 7878:7878
+    depends_on:
+      prowlarr:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - torrent-services-network
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/radarr.sh"]
+      interval: 45s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${RADARR_MEM_LIMIT:-1g}
+    cpus: ${RADARR_CPUS:-1.0}
+
+  # Bazarr - Subtitle Management
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      BAZARR_API_KEY: ${BAZARR_API_KEY:-}
+    volumes:
+      - ./config/bazarr:/config
+      - ${DATA_DIR:-./media}:/media
+      - ./scripts/healthchecks:/scripts:ro
+      - ${DATA_DIR_2}:/media2
+    ports:
+      - 6767:6767
+    depends_on:
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - torrent-services-network
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/bazarr.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${BAZARR_MEM_LIMIT:-512m}
+    cpus: ${BAZARR_CPUS:-0.5}
+
+  # Generic health monitor (multi-service)
+  health-monitor:
+    image: debian:stable-slim
+    container_name: health-monitor
+    restart: unless-stopped
+    volumes:
+      - ./config:/config:rw
+      - ./scripts/healthchecks:/scripts:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - torrent-services-network
+    command: ["sh", "-c", "apt-get update && apt-get install -y jq sqlite3 msmtp ca-certificates docker.io && sh /scripts/monitor.sh"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    # You must install jq in this container for config parsing
+
   # Forwardarr - Sync Gluetun forwarded port to qBittorrent with metrics + health endpoints
   forwardarr:
     image: ghcr.io/eslutz/forwardarr:latest
     container_name: forwardarr
     environment:
-      - GLUETUN_PORT_FILE=/tmp/gluetun/forwarded_port
-      - TORRENT_CLIENT_URL=http://gluetun:8080
-      - TORRENT_CLIENT_USER=${SERVICE_USER:-admin}
-      - TORRENT_CLIENT_PASSWORD=${QBITTORRENT_PASSWORD}
-      - SYNC_INTERVAL=${FORWARDARR_SYNC_INTERVAL:-60}
-      - LOG_LEVEL=${FORWARDARR_LOG_LEVEL:-info}
+      GLUETUN_PORT_FILE: /tmp/gluetun/forwarded_port
+      TORRENT_CLIENT_URL: http://gluetun:8080
+      TORRENT_CLIENT_USER: ${SERVICE_USER:-admin}
+      TORRENT_CLIENT_PASSWORD: ${QBITTORRENT_PASSWORD}
+      SYNC_INTERVAL: ${FORWARDARR_SYNC_INTERVAL:-60}
+      LOG_LEVEL: ${FORWARDARR_LOG_LEVEL:-info}
     volumes:
       - gluetun-tmp:/tmp/gluetun:ro
     ports:
@@ -96,199 +295,13 @@ services:
     mem_limit: ${FORWARDARR_MEM_LIMIT:-128m}
     cpus: ${FORWARDARR_CPUS:-0.1}
 
-  # qBittorrent - Torrent Client
-  # Routes through Gluetun VPN with automatic port forwarding
-  # Port forwarding enables incoming peer connections for optimal performance
-  qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: qbittorrent
-    network_mode: "service:gluetun"
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-America/New_York}
-      - WEBUI_PORT=8080
-    volumes:
-      - ./config/qbittorrent:/config
-      - ${DATA_DIR:-./media}:/media
-      - ./scripts/healthchecks:/scripts:ro
-      - ${DATA_DIR_2}:/media2
-    depends_on:
-      gluetun:
-        condition: service_healthy
-    restart: unless-stopped
-    stop_grace_period: 60s
-    security_opt:
-      - no-new-privileges:true
-    healthcheck:
-      test: ["CMD", "sh", "/scripts/qbittorrent.sh"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 90s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    mem_limit: ${QBITTORRENT_MEM_LIMIT:-2g}
-    cpus: ${QBITTORRENT_CPUS:-2.0}
-
-  # Prowlarr - Indexer Manager
-  prowlarr:
-    image: lscr.io/linuxserver/prowlarr:latest
-    container_name: prowlarr
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-America/New_York}
-      - PROWLARR_API_KEY=${PROWLARR_API_KEY:-}
-      - COMPlus_EnableDiagnostics=0
-      - XDG_RUNTIME_DIR=/config/tmp
-    volumes:
-      - ./config/prowlarr:/config
-      - ./scripts/healthchecks:/scripts:ro
-    ports:
-      - 9696:9696
-    depends_on:
-      torarr:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - torrent-services-network
-    healthcheck:
-      test: ["CMD", "sh", "/scripts/prowlarr.sh"]
-      interval: 45s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    mem_limit: ${PROWLARR_MEM_LIMIT:-512m}
-    cpus: ${PROWLARR_CPUS:-1.0}
-
-  # Sonarr - TV Show Management
-  sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
-    container_name: sonarr
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-America/New_York}
-      - SONARR_API_KEY=${SONARR_API_KEY:-}
-    volumes:
-      - ./config/sonarr:/config
-      - ${DATA_DIR:-./media}:/media
-      - ./scripts/healthchecks:/scripts:ro
-      - ${DATA_DIR_2}:/media2
-    ports:
-      - 8989:8989
-    depends_on:
-      prowlarr:
-        condition: service_healthy
-    restart: unless-stopped
-    stop_grace_period: 30s
-    networks:
-      - torrent-services-network
-    healthcheck:
-      test: ["CMD", "sh", "/scripts/sonarr.sh"]
-      interval: 45s
-      timeout: 10s
-      retries: 3
-      start_period: 90s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    mem_limit: ${SONARR_MEM_LIMIT:-1g}
-    cpus: ${SONARR_CPUS:-1.0}
-
-  # Radarr - Movie Management
-  radarr:
-    image: lscr.io/linuxserver/radarr:latest
-    container_name: radarr
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-America/New_York}
-      - RADARR_API_KEY=${RADARR_API_KEY:-}
-    volumes:
-      - ./config/radarr:/config
-      - ${DATA_DIR:-./media}:/media
-      - ./scripts/healthchecks:/scripts:ro
-      - ${DATA_DIR_2}:/media2
-    ports:
-      - 7878:7878
-    depends_on:
-      prowlarr:
-        condition: service_healthy
-    restart: unless-stopped
-    stop_grace_period: 30s
-    networks:
-      - torrent-services-network
-    healthcheck:
-      test: ["CMD", "sh", "/scripts/radarr.sh"]
-      interval: 45s
-      timeout: 10s
-      retries: 3
-      start_period: 90s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    mem_limit: ${RADARR_MEM_LIMIT:-1g}
-    cpus: ${RADARR_CPUS:-1.0}
-
-  # Bazarr - Subtitle Management
-  bazarr:
-    image: lscr.io/linuxserver/bazarr:latest
-    container_name: bazarr
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-America/New_York}
-      - BAZARR_API_KEY=${BAZARR_API_KEY:-}
-    volumes:
-      - ./config/bazarr:/config
-      - ${DATA_DIR:-./media}:/media
-      - ./scripts/healthchecks:/scripts:ro
-      - ${DATA_DIR_2}:/media2
-    ports:
-      - 6767:6767
-    depends_on:
-      sonarr:
-        condition: service_healthy
-      radarr:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - torrent-services-network
-    healthcheck:
-      test: ["CMD", "sh", "/scripts/bazarr.sh"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    mem_limit: ${BAZARR_MEM_LIMIT:-512m}
-    cpus: ${BAZARR_CPUS:-0.5}
-
   # Torarr - SOCKS5 proxy for anonymous indexer access
   # Provides access to .onion sites and bypasses blocks
   torarr:
     image: ghcr.io/eslutz/torarr:latest
     container_name: torarr
     environment:
-      - TZ=${TZ:-America/New_York}
+      TZ: ${TZ:-America/New_York}
     ports:
       - 127.0.0.1:9050:9050 # SOCKS5 proxy
       - 127.0.0.1:8085:8085 # Health/metrics endpoint
@@ -316,12 +329,12 @@ services:
     image: ghcr.io/martabal/qbittorrent-exporter:latest
     container_name: qbittorrent-exporter
     environment:
-      - QBITTORRENT_BASE_URL=http://gluetun:8080
-      - QBITTORRENT_USERNAME=${SERVICE_USER:-admin}
-      - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
-      - EXPORTER_PORT=8090
-      - LOG_LEVEL=INFO
-      - ENABLE_TRACKER=true
+      QBITTORRENT_BASE_URL: http://gluetun:8080
+      QBITTORRENT_USERNAME: ${SERVICE_USER:-admin}
+      QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD}
+      EXPORTER_PORT: 8090
+      LOG_LEVEL: INFO
+      ENABLE_TRACKER: true
     depends_on:
       qbittorrent:
         condition: service_healthy
@@ -345,20 +358,20 @@ services:
     image: ghcr.io/thecfu/scraparr:latest
     container_name: scraparr
     environment:
-      - GENERAL_PORT=7100
-      - GENERAL_PATH=/metrics
-      - SONARR_URL=http://sonarr:8989
-      - SONARR_API_KEY=${SONARR_API_KEY}
-      - SONARR_INTERVAL=30
-      - RADARR_URL=http://radarr:7878
-      - RADARR_API_KEY=${RADARR_API_KEY}
-      - RADARR_INTERVAL=30
-      - PROWLARR_URL=http://prowlarr:9696
-      - PROWLARR_API_KEY=${PROWLARR_API_KEY}
-      - PROWLARR_INTERVAL=30
-      - BAZARR_URL=http://bazarr:6767
-      - BAZARR_API_KEY=${BAZARR_API_KEY}
-      - BAZARR_INTERVAL=30
+      GENERAL_PORT: 7100
+      GENERAL_PATH: /metrics
+      SONARR_URL: http://sonarr:8989
+      SONARR_API_KEY: ${SONARR_API_KEY}
+      SONARR_INTERVAL: 30
+      RADARR_URL: http://radarr:7878
+      RADARR_API_KEY: ${RADARR_API_KEY}
+      RADARR_INTERVAL: 30
+      PROWLARR_URL: http://prowlarr:9696
+      PROWLARR_API_KEY: ${PROWLARR_API_KEY}
+      PROWLARR_INTERVAL: 30
+      BAZARR_URL: http://bazarr:6767
+      BAZARR_API_KEY: ${BAZARR_API_KEY}
+      BAZARR_INTERVAL: 30
     depends_on:
       sonarr:
         condition: service_healthy
@@ -390,12 +403,12 @@ services:
     read_only: true
     network_mode: none
     environment:
-      - AUTOHEAL_CONNECTION_TYPE=socket
-      - AUTOHEAL_MONITOR_ALL=true
-      - AUTOHEAL_INTERVAL=30
-      - AUTOHEAL_START_DELAY=300
-      - AUTOHEAL_STOP_TIMEOUT=30
-      - AUTOHEAL_LOG_PERSIST=true
+      AUTOHEAL_CONNECTION_TYPE: socket
+      AUTOHEAL_MONITOR_ALL: true
+      AUTOHEAL_INTERVAL: 30
+      AUTOHEAL_START_DELAY: 300
+      AUTOHEAL_STOP_TIMEOUT: 30
+      AUTOHEAL_LOG_PERSIST: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/localtime:/etc/localtime:ro
@@ -425,15 +438,15 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     working_dir: /app
     environment:
-      - TZ=${TZ:-America/New_York}
-      - PROWLARR_URL=http://prowlarr:9696
-      - SONARR_URL=http://sonarr:8989
-      - RADARR_URL=http://radarr:7878
-      - BAZARR_URL=http://bazarr:6767
-      - QBIT_URL=http://gluetun:8080
+      TZ: ${TZ:-America/New_York}
+      PROWLARR_URL: http://prowlarr:9696
+      SONARR_URL: http://sonarr:8989
+      RADARR_URL: http://radarr:7878
+      BAZARR_URL: http://bazarr:6767
+      QBIT_URL: http://gluetun:8080
       # Pass host project directory for correct volume mounting in dind
       # Uses HOST_PROJECT_DIR from .env if set (Windows), otherwise falls back to shell PWD (macOS/Linux)
-      - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-${PWD}}
+      HOST_PROJECT_DIR: ${HOST_PROJECT_DIR:-${PWD}}
     command: >
       sh -c "apt-get update && apt-get install -y docker.io && pip install -r requirements.txt && python3 scripts/setup/bootstrap.py && echo 'Bootstrap completed successfully' || (echo 'Bootstrap failed'; exit 1)"
     depends_on:

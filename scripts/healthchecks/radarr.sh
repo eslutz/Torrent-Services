@@ -1,29 +1,14 @@
 #!/bin/sh
 # Radarr healthcheck - verify API health with fallback to ping
-#
+# 
 # Two-tier validation strategy:
 # 1. Without API key (initial deployment):
 #    - Service is running and responding
-#    - Returns valid JSON with "status":"OK"
-#    - Response time under 3 seconds
 #
-# 2. With API key (production):
-#    - Service is running and API accessible
-#    - No errors reported in health endpoint
-#    - Database connectivity working
-#    - Download client connectivity
-#    - Movie monitoring functional
-#    - Response time under 3 seconds
-#
-# Catches:
-#  ❌ Service crashed/not running
-#  ❌ Web server not responding
-#  ❌ Slow response times (degraded performance)
-#  ❌ Database connection failures (API mode)
-#  ❌ Download client (qBittorrent) issues (API mode)
-#  ❌ Indexer (Prowlarr) connectivity issues (API mode)
-#  ❌ Disk space issues (API mode)
-#  ❌ Configuration errors (API mode)
+SERVICE_NAME=radarr
+LOG_PATH=${LOG_PATH:-/config/radarr/log/healthcheck.log}
+SCRIPT_DIR="$(dirname "$0")"
+. "$SCRIPT_DIR/healthcheck_utils.sh"
 
 set -e
 
@@ -38,23 +23,23 @@ if [ -n "$RADARR_API_KEY" ]; then
   END=$(date +%s)
 
   if [ -z "$RESPONSE" ]; then
-    echo "Radarr API not responding"
+    log_event "error" "Radarr API not responding"
     exit 1
   fi
 
   # Check for error or warning conditions
   if echo "$RESPONSE" | grep -q '"type":"error"'; then
-    echo "Radarr health check failed: service reported errors"
+    log_event "error" "Radarr health check failed: service reported errors"
     exit 1
   fi
 
   RESPONSE_TIME=$((END - START))
   if [ "$RESPONSE_TIME" -gt "$MAX_RESPONSE_TIME" ]; then
-    echo "Radarr API response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
+    log_event "error" "Radarr API response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
     exit 1
   fi
 
-  echo "Healthy: response_time=${RESPONSE_TIME}s (API check)"
+  log_event "healthy" "response_time=${RESPONSE_TIME}s (API check)"
 else
   # Fallback to simple ping check
   HEALTH_URL="http://localhost:7878/ping"
@@ -64,22 +49,22 @@ else
   END=$(date +%s)
 
   if [ -z "$RESPONSE" ]; then
-    echo "Radarr not responding"
+    log_event "error" "Radarr not responding"
     exit 1
   fi
 
   if ! echo "$RESPONSE" | grep -q '"status".*:.*"OK"'; then
-    echo "Radarr returned invalid response: $RESPONSE"
+    log_event "error" "Radarr returned invalid response: $RESPONSE"
     exit 1
   fi
 
   RESPONSE_TIME=$((END - START))
   if [ "$RESPONSE_TIME" -gt "$MAX_RESPONSE_TIME" ]; then
-    echo "Radarr response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
+    log_event "error" "Radarr response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
     exit 1
   fi
 
-  echo "Healthy: response_time=${RESPONSE_TIME}s (ping check)"
+  log_event "healthy" "response_time=${RESPONSE_TIME}s (ping check)"
 fi
 
 exit 0

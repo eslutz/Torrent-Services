@@ -5,24 +5,11 @@
 # 1. Without API key (initial deployment):
 #    - Service is running and responding
 #    - Web interface returns HTTP 200
-#    - Response time under 3 seconds
-#
-# 2. With API key (production):
-#    - Service is running and API accessible
-#    - System status endpoint responding
-#    - Database connectivity working
-#    - Sonarr/Radarr connectivity
-#    - Subtitle provider connectivity
-#    - Response time under 3 seconds
-#
-# Catches:
-#  ❌ Service crashed/not running
-#  ❌ Web server not responding
-#  ❌ Slow response times (degraded performance)
-#  ❌ Database connection failures (API mode)
-#  ❌ Sonarr/Radarr connectivity issues (API mode)
-#  ❌ Subtitle provider failures (API mode)
-#  ❌ Configuration errors (API mode)
+
+SERVICE_NAME=bazarr
+LOG_PATH=${LOG_PATH:-/config/bazarr/log/healthcheck.log}
+SCRIPT_DIR="$(dirname "$0")"
+. "$SCRIPT_DIR/healthcheck_utils.sh"
 
 set -e
 
@@ -37,23 +24,23 @@ if [ -n "$BAZARR_API_KEY" ]; then
   END=$(date +%s)
 
   if [ -z "$RESPONSE" ]; then
-    echo "Bazarr API not responding"
+    log_event "error" "Bazarr API not responding"
     exit 1
   fi
 
   # Validate response contains expected JSON fields
   if ! echo "$RESPONSE" | grep -q "version"; then
-    echo "Bazarr API returned invalid response"
+    log_event "error" "Bazarr API returned invalid response"
     exit 1
   fi
 
   RESPONSE_TIME=$((END - START))
   if [ "$RESPONSE_TIME" -gt "$MAX_RESPONSE_TIME" ]; then
-    echo "Bazarr API response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
+    log_event "error" "Bazarr API response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
     exit 1
   fi
 
-  echo "Healthy: response_time=${RESPONSE_TIME}s (API check)"
+  log_event "healthy" "response_time=${RESPONSE_TIME}s (API check)"
 else
   # Fallback to simple web interface check
   HEALTH_URL="http://localhost:6767/"
@@ -63,17 +50,18 @@ else
   END=$(date +%s)
 
   if [ "$HTTP_CODE" != "200" ]; then
-    echo "Bazarr not responding: HTTP $HTTP_CODE"
+    log_event "error" "Bazarr not responding: HTTP $HTTP_CODE"
     exit 1
   fi
 
   RESPONSE_TIME=$((END - START))
   if [ "$RESPONSE_TIME" -gt "$MAX_RESPONSE_TIME" ]; then
-    echo "Bazarr response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
+    log_event "error" "Bazarr response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
     exit 1
   fi
 
-  echo "Healthy: response_time=${RESPONSE_TIME}s (web check)"
+  log_event "healthy" "response_time=${RESPONSE_TIME}s (web check)"
 fi
+
 
 exit 0

@@ -1,0 +1,61 @@
+[
+  {
+    "service": "bazarr",
+    "type": "sqlite",
+    "db": "/config/bazarr/db/bazarr.db",
+    "check_interval": 30
+  },
+  {
+    "service": "sonarr",
+    "type": "sqlite",
+    "db": "/config/sonarr/sonarr.db",
+    "check_interval": 30
+  },
+  {
+    "service": "radarr",
+    "type": "sqlite",
+    "db": "/config/radarr/radarr.db",
+    "check_interval": 30
+  },
+  {
+    "service": "prowlarr",
+    "type": "sqlite",
+    "db": "/config/prowlarr/prowlarr.db",
+    "check_interval": 30
+  },
+  {
+    "service": "qbittorrent",
+    "type": "filelock",
+    "file": "/config/qbittorrent/qBittorrent/lockfile",
+    "check_interval": 30,
+    "lock_age_threshold": 300
+  },
+  {
+    "service": "bazarr",
+    "type": "filelock",
+    "file": "/config/bazarr/config/bazarr.lock",
+    "check_interval": 30,
+    "lock_age_threshold": 300
+  },
+  {
+    "service": "sonarr",
+    "type": "filelock",
+    "file": "/config/sonarr/config/sonarr.lock",
+    "check_interval": 30,
+    "lock_age_threshold": 300
+  },
+  {
+    "service": "radarr",
+    "type": "filelock",
+    "file": "/config/radarr/config/radarr.lock",
+    "check_interval": 30,
+    "lock_age_threshold": 300
+  },
+  {
+    "service": "prowlarr",
+    "type": "filelock",
+    "file": "/config/prowlarr/config/prowlarr.lock",
+    "check_interval": 30,
+    "lock_age_threshold": 300
+  }
+]

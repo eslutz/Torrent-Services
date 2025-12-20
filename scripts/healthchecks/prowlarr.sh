@@ -4,24 +4,11 @@
 # Two-tier validation strategy:
 # 1. Without API key (initial deployment):
 #    - Service is running and responding
-#    - Returns valid JSON with "status":"OK"
-#    - Response time under 3 seconds
 #
-# 2. With API key (production):
-#    - Service is running and API accessible
-#    - No errors reported in health endpoint
-#    - Database connectivity working
-#    - Background tasks healthy
-#    - Response time under 3 seconds
-#
-# Catches:
-#  ❌ Service crashed/not running
-#  ❌ Web server not responding
-#  ❌ Slow response times (degraded performance)
-#  ❌ Database connection failures (API mode)
-#  ❌ Indexer connectivity issues (API mode)
-#  ❌ Configuration errors (API mode)
-#  ❌ Background task failures (API mode)
+SERVICE_NAME=prowlarr
+LOG_PATH=${LOG_PATH:-/config/prowlarr/log/healthcheck.log}
+SCRIPT_DIR="$(dirname "$0")"
+. "$SCRIPT_DIR/healthcheck_utils.sh"
 
 set -e
 
@@ -36,23 +23,23 @@ if [ -n "$PROWLARR_API_KEY" ]; then
   END=$(date +%s)
 
   if [ -z "$RESPONSE" ]; then
-    echo "Prowlarr API not responding"
+    log_event "error" "Prowlarr API not responding"
     exit 1
   fi
 
   # Check for error or warning conditions
   if echo "$RESPONSE" | grep -q '"type":"error"'; then
-    echo "Prowlarr health check failed: service reported errors"
+    log_event "error" "Prowlarr health check failed: service reported errors"
     exit 1
   fi
 
   RESPONSE_TIME=$((END - START))
   if [ "$RESPONSE_TIME" -gt "$MAX_RESPONSE_TIME" ]; then
-    echo "Prowlarr API response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
+    log_event "error" "Prowlarr API response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
     exit 1
   fi
 
-  echo "Healthy: response_time=${RESPONSE_TIME}s (API check)"
+  log_event "healthy" "response_time=${RESPONSE_TIME}s (API check)"
 else
   # Fallback to simple ping check
   HEALTH_URL="http://localhost:9696/ping"
@@ -62,22 +49,23 @@ else
   END=$(date +%s)
 
   if [ -z "$RESPONSE" ]; then
-    echo "Prowlarr not responding"
+    log_event "error" "Prowlarr not responding"
     exit 1
   fi
 
   if ! echo "$RESPONSE" | grep -q '"status".*:.*"OK"'; then
-    echo "Prowlarr returned invalid response: $RESPONSE"
+    log_event "error" "Prowlarr returned invalid response: $RESPONSE"
     exit 1
   fi
 
   RESPONSE_TIME=$((END - START))
   if [ "$RESPONSE_TIME" -gt "$MAX_RESPONSE_TIME" ]; then
-    echo "Prowlarr response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
+    log_event "error" "Prowlarr response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
     exit 1
   fi
 
-  echo "Healthy: response_time=${RESPONSE_TIME}s (ping check)"
+  log_event "healthy" "response_time=${RESPONSE_TIME}s (ping check)"
 fi
+
 
 exit 0

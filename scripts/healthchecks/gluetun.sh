@@ -18,13 +18,18 @@
 #  ❌ Control server API failures
 #  ❌ Network connectivity problems
 
+SERVICE_NAME=gluetun
+LOG_PATH=${LOG_PATH:-/config/gluetun/log/healthcheck.log}
+SCRIPT_DIR="$(dirname "$0")"
+. "$SCRIPT_DIR/healthcheck_utils.sh"
+
 set -e
 
 start_time=$(date +%s)
 
 # Check if VPN tunnel interface exists (required)
 if ! ip link show tun0 >/dev/null 2>&1; then
-  echo "tun0 interface not found"
+  log_event "error" "tun0 interface not found"
   exit 1
 fi
 
@@ -41,36 +46,36 @@ vpn_status=$(eval wget -qO- $AUTH_OPTS --timeout=5 http://localhost:8000/v1/vpn/
 # On first startup (no API key yet), just verify tunnel exists
 if [ -z "${HTTP_CONTROL_SERVER_PASSWORD:-}" ]; then
   if [ -n "$vpn_status" ]; then
-    echo "Healthy: VPN tunnel established (awaiting bootstrap configuration)"
+    log_event "healthy" "VPN tunnel established (awaiting bootstrap configuration)"
     exit 0
   fi
   # If we can't reach API and no key is set, that's okay during initial startup
-  echo "Healthy: VPN tunnel established (bootstrap not run yet)"
+  log_event "healthy" "VPN tunnel established (bootstrap not run yet)"
   exit 0
 fi
 
 # After bootstrap, validate full status with API key
 if ! echo "$vpn_status" | grep -q '"status":"running"'; then
-  echo "VPN not running: $vpn_status"
+  log_event "error" "VPN not running: $vpn_status"
   exit 1
 fi
 
 # Verify port forwarding is working via Gluetun API
 port_response=$(eval wget -qO- $AUTH_OPTS --timeout=5 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
 if [ -z "$port_response" ]; then
-  echo "Cannot get port forwarding status"
+  log_event "error" "Cannot get port forwarding status"
   exit 1
 fi
 
 PORT=$(echo "$port_response" | grep -o '"port":[0-9]*' | cut -d':' -f2)
 
 if [ -z "$PORT" ] || [ "$PORT" = "0" ]; then
-  echo "Port forwarding not active: $port_response"
+  log_event "error" "Port forwarding not active: $port_response"
   exit 1
 fi
 
 end_time=$(date +%s)
 response_time=$((end_time - start_time))
 
-echo "Healthy: VPN connected, port=${PORT}, response_time=${response_time}s"
+log_event "healthy" "VPN connected, port=${PORT}, response_time=${response_time}s"
 exit 0
