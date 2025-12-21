@@ -74,6 +74,43 @@ def configure_preferences(client):
     else:
         log("Failed to configure preferences", "ERROR")
 
+def configure_categories(client):
+    """Configure qBittorrent categories with save paths."""
+    log("Configuring qBittorrent categories...", "INFO")
+    
+    categories = {
+        "movies": "/media/downloads/movies",
+        "tv shows": "/media/downloads/tv shows"
+    }
+    
+    existing_cats = client.get_categories()
+    success_count = 0
+    
+    for category, save_path in categories.items():
+        if category in existing_cats:
+            log(f"Category '{category}' exists, verifying save path...", "INFO")
+            # Update save path in case it changed
+            if client.set_category_save_path(category, save_path):
+                log(f"Category '{category}' save path verified: {save_path}", "SUCCESS")
+                success_count += 1
+            else:
+                log(f"Failed to update save path for '{category}'", "ERROR")
+        else:
+            log(f"Creating category '{category}'...", "INFO")
+            if client.create_category(category):
+                if client.set_category_save_path(category, save_path):
+                    log(f"Category '{category}' created with save path: {save_path}", "SUCCESS")
+                    success_count += 1
+                else:
+                    log(f"Category created but failed to set save path", "ERROR")
+            else:
+                log(f"Failed to create category '{category}'", "ERROR")
+    
+    if success_count == len(categories):
+        log("All categories configured successfully", "SUCCESS")
+    else:
+        log(f"Configured {success_count}/{len(categories)} categories", "WARNING")
+
 def wait_for_qbittorrent():
     log("Waiting for qBittorrent...", "INFO")
     import requests
@@ -94,6 +131,8 @@ def main():
     client = authenticate()
 
     configure_preferences(client)
+    
+    configure_categories(client)
 
     log("qBittorrent setup completed successfully", "SUCCESS")
 

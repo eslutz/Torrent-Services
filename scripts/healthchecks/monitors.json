@@ -3,25 +3,29 @@
     "service": "bazarr",
     "type": "sqlite",
     "db": "/config/bazarr/db/bazarr.db",
-    "check_interval": 30
+    "check_interval": 30,
+    "lock_age_threshold": 300
   },
   {
     "service": "sonarr",
     "type": "sqlite",
     "db": "/config/sonarr/sonarr.db",
-    "check_interval": 30
+    "check_interval": 30,
+    "lock_age_threshold": 300
   },
   {
     "service": "radarr",
     "type": "sqlite",
     "db": "/config/radarr/radarr.db",
-    "check_interval": 30
+    "check_interval": 30,
+    "lock_age_threshold": 300
   },
   {
     "service": "prowlarr",
     "type": "sqlite",
     "db": "/config/prowlarr/prowlarr.db",
-    "check_interval": 30
+    "check_interval": 30,
+    "lock_age_threshold": 300
   },
   {
     "service": "qbittorrent",

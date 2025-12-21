@@ -1,9 +1,9 @@
 #!/bin/sh
 # Multi-service DB/file lock monitor runner
-# Reads /config/monitors.json and launches a monitor loop for each job
-# Usage: sh /scripts/healthchecks/monitor.sh
+# Reads monitors.json and launches a monitor loop for each job
+# Usage: sh /scripts/monitor.sh
 
-CONFIG_PATH="/scripts/healthchecks/monitors.json"
+CONFIG_PATH="/scripts/monitors.json"
 SCRIPT_DIR="$(dirname "$0")"
 
 if ! [ -f "$CONFIG_PATH" ]; then
@@ -24,8 +24,12 @@ run_sqlite_monitor() {
   SERVICE_NAME="$1"
   DB_PATH="$2"
   INTERVAL="$3"
+  LOCK_AGE_THRESHOLD="$4"
+  LOG_DIR="/logs/${SERVICE_NAME}"
+  mkdir -p "$LOG_DIR" 2>/dev/null || true
+  LOG_PATH="${LOG_DIR}/healthcheck.log"
   while true; do
-    SERVICE_NAME="$SERVICE_NAME" DB_PATH="$DB_PATH" MONITOR_INTERVAL="$INTERVAL" sh "$SCRIPT_DIR/check_sqlite.sh" monitor
+    SERVICE_NAME="$SERVICE_NAME" DB_PATH="$DB_PATH" LOG_PATH="$LOG_PATH" MONITOR_INTERVAL="$INTERVAL" LOCK_AGE_THRESHOLD="$LOCK_AGE_THRESHOLD" sh "$SCRIPT_DIR/check_sqlite.sh" monitor
     sleep "$INTERVAL"
   done
 }
@@ -34,7 +38,9 @@ run_filelock_monitor() {
   SERVICE_NAME="$1"
   FILE_PATH="$2"
   INTERVAL="$3"
-  LOG_PATH="/config/${SERVICE_NAME}/log/healthcheck.log"
+  LOG_DIR="/logs/${SERVICE_NAME}"
+  mkdir -p "$LOG_DIR" 2>/dev/null || true
+  LOG_PATH="${LOG_DIR}/healthcheck.log"
   LOCK_AGE_THRESHOLD="$4"
   while true; do
     SERVICE_NAME="$SERVICE_NAME" FILE_PATH="$FILE_PATH" LOG_PATH="$LOG_PATH" LOCK_AGE_THRESHOLD="$LOCK_AGE_THRESHOLD" sh "$SCRIPT_DIR/check_filelock.sh"
@@ -48,8 +54,9 @@ for JOB in $JOBS; do
   INTERVAL=$(echo "$JOB" | jq -r '.check_interval')
   if [ "$TYPE" = "sqlite" ]; then
     DB=$(echo "$JOB" | jq -r '.db')
-    echo "Starting sqlite monitor for $SERVICE ($DB) every $INTERVAL sec" >&2
-    run_sqlite_monitor "$SERVICE" "$DB" "$INTERVAL" &
+    LOCK_AGE_THRESHOLD=$(echo "$JOB" | jq -r '.lock_age_threshold // 300')
+    echo "Starting sqlite monitor for $SERVICE ($DB) every $INTERVAL sec, lock_age_threshold=$LOCK_AGE_THRESHOLD" >&2
+    run_sqlite_monitor "$SERVICE" "$DB" "$INTERVAL" "$LOCK_AGE_THRESHOLD" &
   elif [ "$TYPE" = "filelock" ]; then
     FILE=$(echo "$JOB" | jq -r '.file')
     LOCK_AGE_THRESHOLD=$(echo "$JOB" | jq -r '.lock_age_threshold // 300')

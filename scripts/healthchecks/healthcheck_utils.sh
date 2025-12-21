@@ -37,7 +37,13 @@ send_email() {
     fi
     # If failed, log and backoff
     echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"email_retry_failed\", \"details\": \"Attempt $ATTEMPT failed for: $SUBJECT\"}"
-    SLEEP_TIME=$((BACKOFF_BASE ** ATTEMPT))
+    # POSIX sh compatible: 2^ATTEMPT via loop
+    SLEEP_TIME=1
+    i=0
+    while [ $i -lt $ATTEMPT ]; do
+      SLEEP_TIME=$((SLEEP_TIME * BACKOFF_BASE))
+      i=$((i + 1))
+    done
     sleep $SLEEP_TIME
     ATTEMPT=$((ATTEMPT+1))
   done

@@ -428,12 +428,73 @@ class QBitClient:
 
     def set_category_save_path(self, category, save_path):
         if not self.login(): return False
-        url = f"{self.base_url}/api/v2/torrents/setCategorySavePath"
+        url = f"{self.base_url}/api/v2/torrents/editCategory"
         try:
             self.session.post(url, data={"category": category, "savePath": save_path})
             return True
         except Exception as e:
             print(f"Error setting category save path: {e}")
+            return False
+
+    def get_categories(self):
+        """Get all categories with their save paths."""
+        if not self.login(): return {}
+        url = f"{self.base_url}/api/v2/torrents/categories"
+        try:
+            response = self.session.get(url)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error getting categories: {e}")
+            return {}
+
+    def get_torrents(self, filter_by=None):
+        """Get all torrents or filter by state (e.g., 'downloading', 'seeding')."""
+        if not self.login(): return []
+        url = f"{self.base_url}/api/v2/torrents/info"
+        params = {"filter": filter_by} if filter_by else {}
+        try:
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error getting torrents: {e}")
+            return []
+
+    def pause_torrents(self, hashes):
+        """Pause torrents by hash list."""
+        if not self.login(): return False
+        url = f"{self.base_url}/api/v2/torrents/pause"
+        try:
+            hash_string = "|".join(hashes) if isinstance(hashes, list) else hashes
+            self.session.post(url, data={"hashes": hash_string})
+            return True
+        except Exception as e:
+            print(f"Error pausing torrents: {e}")
+            return False
+
+    def resume_torrents(self, hashes):
+        """Resume torrents by hash list."""
+        if not self.login(): return False
+        url = f"{self.base_url}/api/v2/torrents/resume"
+        try:
+            hash_string = "|".join(hashes) if isinstance(hashes, list) else hashes
+            self.session.post(url, data={"hashes": hash_string})
+            return True
+        except Exception as e:
+            print(f"Error resuming torrents: {e}")
+            return False
+
+    def set_torrent_category(self, hashes, category):
+        """Set category for torrents."""
+        if not self.login(): return False
+        url = f"{self.base_url}/api/v2/torrents/setCategory"
+        try:
+            hash_string = "|".join(hashes) if isinstance(hashes, list) else hashes
+            self.session.post(url, data={"hashes": hash_string, "category": category})
+            return True
+        except Exception as e:
+            print(f"Error setting category: {e}")
             return False
 
 class Config:

@@ -7,7 +7,8 @@
 #    - Web interface returns HTTP 200
 
 SERVICE_NAME=bazarr
-LOG_PATH=${LOG_PATH:-/config/bazarr/log/healthcheck.log}
+LOG_PATH=${LOG_PATH:-/logs/bazarr/healthcheck.log}
+mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 SCRIPT_DIR="$(dirname "$0")"
 . "$SCRIPT_DIR/healthcheck_utils.sh"
 

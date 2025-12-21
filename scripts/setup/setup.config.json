@@ -53,7 +53,9 @@
       "seasonFolderFormat": "Season {season}",
       "specialsFolderFormat": "Extras"
     },
-    "root_folders": [{ "path": "/media/TV Shows" }],
+    "root_folders": [
+      { "path": "/media/TV Shows" }
+    ],
     "download_clients": [
       {
         "name": "qBittorrent",
@@ -87,7 +89,9 @@
       "standardMovieFormat": "{Movie Title} ({Release Year}){ [Edition:ifexists]}{ [Quality Title]}{ [MediaInfo VideoDynamicRange:ifexists]}{ [MediaInfo AudioCodec}{ MediaInfo AudioChannels]}",
       "movieFolderFormat": "{Movie Title} ({Release Year})"
     },
-    "root_folders": [{ "path": "/media/Movies" }],
+    "root_folders": [
+      { "path": "/media/Movies" }
+    ],
     "download_clients": [
       {
         "name": "qBittorrent",

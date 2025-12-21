@@ -19,8 +19,9 @@
 #  ❌ Network connectivity problems
 
 SERVICE_NAME=gluetun
-LOG_PATH=${LOG_PATH:-/config/gluetun/log/healthcheck.log}
+LOG_PATH=${LOG_PATH:-/logs/gluetun/healthcheck.log}
 SCRIPT_DIR="$(dirname "$0")"
+mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 . "$SCRIPT_DIR/healthcheck_utils.sh"
 
 set -e
@@ -33,15 +34,18 @@ if ! ip link show tun0 >/dev/null 2>&1; then
   exit 1
 fi
 
-# Build auth options if API key is available (optional on first startup)
-AUTH_OPTS=""
+# Build auth header if API key is available (optional on first startup)
+AUTH_HEADER=""
 if [ -n "${HTTP_CONTROL_SERVER_PASSWORD:-}" ]; then
-  # Quote the header value to prevent shell expansion issues
-  AUTH_OPTS="--header=\"X-API-Key: ${HTTP_CONTROL_SERVER_PASSWORD}\""
+  AUTH_HEADER="X-API-Key: ${HTTP_CONTROL_SERVER_PASSWORD}"
 fi
 
 # Try to check VPN status via Gluetun control server
-vpn_status=$(eval wget -qO- $AUTH_OPTS --timeout=5 http://localhost:8000/v1/vpn/status 2>/dev/null || echo "")
+if [ -n "$AUTH_HEADER" ]; then
+  vpn_status=$(wget -qO- --header="$AUTH_HEADER" --timeout=5 http://localhost:8000/v1/vpn/status 2>/dev/null || echo "")
+else
+  vpn_status=$(wget -qO- --timeout=5 http://localhost:8000/v1/vpn/status 2>/dev/null || echo "")
+fi
 
 # On first startup (no API key yet), just verify tunnel exists
 if [ -z "${HTTP_CONTROL_SERVER_PASSWORD:-}" ]; then
@@ -61,7 +65,11 @@ if ! echo "$vpn_status" | grep -q '"status":"running"'; then
 fi
 
 # Verify port forwarding is working via Gluetun API
-port_response=$(eval wget -qO- $AUTH_OPTS --timeout=5 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
+if [ -n "$AUTH_HEADER" ]; then
+  port_response=$(wget -qO- --header="$AUTH_HEADER" --timeout=5 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
+else
+  port_response=$(wget -qO- --timeout=5 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
+fi
 if [ -z "$port_response" ]; then
   log_event "error" "Cannot get port forwarding status"
   exit 1

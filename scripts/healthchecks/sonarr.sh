@@ -6,7 +6,8 @@
 #    - Service is running and responding
 #
 SERVICE_NAME=sonarr
-LOG_PATH=${LOG_PATH:-/config/sonarr/log/healthcheck.log}
+LOG_PATH=${LOG_PATH:-/logs/sonarr/healthcheck.log}
+mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 SCRIPT_DIR="$(dirname "$0")"
 . "$SCRIPT_DIR/healthcheck_utils.sh"
 

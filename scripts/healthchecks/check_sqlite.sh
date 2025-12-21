@@ -15,22 +15,61 @@ SCRIPT_DIR="$(dirname "$0")"
 # Monitor mode: long-running loop to actively watch DB and remediate
 MONITOR_INTERVAL=${MONITOR_INTERVAL}
 
+# Lock age threshold (seconds) - only remediate if lock persists beyond this
+LOCK_AGE_THRESHOLD=${LOCK_AGE_THRESHOLD:-300}
+
+# State directory for tracking lock detection times
+STATE_DIR="/tmp/sqlite_monitor_state"
+mkdir -p "$STATE_DIR" 2>/dev/null || true
+LOCK_STATE_FILE="$STATE_DIR/${SERVICE_NAME}_lock_detected_at"
+
 
 check_sqlite_lock() {
     # Check for lock files or sqlite3 lock errors
+    LOCK_DETECTED=0
+    CURRENT_TIME=$(date +%s)
+    
+    # WAL/SHM files are NORMAL during database operations - don't panic
     if [ -f "$DB_PATH-wal" ] || [ -f "$DB_PATH-shm" ]; then
-        log_event "lock_detected" "Lock file present"
-        send_email "Lock detected" "Lock file present for $DB_PATH"
-        return 1
+        LOCK_DETECTED=1
     fi
-    # Try a simple query
-    sqlite3 "$DB_PATH" "PRAGMA integrity_check;" 2>&1 | grep -q "database is locked"
-    if [ $? -eq 0 ]; then
-        log_event "sqlite_locked" "Database is locked error"
-        send_email "SQLite locked" "Database is locked for $DB_PATH"
-        return 1
+    
+    # Try a simple query to check for actual lock errors
+    if [ $LOCK_DETECTED -eq 0 ]; then
+        sqlite3 "$DB_PATH" "PRAGMA integrity_check;" 2>&1 | grep -q "database is locked"
+        if [ $? -eq 0 ]; then
+            LOCK_DETECTED=1
+        fi
     fi
-    return 0
+    
+    # If lock detected, check duration
+    if [ $LOCK_DETECTED -eq 1 ]; then
+        if [ -f "$LOCK_STATE_FILE" ]; then
+            LOCK_DETECTED_AT=$(cat "$LOCK_STATE_FILE")
+            LOCK_AGE=$((CURRENT_TIME - LOCK_DETECTED_AT))
+            
+            if [ $LOCK_AGE -lt $LOCK_AGE_THRESHOLD ]; then
+                log_event "lock_recent" "Lock detected but not stale (age ${LOCK_AGE}s < ${LOCK_AGE_THRESHOLD}s threshold)"
+                return 0
+            else
+                log_event "lock_stale" "Lock persisted for ${LOCK_AGE}s (threshold: ${LOCK_AGE_THRESHOLD}s)"
+                send_email "Stale lock detected" "Lock file present for $DB_PATH for ${LOCK_AGE}s"
+                return 1
+            fi
+        else
+            # First detection - record timestamp
+            echo "$CURRENT_TIME" > "$LOCK_STATE_FILE"
+            log_event "lock_detected" "Lock file present, starting timer"
+            return 0
+        fi
+    else
+        # No lock - clear state file if exists
+        if [ -f "$LOCK_STATE_FILE" ]; then
+            rm -f "$LOCK_STATE_FILE"
+            log_event "lock_cleared" "Lock file cleared, resetting timer"
+        fi
+        return 0
+    fi
 }
 
 remediate() {
@@ -67,14 +106,17 @@ fi
 
 ## If called in monitor mode (long-running), run continuous checks
 if [ "${1:-}" = "monitor" ]; then
-    log_event "monitor_start" "Starting continuous monitor loop for $SERVICE_NAME"
+    log_event "monitor_start" "Starting continuous monitor loop for $SERVICE_NAME (threshold: ${LOCK_AGE_THRESHOLD}s)"
     while true; do
         if check_sqlite_lock; then
-            # Optional: Don't log every success to avoid spamming logs, or log periodically
+            # Lock cleared or not stale - no action needed
             :
         else
-            log_event "monitor_issue" "Issue detected, attempting remediation"
+            # Lock exceeded threshold - remediate
+            log_event "monitor_issue" "Stale lock detected, attempting remediation"
             remediate
+            # Clear state after remediation
+            rm -f "$LOCK_STATE_FILE"
         fi
         sleep $MONITOR_INTERVAL
     done

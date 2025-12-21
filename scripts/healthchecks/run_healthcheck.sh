@@ -12,8 +12,10 @@ TARGET_SCRIPT="$1"
 # Derive service name from target script filename
 SERVICE_NAME=$(basename "$TARGET_SCRIPT" .sh)
 
-# Default log path inside container
-LOG_PATH="/config/${SERVICE_NAME}/log/healthcheck.log"
+# Default log path inside container (centralized logs directory)
+LOG_DIR="/logs/${SERVICE_NAME}"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+LOG_PATH="${LOG_DIR}/healthcheck.log"
 
 SCRIPT_DIR="$(dirname "$0")"
 
