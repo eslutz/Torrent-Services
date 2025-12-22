@@ -15,20 +15,33 @@ services:
       VPN_TYPE: wireguard
       WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
       WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
-      # Server Selection
+      # Server Selection Filters
       SERVER_COUNTRIES: ${SERVER_COUNTRIES:-}
-      FREE_ONLY: ${FREE_ONLY:-}
-      VPN_PORT_FORWARDING: on
-      VPN_PORT_FORWARDING_PROVIDER: protonvpn
+      SERVER_CITIES: ${SERVER_CITIES:-}
+      SERVER_HOSTNAMES: ${SERVER_HOSTNAMES:-}
+      PORT_FORWARD_ONLY: ${PORT_FORWARD_ONLY:-on}
+      # Port Forwarding
+      VPN_PORT_FORWARDING: ${VPN_PORT_FORWARDING:-on}
+      # DNS Settings
+      DNS_UPSTREAM_RESOLVERS: ${DNS_UPSTREAM_RESOLVERS:-cloudflare}
+      BLOCK_MALICIOUS: ${BLOCK_MALICIOUS:-on}
+      BLOCK_ADS: ${BLOCK_ADS:-off}
+      BLOCK_SURVEILLANCE: ${BLOCK_SURVEILLANCE:-off}
+      # Updater Settings
+      UPDATER_PERIOD: ${UPDATER_PERIOD:-0}
+      UPDATER_MIN_RATIO: ${UPDATER_MIN_RATIO:-0.8}
+      UPDATER_VPN_SERVICE_PROVIDERS: ${UPDATER_VPN_SERVICE_PROVIDERS:-}
+      UPDATER_PROTONVPN_EMAIL: ${UPDATER_PROTONVPN_EMAIL:-}
+      UPDATER_PROTONVPN_PASSWORD: ${UPDATER_PROTONVPN_PASSWORD:-}
       # Control Server API Key (for healthcheck authentication)
-      HTTP_CONTROL_SERVER_PASSWORD: ${GLUETUN_CONTROL_APIKEY:-}
+      HTTP_CONTROL_SERVER_PASSWORD: ${CONTROL_APIKEY:-}
       LOG_LEVEL: info
       TZ: ${TZ:-America/New_York}
     ports:
       - 8080:8080
     volumes:
-      - ./config/gluetun:/gluetun
       - gluetun-tmp:/tmp/gluetun
+      - ./config/gluetun:/gluetun
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     restart: unless-stopped
@@ -66,8 +79,8 @@ services:
       TZ: ${TZ:-America/New_York}
       WEBUI_PORT: 8080
     volumes:
-      - ./config/qbittorrent:/config
       - ${TORRENT_MEDIA_DIR}:/media
+      - ./config/qbittorrent:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     depends_on:
@@ -140,8 +153,8 @@ services:
       TZ: ${TZ:-America/New_York}
       SONARR_API_KEY: ${SONARR_API_KEY:-}
     volumes:
-      - ./config/sonarr:/config
       - ${TORRENT_MEDIA_DIR}:/media
+      - ./config/sonarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
@@ -177,8 +190,8 @@ services:
       TZ: ${TZ:-America/New_York}
       RADARR_API_KEY: ${RADARR_API_KEY:-}
     volumes:
-      - ./config/radarr:/config
       - ${TORRENT_MEDIA_DIR}:/media
+      - ./config/radarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
@@ -214,8 +227,8 @@ services:
       TZ: ${TZ:-America/New_York}
       BAZARR_API_KEY: ${BAZARR_API_KEY:-}
     volumes:
-      - ./config/bazarr:/config
       - ${TORRENT_MEDIA_DIR}:/media
+      - ./config/bazarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
@@ -255,13 +268,13 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_FROM=${SMTP_FROM}
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./config:/config:rw
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - torrent-services-network
-    command: 
+    command:
       - "sh"
       - "-c"
       - |

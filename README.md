@@ -42,14 +42,19 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 # 1. Configure environment
 cp .env.example .env
 # Set ProtonVPN credentials in .env
-# Leave GLUETUN_CONTROL_APIKEY empty—bootstrap will auto-generate it
+# Leave CONTROL_APIKEY empty—bootstrap will auto-generate it
 nano .env
 
 # Environment file layout (top-to-bottom):
 #   1) System configuration (PUID/PGID, TZ, DATA_DIR, SERVICE_USER, HOST_PROJECT_DIR)
-#   2) VPN (WireGuard keys, server selection)
-#   3) Gluetun control server auth (API key - auto-generated)
-#   4) Torrent client & port sync (qBittorrent, Forwardarr)
+#   2) Gluetun configuration:
+#      - WireGuard credentials
+#      - Server selection filters
+#      - DNS settings (upstream resolvers, content blocking)
+#      - Server updater (periodic refresh, ProtonVPN credentials)
+#      - Control server authentication (API key - auto-generated)
+#   3) Torrent client (qBittorrent)
+#   4) Forwardarr (port sync)
 #   5) *Arr services (Prowlarr, Sonarr, Radarr, Bazarr)
 #   6) Subtitle providers (OpenSubtitles, Addic7ed)
 #   7) Resource limits (optional) + example presets
@@ -75,11 +80,11 @@ docker compose --profile monitoring up -d qbittorrent-exporter scraparr
 ### Healthchecks & Autoheal
 
 - Every core container mounts `./scripts/healthchecks` and runs a dedicated script (e.g., `sonarr.sh`, `gluetun.sh`) that validates API responses, latency, and VPN/Tor prerequisites. Services with built-in health endpoints (like `torarr`) use native HTTP healthchecks instead.
-- Gluetun healthcheck requires `GLUETUN_CONTROL_APIKEY` to be set in `.env` (auto-generated and populated by bootstrap on first run).
+- Gluetun healthcheck requires `CONTROL_APIKEY` to be set in `.env` (auto-generated and populated by bootstrap on first run).
 - Healthchecks run every 30 seconds with a 10–15 second timeout and fail fast if responses exceed 5 seconds, forcing Docker to flag the service as `unhealthy`.
 - The Rust-based `autoheal` sidecar (`tmknight/docker-autoheal`) watches Docker health status via the socket, restarts unhealthy containers after the configured start delay, and persists JSON logs to a named volume for auditing.
 - Inspect autoheal activity with `docker logs autoheal --tail 50`, follow the structured log file, and view per-container health with `docker ps --format "table {{.Names}}\t{{.Status}}"`.
-- After running bootstrap, all healthchecks should pass. If gluetun fails, verify `GLUETUN_CONTROL_APIKEY` is set in `.env`: `grep GLUETUN_CONTROL_APIKEY .env`
+- After running bootstrap, all healthchecks should pass. If gluetun fails, verify `CONTROL_APIKEY` is set in `.env`: `grep CONTROL_APIKEY .env`
 
 ### Monitoring Profile & Metrics
 

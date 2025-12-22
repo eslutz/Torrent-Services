@@ -15,9 +15,9 @@ class TestGenerateGluetunApikey:
     def test_generate_gluetun_apikey_success(self, mock_check_output):
         """Test successful API key generation"""
         mock_check_output.return_value = b"test_api_key_12345\n"
-        
+
         result = setup_auth.generate_gluetun_apikey()
-        
+
         assert result == "test_api_key_12345"
         mock_check_output.assert_called_once()
 
@@ -25,9 +25,9 @@ class TestGenerateGluetunApikey:
     def test_generate_gluetun_apikey_failure(self, mock_check_output):
         """Test API key generation failure"""
         mock_check_output.side_effect = Exception("Docker error")
-        
+
         result = setup_auth.generate_gluetun_apikey()
-        
+
         assert result is None
 
 
@@ -36,9 +36,9 @@ class TestSetupGluetunControlServer:
     def test_setup_gluetun_success(self, mock_generate):
         """Test successful setup just returns generated key"""
         mock_generate.return_value = "new_api_key_xyz"
-        
+
         result = setup_auth.setup_gluetun_control_server()
-        
+
         assert result == "new_api_key_xyz"
         mock_generate.assert_called_once()
 
@@ -46,9 +46,9 @@ class TestSetupGluetunControlServer:
     def test_setup_gluetun_generate_failure(self, mock_generate):
         """Test failure when key generation fails"""
         mock_generate.return_value = None
-        
+
         result = setup_auth.setup_gluetun_control_server()
-        
+
         assert result is None
         mock_generate.assert_called_once()
 
@@ -59,33 +59,33 @@ class TestUpdateEnvApikey:
     def test_update_env_apikey_new_key(self, mock_file, mock_exists):
         """Test adding new API key to .env"""
         mock_exists.return_value = True
-        
+
         setup_auth.update_env_apikey("test_key_123")
-        
+
         # Verify file was opened for reading and writing
         assert mock_file.call_count >= 1
 
     @patch("pathlib.Path.exists")
-    @patch("builtins.open", new_callable=mock_open, read_data="GLUETUN_CONTROL_APIKEY=existing_key\n")
+    @patch("builtins.open", new_callable=mock_open, read_data="CONTROL_APIKEY=existing_key\n")
     def test_update_env_apikey_already_exists(self, mock_file, mock_exists):
         """Test updating when API key already exists in .env"""
         mock_exists.return_value = True
-        
+
         setup_auth.update_env_apikey("new_key_123")
-        
+
         # Should read and then write the update
         assert mock_file.call_count >= 2
         # Verify write content contains new key
         handle = mock_file()
         handle.write.assert_called()
         args = handle.write.call_args[0][0]
-        assert 'GLUETUN_CONTROL_APIKEY="new_key_123"' in args
+        assert 'CONTROL_APIKEY="new_key_123"' in args
 
     @patch("pathlib.Path.exists")
     def test_update_env_apikey_file_not_found(self, mock_exists):
         """Test error when .env file doesn't exist"""
         mock_exists.return_value = False
-        
+
         # Should not raise, just return
         setup_auth.update_env_apikey("test_key_123")
 
@@ -93,7 +93,7 @@ class TestUpdateEnvApikey:
     def test_update_env_apikey_none_key(self, mock_exists):
         """Test skipping when API key is None"""
         setup_auth.update_env_apikey(None)
-        
+
         # Should not attempt any file operations
 
 
@@ -102,27 +102,27 @@ class TestGetQbittorrentTempPassword:
     def test_get_qbittorrent_temp_password_success(self, mock_check_output):
         """Test extracting temporary password from logs"""
         mock_check_output.return_value = b"Some log output\ntemporary password is provided for this session: TempPass123\nMore logs"
-        
+
         result = setup_auth.get_qbittorrent_temp_password()
-        
+
         assert result == "TempPass123"
 
     @patch("setup_auth.subprocess.check_output")
     def test_get_qbittorrent_temp_password_not_found(self, mock_check_output):
         """Test when temporary password not in logs"""
         mock_check_output.return_value = b"Some log output\nNo password here"
-        
+
         result = setup_auth.get_qbittorrent_temp_password()
-        
+
         assert result is None
 
     @patch("setup_auth.subprocess.check_output")
     def test_get_qbittorrent_temp_password_error(self, mock_check_output):
         """Test error handling when docker logs fails"""
         mock_check_output.side_effect = Exception("Docker error")
-        
+
         result = setup_auth.get_qbittorrent_temp_password()
-        
+
         assert result is None
 
 

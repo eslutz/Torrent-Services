@@ -37,49 +37,49 @@ def generate_gluetun_apikey():
 def setup_gluetun_control_server():
     """Setup gluetun control server authentication via .env."""
     log("Setting up Gluetun control server authentication...", "INFO")
-    
+
     # Generate new API key
     apikey = generate_gluetun_apikey()
     if not apikey:
         log("Could not generate gluetun API key, skipping control server setup", "ERROR")
         return None
-    
+
     return apikey
 
 
 def update_env_apikey(apikey):
-    """Update .env with GLUETUN_CONTROL_APIKEY."""
+    """Update .env with CONTROL_APIKEY."""
     if not apikey:
         return
-    
+
     env_path = Path(".env")
     if not env_path.exists():
         log(".env file not found", "ERROR")
         return
-    
+
     try:
         with open(env_path, 'r') as f:
             content = f.read()
-        
+
         # Check if key already exists
-        if re.search(r'GLUETUN_CONTROL_APIKEY\s*=', content):
+        if re.search(r'CONTROL_APIKEY\s*=', content):
             # Replace existing key
             content = re.sub(
-                r'GLUETUN_CONTROL_APIKEY\s*=.*',
-                f'GLUETUN_CONTROL_APIKEY="{apikey}"',
+                r'CONTROL_APIKEY\s*=.*',
+                f'CONTROL_APIKEY="{apikey}"',
                 content
             )
-            log("Updated existing GLUETUN_CONTROL_APIKEY in .env", "SUCCESS")
+            log("Updated existing CONTROL_APIKEY in .env", "SUCCESS")
         else:
             # Add the key to .env
             if not content.endswith('\n'):
                 content += '\n'
-            content += f'GLUETUN_CONTROL_APIKEY="{apikey}"\n'
-            log("Added GLUETUN_CONTROL_APIKEY to .env", "SUCCESS")
-        
+            content += f'CONTROL_APIKEY="{apikey}"\n'
+            log("Added CONTROL_APIKEY to .env", "SUCCESS")
+
         with open(env_path, 'w') as f:
             f.write(content)
-            
+
     except Exception as e:
         log(f"Failed to update .env with gluetun API key: {e}", "ERROR")
 
@@ -128,7 +128,7 @@ def setup_qbittorrent_auth(url, target_user, target_pass):
                 temp_client.set_preferences({"bypass_auth_subnet_whitelist_enabled": False})
 
                 payload = {"web_ui_username": target_user, "web_ui_password": target_pass}
-                
+
                 if temp_client.set_preferences(payload):
                     log("qBittorrent credentials updated successfully", "SUCCESS")
                 else:
