@@ -367,9 +367,10 @@ class QBitClient:
         self.session.post(url, data={"hashes": hashes})
 
     def set_location(self, hashes, location):
-        if not self.login(): return
+        if not self.login(): return False
         url = f"{self.base_url}/api/v2/torrents/setLocation"
-        self.session.post(url, data={"hashes": hashes, "location": location})
+        response = self.session.post(url, data={"hashes": hashes, "location": location})
+        return response.status_code == 200
 
     def delete_torrents(self, hashes, delete_files=False):
         if not self.login(): return
