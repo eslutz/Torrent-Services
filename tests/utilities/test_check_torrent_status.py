@@ -25,3 +25,19 @@ def test_inspect_torrent_prints(monkeypatch):
     with patch('builtins.print') as mock_print:
         check_torrent_status.inspect_torrent(DummyClient(), 'abc')
         assert any('Inspecting' in str(call) for call in mock_print.call_args_list)
+
+def test_inspect_torrent_not_found():
+    class DummyClient:
+        def get_torrents(self):
+            return [{'hash': 'abc', 'name': 'Test'}]
+    with patch('builtins.print') as mock_print:
+        check_torrent_status.inspect_torrent(DummyClient(), 'nonexistent')
+        assert any('not found' in str(call) for call in mock_print.call_args_list)
+
+def test_print_table_formats_correctly():
+    headers = ['Col1', 'Col2']
+    rows = [['val1', 'val2'], ['val3', 'val4']]
+    with patch('builtins.print') as mock_print:
+        check_torrent_status.print_table(headers, rows)
+        # Should print header and rows
+        assert mock_print.call_count >= 3

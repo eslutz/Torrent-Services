@@ -33,3 +33,42 @@ def test_add_missing_adds(monkeypatch, tmp_path):
     with patch('builtins.print') as mock_print:
         manage_torrents.add_missing(DummyClient(), config)
         assert any('Processed' in str(call) for call in mock_print.call_args_list)
+
+def test_recheck_all_rechecks_all_torrents():
+    client = MagicMock()
+    client.get_torrents.return_value = [
+        {'hash': 'abc', 'name': 'Test1'},
+        {'hash': 'def', 'name': 'Test2'}
+    ]
+    with patch('builtins.print'):
+        manage_torrents.recheck_all(client)
+    client.recheck_torrent.assert_called_once_with('abc|def')
+
+def test_announce_all_reannounces_all():
+    client = MagicMock()
+    client.get_torrents.return_value = [
+        {'hash': 'abc', 'name': 'Test1'},
+        {'hash': 'def', 'name': 'Test2'}
+    ]
+    with patch('builtins.print'):
+        manage_torrents.announce_all(client)
+    client.reannounce_torrent.assert_called_once_with('abc|def')
+
+def test_delete_broken_deletes_stalled_with_no_working_trackers():
+    client = MagicMock()
+    client.get_torrents.return_value = [
+        {'hash': 'abc', 'name': 'Broken', 'state': 'stalledDL'},
+        {'hash': 'def', 'name': 'Working', 'state': 'downloading'}
+    ]
+    client.get_trackers.return_value = [
+        {'status': 0},  # Not working
+        {'status': 1}   # Not working
+    ]
+    with patch('builtins.print'):
+        manage_torrents.delete_broken(client, delete_files=False)
+    client.delete_torrents.assert_called_once()
+    args = client.delete_torrents.call_args[0]
+    assert 'abc' in args[0]
+    assert args[1] == False
+
+

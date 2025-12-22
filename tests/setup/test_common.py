@@ -234,3 +234,154 @@ class TestConfigureDownloadClients:
 
         configure_download_clients("http://localhost:8989", "test_key", client_config)
         assert len(responses.calls) == 2
+
+class TestQBitClient:
+    """Test QBitClient methods"""
+    
+    @responses.activate
+    def test_pause_torrent(self):
+        """Test pausing a torrent"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(responses.POST, "http://localhost:8080/api/v2/torrents/pause", status=200)
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        client.pause_torrent("abc123")
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_resume_torrent(self):
+        """Test resuming a torrent"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(responses.POST, "http://localhost:8080/api/v2/torrents/resume", status=200)
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        client.resume_torrent("abc123")
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_add_torrent_file(self, tmp_path):
+        """Test adding a torrent file"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(responses.POST, "http://localhost:8080/api/v2/torrents/add", status=200)
+        
+        torrent_file = tmp_path / "test.torrent"
+        torrent_file.write_bytes(b"fake torrent data")
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        result = client.add_torrent_file(str(torrent_file), save_path="/downloads")
+        assert result == True
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_get_preferences(self):
+        """Test getting qBittorrent preferences"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(
+            responses.GET,
+            "http://localhost:8080/api/v2/app/preferences",
+            json={"save_path": "/downloads", "temp_path": "/incomplete"},
+            status=200
+        )
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        prefs = client.get_preferences()
+        assert prefs["save_path"] == "/downloads"
+        assert prefs["temp_path"] == "/incomplete"
+
+    @responses.activate
+    def test_set_preferences(self):
+        """Test setting qBittorrent preferences"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(responses.POST, "http://localhost:8080/api/v2/app/setPreferences", status=200)
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        result = client.set_preferences({"save_path": "/new/path"})
+        assert result == True
+
+    @responses.activate
+    def test_create_category(self):
+        """Test creating a category"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(responses.POST, "http://localhost:8080/api/v2/torrents/createCategory", status=200)
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        result = client.create_category("movies")
+        assert result == True
+
+    @responses.activate
+    def test_set_category_save_path(self):
+        """Test setting category save path"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(responses.POST, "http://localhost:8080/api/v2/torrents/editCategory", status=200)
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        result = client.set_category_save_path("movies", "/media/movies")
+        assert result == True
+
+    @responses.activate
+    def test_get_categories(self):
+        """Test getting all categories"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(
+            responses.GET,
+            "http://localhost:8080/api/v2/torrents/categories",
+            json={"movies": {"savePath": "/media/movies"}},
+            status=200
+        )
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        cats = client.get_categories()
+        assert "movies" in cats
+        assert cats["movies"]["savePath"] == "/media/movies"
+
+    @responses.activate
+    def test_pause_torrents_list(self):
+        """Test pausing multiple torrents with list"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(responses.POST, "http://localhost:8080/api/v2/torrents/pause", status=200)
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        result = client.pause_torrents(["abc123", "def456"])
+        assert result == True
+
+    @responses.activate
+    def test_resume_torrents_list(self):
+        """Test resuming multiple torrents with list"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(responses.POST, "http://localhost:8080/api/v2/torrents/resume", status=200)
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        result = client.resume_torrents(["abc123", "def456"])
+        assert result == True
+
+    @responses.activate
+    def test_set_torrent_category(self):
+        """Test setting category for torrents"""
+        from common import QBitClient
+        
+        responses.add(responses.POST, "http://localhost:8080/api/v2/auth/login", body="Ok.", status=200)
+        responses.add(responses.POST, "http://localhost:8080/api/v2/torrents/setCategory", status=200)
+        
+        client = QBitClient("http://localhost:8080", "admin", "pass")
+        result = client.set_torrent_category(["abc123", "def456"], "tv shows")
+        assert result == True
