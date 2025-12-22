@@ -272,8 +272,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "5m"
-        max-file: "2"
+        max-size: "10m"
+        max-file: "3"
     # You must install jq in this container for config parsing
 
   # Forwardarr - Sync Gluetun forwarded port to qBittorrent with metrics + health endpoints
@@ -289,6 +289,7 @@ services:
       LOG_LEVEL: ${FORWARDARR_LOG_LEVEL:-info}
     volumes:
       - gluetun-tmp:/tmp/gluetun:ro
+      - ./logs:/logs
     ports:
       - 127.0.0.1:9090:9090
     depends_on:
@@ -325,6 +326,7 @@ services:
       - 127.0.0.1:8085:8085 # Health/metrics endpoint
     volumes:
       - tor-data:/var/lib/tor
+      - ./logs:/logs
     restart: unless-stopped
     networks:
       - torrent-services-network
@@ -366,8 +368,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "5m"
-        max-file: "2"
+        max-size: "10m"
+        max-file: "3"
     mem_limit: ${QBITTORRENT_EXPORTER_MEM_LIMIT:-128m}
     cpus: ${QBITTORRENT_EXPORTER_CPUS:-0.25}
 
@@ -409,8 +411,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "5m"
-        max-file: "2"
+        max-size: "10m"
+        max-file: "3"
     mem_limit: ${SCRAPARR_MEM_LIMIT:-256m}
     cpus: ${SCRAPARR_CPUS:-0.5}
 
@@ -430,7 +432,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/localtime:/etc/localtime:ro
-      - autoheal-logs:/opt/docker-autoheal
+      - ./logs/autoheal:/opt/docker-autoheal
     healthcheck:
       test: ["CMD", "sh", "-c", "ps aux | grep '[a]utoheal' > /dev/null"]
       interval: 30s
@@ -440,8 +442,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "5m"
-        max-file: "2"
+        max-size: "10m"
+        max-file: "3"
     mem_limit: ${AUTOHEAL_MEM_LIMIT:-128m}
     cpus: ${AUTOHEAL_CPUS:-0.1}
 
@@ -492,5 +494,4 @@ volumes:
     driver_opts:
       type: tmpfs
       device: tmpfs
-  autoheal-logs:
   tor-data:
