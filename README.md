@@ -36,45 +36,58 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 
 **Prerequisites**: Docker & Docker Compose ([Install](https://docs.docker.com/get-docker/)), ProtonVPN Plus subscription ([Sign up](https://protonvpn.com/))
 
-**Deploy with guardrails:**
+### Option 1: Fresh Installation
+
+For detailed step-by-step instructions, see [scripts/setup/README.md](scripts/setup/README.md).
 
 ```bash
 # 1. Configure environment
 cp .env.example .env
-# Set ProtonVPN credentials in .env
-# Leave CONTROL_APIKEY empty—bootstrap will auto-generate it
-nano .env
+nano .env  # Set ProtonVPN credentials and service passwords
 
-# Environment file layout (top-to-bottom):
-#   1) System configuration (PUID/PGID, TZ, DATA_DIR, SERVICE_USER, HOST_PROJECT_DIR)
-#   2) Gluetun configuration:
-#      - WireGuard credentials
-#      - Server selection filters
-#      - DNS settings (upstream resolvers, content blocking)
-#      - Server updater (periodic refresh, ProtonVPN credentials)
-#      - Control server authentication (API key - auto-generated)
-#   3) Torrent client (qBittorrent)
-#   4) Forwardarr (port sync)
-#   5) *Arr services (Prowlarr, Sonarr, Radarr, Bazarr)
-#   6) Subtitle providers (OpenSubtitles, Addic7ed)
-#   7) Resource limits (optional) + example presets
-#   8) Monitoring profile toggle
-
-# 2. Start services (health checks and dependencies gate startup automatically)
+# 2. Start services
 docker compose up -d
 
-# 3. Run Bootstrap Process (automates Gluetun auth, API key extraction, and service connections)
-# See scripts/setup/README.md for more details
-docker compose --profile bootstrap up
+# 3. Configure services via web UI (one-time setup)
+# - See [setup documentation](scripts/setup/README.md) for detailed configuration steps
+# - Configure: Prowlarr, Sonarr, Radarr, Bazarr, qBittorrent
 
-# 4. Verify VPN and port forwarding
+# 4. Create backup of your configuration
+./scripts/utilities/backup_config.sh
+
+# 5. Verify VPN and port forwarding
 docker exec gluetun wget -qO- https://protonwire.p3.pm/status/json
 docker exec gluetun cat /tmp/gluetun/forwarded_port
 docker logs forwardarr --tail 20
+```
 
-# 5. (Optional) Start monitoring exporters after bootstrap completes
-# Start manually any time:
-docker compose --profile monitoring up -d qbittorrent-exporter scraparr
+### Option 2: Restore from Backup
+
+If you have an existing backup:
+
+```bash
+# 1. Restore configuration
+./scripts/utilities/restore_config.sh ./backups/20251222_143000
+
+# 2. Complete manual UI restore steps (see output for instructions)
+# - Sonarr: http://localhost:8989 → System → Backup → Restore
+# - Radarr: http://localhost:7878 → System → Backup → Restore
+# - Prowlarr: http://localhost:9696 → System → Backup → Restore
+# - Bazarr: http://localhost:6767 → System → Backup → Restore
+
+# 3. Verify all services are healthy
+docker compose ps
+```
+
+**Total setup time:** ~5 minutes (automated restore + 4 manual UI clicks)
+
+### Legacy Bootstrap Process
+
+The programmatic setup scripts are still available in `scripts/setup_legacy/` but are **no longer the recommended approach**. The backup/restore method is simpler and more reliable.
+
+If you still want to use the legacy bootstrap:
+```bash
+docker compose --profile bootstrap up
 ```
 
 ### Healthchecks & Autoheal
@@ -219,37 +232,26 @@ and re-run `docker compose up -d` to apply.
    WIREGUARD_ADDRESSES=10.2.0.2/32
    ```
 
-### Step 2: Configure Authentication
+### Step 2: Configure Services
 
-**Automated Setup:**
-The bootstrap script uses Playwright to automatically configure authentication for Prowlarr, Sonarr, Radarr, and Bazarr using the credentials in your `.env` file.
+See [scripts/setup/README.md](scripts/setup/README.md) for detailed configuration instructions for:
+- ProtonVPN WireGuard setup
+- Service authentication
+- Prowlarr indexer configuration
+- Sonarr/Radarr download client setup
+- Bazarr subtitle provider configuration
 
-1. **Define credentials in `.env`:**
-    Ensure you have set the following variables (defaults are provided in `.env.example`):
-    - `SERVICE_USER` (used for all services)
-    - `QBITTORRENT_PASSWORD`
-    - `PROWLARR_PASSWORD`
-    - `SONARR_PASSWORD`
-    - `RADARR_PASSWORD`
-    - `BAZARR_PASSWORD`
+### Step 3: Create Backup
 
-2. **Run the Bootstrap Process:**
+Once configured, create a backup of your "known-good state":
 
-    ```bash
-    docker compose --profile bootstrap up
-    ```
+```bash
+./scripts/utilities/backup_config.sh
+```
 
-    The process will automatically:
-    - Initialize authentication for all services.
-    - Configure qBittorrent authentication.
-    - Extract API keys from all services.
-    - Configure inter-service connections.
+This backup can be restored on any host using the restore script.
 
-> **Note:** If you have already manually configured authentication via the Web UI, the script will detect this and proceed to API key extraction.
-
-### Step 3: Verify Automatic Port Forwarding
-
-The `forwardarr` container automatically watches for port changes and updates qBittorrent instantly when they occur.
+### Verify Automatic Port Forwarding
 
 ```bash
 # Check Gluetun's forwarded port
@@ -271,165 +273,9 @@ You should see logs like:
 
 **That's it!** The port will automatically update whenever Gluetun reconnects or restarts.
 
-### Step 4: Manual Configuration (If Bootstrap Skipped)
+---
 
-> **Note:** The bootstrap process handles all of this automatically. Only follow these steps if you prefer manual configuration.
-
-#### Configure Prowlarr Indexers
-
-1. **Add Indexers in Prowlarr:**
-   - Go to `http://localhost:9696`
-   - Navigate to **Indexers** → **Add Indexer**
-   - Search for and add your preferred indexers (e.g., 1337x, IPTorrents)
-   - Configure credentials for private trackers if needed
-   - **Test** and **Save** each indexer
-
-2. **Connect Sonarr to Prowlarr:**
-   - In Prowlarr, go to **Settings** → **Apps** → **Add Application**
-   - Select **Sonarr**
-   - Configure:
-     - **Prowlarr Server:** `http://prowlarr:9696` (for Sonarr to reach Prowlarr)
-     - **Sonarr Server:** `http://sonarr:8989` (for Prowlarr to reach Sonarr)
-     - **API Key:** Get from Sonarr → Settings → General → API Key
-   - Click **Test** → **Save**
-   - Prowlarr will automatically sync all indexers to Sonarr
-
-3. **Connect Radarr to Prowlarr:**
-   - In Prowlarr, go to **Settings** → **Apps** → **Add Application**
-   - Select **Radarr**
-   - Configure:
-     - **Prowlarr Server:** `http://prowlarr:9696`
-     - **Radarr Server:** `http://radarr:7878`
-     - **API Key:** Get from Radarr → Settings → General → API Key
-   - Click **Test** → **Save**
-   - Prowlarr will automatically sync all indexers to Radarr
-
-#### Configure Download Client (qBittorrent)
-
-Since qBittorrent runs inside Gluetun's network, access it via `gluetun:8080`
-
-**Sonarr:**
-
-1. Go to `http://localhost:8989`
-2. Navigate to **Settings** → **Download Clients** → **Add** → **qBittorrent**
-3. Configure:
-   - **Name:** qBittorrent
-   - **Host:** `gluetun`
-   - **Port:** `8080`
-   - **Username:** admin
-   - **Password:** (your qBittorrent API password from .env: QBITTORRENT_PASSWORD)
-   - **Category:** `tv` (recommended for organization)
-4. Click **Test** → **Save**
-
-**Radarr:**
-
-1. Go to `http://localhost:7878`
-2. Navigate to **Settings** → **Download Clients** → **Add** → **qBittorrent**
-3. Configure:
-   - **Name:** qBittorrent
-   - **Host:** `gluetun`
-   - **Port:** `8080`
-   - **Username:** admin
-   - **Password:** (your qBittorrent API password from .env: QBITTORRENT_PASSWORD)
-   - **Category:** `movies` (recommended for organization)
-4. Click **Test** → **Save**
-
-#### Configure Bazarr with Sonarr and Radarr
-
-> **Note**: The bootstrap script automatically configures Bazarr including Sonarr/Radarr connections, subtitle providers (Addic7ed, Podnapisi, OpenSubtitles), language profiles, and scoring settings. Manual configuration is only needed if customizing beyond the defaults in `scripts/setup/setup.config.json`.
-
-**Connect Bazarr to Sonarr (TV Subtitles):**
-
-1. Go to `http://localhost:6767`
-2. Navigate to **Settings** → **Sonarr**
-3. Click **Add New** and configure:
-   - **Enabled:** ✅
-   - **Name:** Sonarr
-   - **Address:** `sonarr`
-   - **Port:** `8989`
-   - **Base URL:** (leave empty)
-   - **API Key:** Get from Sonarr → Settings → General → API Key
-   - **Download only monitored:** ✅ (recommended)
-   - **Minimum Score:** `90` (adjust to preference)
-   - **Use Sonarr Tags:** (optional - tag specific shows)
-4. Click **Test** → **Save**
-
-**Connect Bazarr to Radarr (Movie Subtitles):**
-
-1. In Bazarr, navigate to **Settings** → **Radarr**
-2. Click **Add New** and configure:
-   - **Enabled:** ✅
-   - **Name:** Radarr
-   - **Address:** `radarr`
-   - **Port:** `7878`
-   - **Base URL:** (leave empty)
-   - **API Key:** Get from Radarr → Settings → General → API Key
-   - **Download only monitored:** ✅ (recommended)
-   - **Minimum Score:** `90` (adjust to preference)
-   - **Use Radarr Tags:** (optional - tag specific movies)
-3. Click **Test** → **Save**
-
-**Configure Languages in Bazarr (Required):**
-
-1. Navigate to **Settings** → **Languages**
-2. **Subtitles Language:**
-   - Add **English** (or your preferred language)
-   - This defines which subtitle languages Bazarr will search for
-3. **Single Language:**
-   - Leave **OFF** (most modern players like Plex/Jellyfin handle `.en.srt` filenames)
-   - Only enable if your playback device can't handle language codes in filenames
-4. **Languages Filter** (leave defaults):
-   - **Language Equals:** Leave empty (only needed for treating languages as interchangeable)
-   - **Embedded Tracks Language - Deep analyze media file:** **OFF** (faster, use ON only if files have inconsistent metadata)
-   - **Treat unknown language embedded subtitles track as:** Leave as default or set to **English**
-5. **Languages Profile** (create default profile):
-   - Go to **Languages Profiles** section
-   - Click **Add** to create a new profile:
-     - **Name:** `English`
-     - **Tag:** (optional) `english` or `eng-sub`
-     - **Languages:** Click **Add Language** twice to add English two times:
-
-       **First English entry (Normal subtitles):**
-       - **Language:** English
-       - **Subtitles Type:** **Normal or hearing-impaired** - full subtitles for all dialogue including foreign parts
-       - **Search only when:** **Always** - search every time, upgrade low-quality subtitles (recommended)
-       - **Must contain:** Leave empty
-       - **Must not contain:** Leave empty
-
-       **Second English entry (Forced subtitles):**
-       - **Language:** English
-       - **Subtitles Type:** **Forced (foreign part only)** - only foreign language parts, no regular dialogue subtitles
-       - **Search only when:** **Always**
-       - **Must contain:** Leave empty
-       - **Must not contain:** Leave empty
-
-     - This downloads both subtitle files: full subtitles + forced-only (for foreign parts)
-     - Your media player will show both as separate tracks you can toggle
-   - Click **Save**
-6. **Tag-Based Automatic Language Profile Selection:**
-   - Leave **OFF** (unless you use tags in Sonarr/Radarr for different language needs)
-7. **Default Language Profiles for Newly Added Shows:**
-   - **Series:** Select your **English** profile
-   - **Movies:** Select your **English** profile
-   - This ensures all new content automatically gets English subtitles
-8. **Save** all settings
-
-**Configure Subtitle Providers in Bazarr:**
-
-1. Navigate to **Settings** → **Providers**
-2. Enable subtitle providers (recommended free options):
-   - **Addic7ed:** Requires free account at [addic7ed.com](https://www.addic7ed.com/) - excellent for TV shows
-   - **Podnapisi:** No account needed - good general provider
-   - **OpenSubtitles.com:** Requires free account at [opensubtitles.com](https://www.opensubtitles.com/) - large database
-3. **Save** settings
-
-**Sync Libraries:**
-
-1. Navigate to **Series** (TV shows) and click **Update all series**
-2. Navigate to **Movies** and click **Update all movies**
-3. Bazarr will now automatically download subtitles for new and existing media
-
-## How Automatic Port Forwarding Works
+## Healthchecks & Autoheal
 
 ### The Process
 

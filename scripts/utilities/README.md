@@ -141,6 +141,98 @@ Perform actions to fix or manage torrents.
     python3 scripts/utilities/manage_torrents.py delete-broken
     ```
 
+## rescan_missing_media.py
+
+Rescan Sonarr/Radarr libraries to detect missing files and optionally trigger automatic searches to re-download them.
+
+### Features
+
+*   **Detects Missing Media**: Compares database records against actual files on disk
+*   **Progress Tracking**: Shows before/after missing counts and waits for completion
+*   **Automatic Search**: Optionally queues downloads for missing episodes/movies
+*   **Selective Service**: Can target Sonarr, Radarr, or both
+
+### Usage
+
+> **Note:** Use `venv/bin/python3` instead of `python3` when running locally outside Docker.
+
+*   **Rescan both services (detect only):**
+    ```bash
+    venv/bin/python3 scripts/utilities/rescan_missing_media.py
+    ```
+
+*   **Rescan and auto-search for missing:**
+    ```bash
+    venv/bin/python3 scripts/utilities/rescan_missing_media.py --search
+    ```
+
+*   **Rescan only Sonarr:**
+    ```bash
+    venv/bin/python3 scripts/utilities/rescan_missing_media.py --service sonarr --search
+    ```
+
+*   **Rescan only Radarr:**
+    ```bash
+    venv/bin/python3 scripts/utilities/rescan_missing_media.py --service radarr --search
+    ```
+
+### When to Use
+
+*   Files deleted from disk but still marked as downloaded in Sonarr/Radarr
+*   After restoring from backup
+*   After moving media between drives
+*   Periodic maintenance to verify library integrity
+
+### Alternative Methods
+
+**UI Method:**
+- **Sonarr:** System → Tasks → Scan Library Files → Run, then Wanted → Missing → Search All
+- **Radarr:** System → Tasks → Update Movie Library → Run, then Movies → Missing → Search All
+
+**API Method:**
+```bash
+# Load environment variables first
+source .env
+
+# Sonarr: Rescan library
+curl -X POST "http://localhost:8989/api/v3/command" \
+  -H "X-Api-Key: $SONARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "RescanSeries"}'
+
+# Sonarr: Search for missing (after rescan completes)
+curl -X POST "http://localhost:8989/api/v3/command" \
+  -H "X-Api-Key: $SONARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "MissingEpisodeSearch"}'
+
+# Radarr: Rescan library
+curl -X POST "http://localhost:7878/api/v3/command" \
+  -H "X-Api-Key: $RADARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "RescanMovie"}'
+
+# Radarr: Search for missing (after rescan completes)
+curl -X POST "http://localhost:7878/api/v3/command" \
+  -H "X-Api-Key: $RADARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "MissingMoviesSearch"}'
+```
+
+### Prevention Settings
+
+Enable these to automatically detect missing files:
+
+**Sonarr:** Settings → Media Management
+- ✓ Scan Series Folder After Refresh
+- ✓ Rescan Series Folder After Refresh
+- ✓ Unmonitor Deleted Episodes
+
+**Radarr:** Settings → Media Management
+- ✓ Scan Movie Folder
+- ✓ Rescan Movie Folder After Refresh
+- ✓ Unmonitor Deleted Movies
+
 ## check_qbittorrent_config.py
 
 Dumps the current qBittorrent preferences to the console. Useful for verifying settings or debugging configuration issues.
