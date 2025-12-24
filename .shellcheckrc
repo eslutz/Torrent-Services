@@ -1,0 +1,4 @@
+# ShellCheck configuration for this repo.
+# Many scripts source shared helpers via a runtime-computed path (e.g. "$SCRIPT_DIR/healthcheck_utils.sh"),
+# which ShellCheck cannot reliably follow.
+disable=SC1091

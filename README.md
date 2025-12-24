@@ -166,15 +166,23 @@ docker compose --profile monitoring down
 
 ## Git Hooks (Pre-commit)
 
-This repo includes a pre-commit hook that runs linting and unit tests **only when staged code files change** (it skips docs-only commits).
+This repo uses the cross-platform `pre-commit` framework to run linting and unit tests **only when staged code files change** (it skips docs-only commits).
 
 One-time setup:
 
 ```bash
-./utilities/git/install_git_hooks.sh
+venv/bin/pip install -r requirements.txt
+venv/bin/pre-commit install
+```
+
+Optional convenience script (Unix-like shells):
+
+```bash
+./scripts/git/install_git_hooks.sh
 ```
 
 ## Directory Structure
+
 
 ```txt
 torrent-services/
