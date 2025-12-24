@@ -164,6 +164,16 @@ Stop the monitoring containers without impacting the main stack:
 docker compose --profile monitoring down
 ```
 
+## Git Hooks (Pre-commit)
+
+This repo includes a pre-commit hook that runs linting and unit tests **only when staged code files change** (it skips docs-only commits).
+
+One-time setup:
+
+```bash
+./utilities/git/install_git_hooks.sh
+```
+
 ## Directory Structure
 
 ```txt
