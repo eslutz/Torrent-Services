@@ -1,71 +1,19 @@
-# Healthchecks & Monitoring
+# Healthchecks & Notifications
 
 ## Overview
-This folder contains healthcheck scripts for all services (*arr, qBittorrent, Gluetun, etc.), a generic SQLite/file lock monitor, and shared utilities for logging and notification.
+This folder contains healthcheck scripts for all services (*arr, qBittorrent, Gluetun, etc.) and shared utilities for logging/notification. It now also includes a Docker events email notifier (used by the `health-monitor` container) that alerts when containers become unhealthy or stop.
 
+## Email notifications (health-monitor)
+- `docker_events_notifier.sh` listens to Docker container events and sends an email when a container reports `unhealthy`, `die`, `stop`, `kill`, or `oom`.
+- The `health-monitor` service in `docker-compose.yml` installs `msmtp` + `jq`, mounts the Docker socket read-only, and runs the notifier.
+- Configure SMTP via environment variables in `.env`:
+  - `EMAIL_TO` (recipient), `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`.
+- Logs are written to `/logs/health-monitor/events.log` inside the compose stack.
+- Autoheal restarts: the notifier also tails `/logs/autoheal/log.json` (configurable via `AUTOHEAL_LOG`) and emails whenever Autoheal restarts a container.
 
-## Multi-service DB/file lock monitoring
-- **Config:** `/scripts/healthchecks/monitors.json` lists all services and DBs/files to monitor.
-- **Runner:** `/scripts/healthchecks/monitor.sh` reads config and launches a monitor loop for each job.
-- **Compose service:** `health-monitor` runs the monitor in a dedicated container (see `docker-compose.yml`).
-- **Requirements:** The monitor container must have `jq` installed for JSON parsing.
-
-## Adding a new service to monitor
-1. Add a new entry to `/scripts/healthchecks/monitors.json`:
-   ```json
-   {
-     "service": "newservice",
-     "type": "sqlite",
-     "db": "/config/newservice/db.sqlite",
-     "check_interval": 30
-   }
-   ```
-2. Ensure the DB path is correct and accessible in the monitor container.
-3. Restart the `sqlite-monitor` container.
-
-## How it works
-- Each monitor job runs `/scripts/sqlite_healthcheck.sh monitor` with appropriate env vars.
-- The healthcheck script detects lock files and DB errors, attempts safe remediation, and emits structured JSON events to stdout and log files.
-- Remediation requests are logged and emailed; container restarts are performed by host-side agents (e.g., autoheal).
-
-## Requirements for monitor container
-- Must have `jq`, `sqlite3`, and `mail`/`sendmail` installed for full functionality.
-- Example install (Debian):
-  ```sh
-  apt-get update && apt-get install -y jq sqlite3 mailutils
-  ```
-
-## Example Compose service
-```
-  health-monitor:
-    image: debian:stable-slim
-    container_name: health-monitor
-    restart: unless-stopped
-    volumes:
-      - ./config:/config:rw
-      - ./scripts/healthchecks:/scripts:ro
-    networks:
-      - torrent-services-network
-    command: ["sh", "/scripts/monitor.sh"]
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
-```
-
-
-## File lock monitoring (macOS compatible)
-- Add a job to `monitors.json` with type `filelock` and specify the file path:
-  ```json
-  {
-    "service": "qbittorrent",
-    "type": "filelock",
-    "file": "/config/qbittorrent/qBittorrent/lockfile",
-    "check_interval": 30
-  }
-  ```
-- The monitor runner will call `filelock_healthcheck.sh` for each filelock job, which uses `lsof` and `stat` (macOS compatible) to detect and remediate stale locks, and integrates with logging/email.
+## Per-service healthchecks
+- Each service uses `run_healthcheck.sh` with its specific script (e.g., `sonarr.sh`, `radarr.sh`).
+- Shared helpers for logging/email live in `healthcheck_utils.sh`.
 
 ## Metrics Export
 
@@ -87,11 +35,7 @@ This folder contains healthcheck scripts for all services (*arr, qBittorrent, Gl
 - All notification emails are sent to the address in the `EMAIL_TO` environment variable (set in `.env`).
 - To change the recipient, update `EMAIL_TO` in `.env` and restart the monitor container.
 
-## Filelock Monitoring
-- Each filelock job in `monitors.json` can specify `lock_age_threshold` (seconds).
-- The monitor will check for locks older than the threshold and attempt remediation (remove file).
-
 ## Troubleshooting
-- Check logs in `/config/<service>/log/healthcheck.log` and container stdout.
-- Ensure monitor container has required tools installed.
+- Check logs in `/logs/<service>/healthcheck.log` and container stdout.
+- Ensure the monitor container has required tools installed.
 - For email alerts, configure MTA as described in `SETUP-MTA-macos.md`.

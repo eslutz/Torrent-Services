@@ -255,10 +255,10 @@ services:
     mem_limit: ${BAZARR_MEM_LIMIT:-512m}
     cpus: ${BAZARR_CPUS:-0.5}
 
-  # Generic health monitor (multi-service)
-  health-monitor:
+  # Email notifier for container events
+  events-notifier:
     image: debian:stable-slim
-    container_name: health-monitor
+    container_name: events-notifier
     restart: unless-stopped
     environment:
       - EMAIL_TO=${EMAIL_TO}
@@ -268,7 +268,7 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_FROM=${SMTP_FROM}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock:r
       - ./config:/config:rw
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -278,10 +278,10 @@ services:
       - "sh"
       - "-c"
       - |
-        apt-get update && apt-get install -y jq sqlite3 msmtp ca-certificates docker.io && \
+        apt-get update && apt-get install -y jq msmtp ca-certificates docker.io && \
         printf "defaults\nauth on\ntls on\ntls_starttls on\ntls_certcheck on\ntls_trust_file /etc/ssl/certs/ca-certificates.crt\nlogfile /var/log/msmtp.log\ntimeout 15\n\naccount default\nhost $$SMTP_HOST\nport $$SMTP_PORT\nfrom $$SMTP_FROM\nuser $$SMTP_USER\npassword $$SMTP_PASSWORD\n" > /etc/msmtprc && \
         chmod 600 /etc/msmtprc && \
-        sh /scripts/monitor.sh
+        sh /scripts/docker_events_notifier.sh
     logging:
       driver: "json-file"
       options:
