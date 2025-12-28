@@ -17,7 +17,9 @@ repos:
         entry: flake8
         types: [python]
         files: ^(scripts/|tests/)
-        args: [--max-line-length=100, --extend-ignore=E203,W503]
+        args:
+          - --max-line-length=100
+          - "--extend-ignore=E203,W503"
 
       - id: pylint
         name: pylint (scripts/setup)

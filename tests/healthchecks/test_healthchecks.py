@@ -69,6 +69,9 @@ case "$url" in
   http://localhost:6767/)
     echo "  HTTP/1.1 200 OK"
     ;;
+  http://localhost:5656/metrics)
+    echo "  HTTP/1.1 200 OK"
+    ;;
   *)
     echo "  HTTP/1.1 200 OK"
     ;;
@@ -112,27 +115,50 @@ def test_qbittorrent_healthcheck(tmp_path):
 
 def test_prowlarr_healthcheck_api_mode(tmp_path):
     script = Path(__file__).resolve().parents[2] / "scripts/healthchecks/prowlarr.sh"
-    result = _run_script(str(script), tmp_path, {"PROWLARR_API_KEY": "test", "LOG_PATH": str(tmp_path / "healthcheck.log")})
+    result = _run_script(
+        str(script),
+        tmp_path,
+        {"PROWLARR_API_KEY": "test", "LOG_PATH": str(tmp_path / "healthcheck.log")},
+    )
     assert result.returncode == 0, result.stderr or result.stdout
     assert "healthy" in result.stdout
 
 
 def test_sonarr_healthcheck_api_mode(tmp_path):
     script = Path(__file__).resolve().parents[2] / "scripts/healthchecks/sonarr.sh"
-    result = _run_script(str(script), tmp_path, {"SONARR_API_KEY": "test", "LOG_PATH": str(tmp_path / "healthcheck.log")})
+    result = _run_script(
+        str(script),
+        tmp_path,
+        {"SONARR_API_KEY": "test", "LOG_PATH": str(tmp_path / "healthcheck.log")},
+    )
     assert result.returncode == 0, result.stderr or result.stdout
     assert "healthy" in result.stdout
 
 
 def test_radarr_healthcheck_api_mode(tmp_path):
     script = Path(__file__).resolve().parents[2] / "scripts/healthchecks/radarr.sh"
-    result = _run_script(str(script), tmp_path, {"RADARR_API_KEY": "test", "LOG_PATH": str(tmp_path / "healthcheck.log")})
+    result = _run_script(
+        str(script),
+        tmp_path,
+        {"RADARR_API_KEY": "test", "LOG_PATH": str(tmp_path / "healthcheck.log")},
+    )
     assert result.returncode == 0, result.stderr or result.stdout
     assert "healthy" in result.stdout
 
 
 def test_bazarr_healthcheck_api_mode(tmp_path):
     script = Path(__file__).resolve().parents[2] / "scripts/healthchecks/bazarr.sh"
-    result = _run_script(str(script), tmp_path, {"BAZARR_API_KEY": "test", "LOG_PATH": str(tmp_path / "healthcheck.log")})
+    result = _run_script(
+        str(script),
+        tmp_path,
+        {"BAZARR_API_KEY": "test", "LOG_PATH": str(tmp_path / "healthcheck.log")},
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "healthy" in result.stdout
+
+
+def test_unpackerr_healthcheck(tmp_path):
+    script = Path(__file__).resolve().parents[2] / "scripts/healthchecks/unpackerr.sh"
+    result = _run_script(str(script), tmp_path, {"LOG_PATH": str(tmp_path / "healthcheck.log")})
     assert result.returncode == 0, result.stderr or result.stdout
     assert "healthy" in result.stdout
