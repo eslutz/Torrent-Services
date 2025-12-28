@@ -118,7 +118,7 @@ def extract_notifiarr_key_from_config():
             return api_key
         return None
 
-    except (json.JSONDecodeError, Exception):
+    except (json.JSONDecodeError, IOError, OSError):
         return None
 
 
@@ -156,20 +156,26 @@ def extract_notifiarr_key_from_logs():
 
         logs = result.stdout + result.stderr
 
-        # Look for API key patterns in logs
+        # Look for API key patterns in logs - be conservative to avoid false positives
         for line in logs.split("\n"):
+            # Only check lines that explicitly mention API keys
             if "api" in line.lower() and "key" in line.lower():
-                # Notifiarr API keys are long alphanumeric strings (typically 40+ chars)
-                matches = re.findall(r'\b[a-zA-Z0-9]{40,64}\b', line)
+                # Notifiarr API keys are long alphanumeric strings (typically 40-64 chars)
+                # Must start with alphanumeric and maintain consistent format
+                matches = re.findall(r'\b[a-zA-Z][a-zA-Z0-9]{39,63}\b', line)
                 if matches:
-                    # Additional validation: keys shouldn't contain common words
+                    # Additional validation: keys shouldn't contain common words or URL patterns
                     for match in matches:
-                        if not any(word in match.lower() for word in ['http', 'https', 'docker']):
-                            return match
+                        lower_match = match.lower()
+                        if not any(word in lower_match for word in
+                                   ['http', 'https', 'docker', 'container', 'config', 'localhost']):
+                            # Verify it's sufficiently random (not a common word)
+                            if len(set(match)) > 10:  # At least 10 unique characters
+                                return match
 
         return None
 
-    except Exception:
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError):
         return None
 
 
@@ -193,7 +199,7 @@ def extract_notifiarr_key():
     # 3. Try logs (least reliable)
     api_key = extract_notifiarr_key_from_logs()
     if api_key:
-        log(f"Found Notifiarr API key in logs: {api_key[:8]}...", "SUCCESS")
+        log("Found Notifiarr API key in container logs", "SUCCESS")
         return api_key
 
     log("Could not extract Notifiarr API key", "WARNING")
