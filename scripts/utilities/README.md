@@ -243,39 +243,44 @@ Dumps the current qBittorrent preferences to the console. Useful for verifying s
 python3 scripts/utilities/check_qbittorrent_config.py
 ```
 
-## extract_notifiarr_key.py
+## sync_api_keys.py
 
-Extracts the Notifiarr API key from the container's config file, environment, or logs. Useful for recovering the API key when it's been configured in the Notifiarr web UI but not saved to `.env`.
+Syncs and validates API keys between services. This unified script handles:
+1. **Prowlarr → Sonarr/Radarr**: Validates and updates Prowlarr API keys in indexers
+2. **Notifiarr**: Extracts missing API keys from config file, container environment, or logs
+3. **Environment Updates**: Optionally saves discovered keys to `.env`
 
 ### Usage
 
 ```bash
-python3 scripts/utilities/extract_notifiarr_key.py
+python3 scripts/utilities/sync_api_keys.py
 ```
 
 The script will:
-1. Check the Notifiarr config file (`config/notifiarr/notifiarr.conf`)
-2. Check the container's environment variables
-3. Check recent container logs for API key references
-4. Prompt to save the extracted key to `.env` file
+1. Check if Notifiarr API key is in `.env`, and if missing:
+   - Extract from config file (`config/notifiarr/notifiarr.conf`)
+   - Extract from container environment variables
+   - Extract from recent container logs
+   - Prompt to save the extracted key to `.env`
+2. Validate and sync Prowlarr API keys to Sonarr/Radarr indexers
+3. Test each updated indexer to ensure proper connectivity
 
 ### When to Use
 
 - After configuring Notifiarr through its web UI
 - When the API key is configured but not in `.env`
 - When restoring from a backup and API key is missing
-- For troubleshooting Notifiarr authentication issues
+- When Prowlarr API keys need to be synced to Sonarr/Radarr
+- For troubleshooting API authentication issues
 
 ### Alternative Methods
 
-**Manual extraction from config:**
+**Manual Notifiarr key extraction:**
 ```bash
 # View the config file
 cat config/notifiarr/notifiarr.conf | grep apikey
-```
 
-**Check container environment:**
-```bash
+# Check container environment
 docker exec notifiarr printenv DN_API_KEY
 ```
 

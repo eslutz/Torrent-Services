@@ -366,7 +366,7 @@ Notifiarr provides a single interface for monitoring and receiving notifications
    - Add to `.env`: `NOTIFIARR_API_KEY=your_key_here`
    - **Or** configure via web UI and extract the key later:
      ```bash
-     python3 scripts/utilities/extract_notifiarr_key.py
+     python3 scripts/utilities/sync_api_keys.py
      ```
 
 2. **Access Notifiarr:**
@@ -378,18 +378,21 @@ Notifiarr provides a single interface for monitoring and receiving notifications
    - Use service URLs like `http://sonarr:8989` for inter-container communication
    - Notifiarr depends on *arr services being healthy before starting
 
-### Extracting API Key
+### API Key Management
 
-If you configured Notifiarr through its web UI but didn't save the API key to `.env`, use the extraction utility:
+The `sync_api_keys.py` utility handles all API key operations:
+- **Extracts** Notifiarr API key from config/environment/logs if missing
+- **Syncs** Prowlarr API keys to Sonarr/Radarr indexers
+- **Validates** all API key configurations
 
 ```bash
-python3 scripts/utilities/extract_notifiarr_key.py
+python3 scripts/utilities/sync_api_keys.py
 ```
 
-This script will:
-- Check the config file, container environment, and logs
-- Display the found API key
-- Optionally save it to `.env` file
+This unified script will:
+- Check if Notifiarr API key is missing and attempt extraction
+- Prompt to save discovered keys to `.env`
+- Update and test Prowlarr indexers in Sonarr/Radarr
 
 ### Health Checks
 
