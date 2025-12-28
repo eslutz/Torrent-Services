@@ -13,8 +13,8 @@ services:
       # ProtonVPN Configuration
       VPN_SERVICE_PROVIDER: protonvpn
       VPN_TYPE: wireguard
-      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
-      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:-}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:-}
       # Server Selection Filters
       SERVER_COUNTRIES: ${SERVER_COUNTRIES:-}
       SERVER_CITIES: ${SERVER_CITIES:-}
@@ -79,7 +79,7 @@ services:
       TZ: ${TZ:-America/New_York}
       WEBUI_PORT: 8080
     volumes:
-      - ${TORRENT_MEDIA_DIR}:/media
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/qbittorrent:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -153,7 +153,7 @@ services:
       TZ: ${TZ:-America/New_York}
       SONARR_API_KEY: ${SONARR_API_KEY:-}
     volumes:
-      - ${TORRENT_MEDIA_DIR}:/media
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/sonarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -190,7 +190,7 @@ services:
       TZ: ${TZ:-America/New_York}
       RADARR_API_KEY: ${RADARR_API_KEY:-}
     volumes:
-      - ${TORRENT_MEDIA_DIR}:/media
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/radarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -227,7 +227,7 @@ services:
       TZ: ${TZ:-America/New_York}
       BAZARR_API_KEY: ${BAZARR_API_KEY:-}
     volumes:
-      - ${TORRENT_MEDIA_DIR}:/media
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/bazarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -277,7 +277,7 @@ services:
       UN_INTERVAL: 2m
       UN_START_DELAY: 1m
     volumes:
-      - ${TORRENT_MEDIA_DIR}:/media
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/unpackerr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -314,12 +314,12 @@ services:
     container_name: events-notifier
     restart: unless-stopped
     environment:
-      - EMAIL_TO=${EMAIL_TO}
+      - EMAIL_TO=${EMAIL_TO:-}
       - SMTP_HOST=${SMTP_HOST:-smtp.mail.me.com}
       - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - SMTP_FROM=${SMTP_FROM}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:r
       - ./config:/config:rw
@@ -351,7 +351,7 @@ services:
       GLUETUN_PORT_FILE: /tmp/gluetun/forwarded_port
       TORRENT_CLIENT_URL: http://gluetun:8080
       TORRENT_CLIENT_USER: ${SERVICE_USER:-admin}
-      TORRENT_CLIENT_PASSWORD: ${QBITTORRENT_PASSWORD}
+      TORRENT_CLIENT_PASSWORD: ${QBITTORRENT_PASSWORD:-}
       SYNC_INTERVAL: ${FORWARDARR_SYNC_INTERVAL:-60}
       LOG_LEVEL: ${FORWARDARR_LOG_LEVEL:-info}
     volumes:
@@ -423,7 +423,7 @@ services:
     environment:
       QBITTORRENT_BASE_URL: http://gluetun:8080
       QBITTORRENT_USERNAME: ${SERVICE_USER:-admin}
-      QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD}
+      QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD:-}
       EXPORTER_PORT: 8090
       LOG_LEVEL: INFO
       ENABLE_TRACKER: true
@@ -453,16 +453,16 @@ services:
       GENERAL_PORT: 7100
       GENERAL_PATH: /metrics
       SONARR_URL: http://sonarr:8989
-      SONARR_API_KEY: ${SONARR_API_KEY}
+      SONARR_API_KEY: ${SONARR_API_KEY:-}
       SONARR_INTERVAL: 30
       RADARR_URL: http://radarr:7878
-      RADARR_API_KEY: ${RADARR_API_KEY}
+      RADARR_API_KEY: ${RADARR_API_KEY:-}
       RADARR_INTERVAL: 30
       PROWLARR_URL: http://prowlarr:9696
-      PROWLARR_API_KEY: ${PROWLARR_API_KEY}
+      PROWLARR_API_KEY: ${PROWLARR_API_KEY:-}
       PROWLARR_INTERVAL: 30
       BAZARR_URL: http://bazarr:6767
-      BAZARR_API_KEY: ${BAZARR_API_KEY}
+      BAZARR_API_KEY: ${BAZARR_API_KEY:-}
       BAZARR_INTERVAL: 30
     depends_on:
       sonarr:
