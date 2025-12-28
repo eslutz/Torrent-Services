@@ -264,25 +264,20 @@ services:
     environment:
       TZ: ${TZ:-America/New_York}
       UN_LOG_FILE: /logs/unpackerr/unpackerr.log
-      UN_LOG_FILES: 5
-      UN_LOG_FILE_MB: 10
       UN_SONARR_0_URL: http://sonarr:8989
       UN_SONARR_0_API_KEY: ${SONARR_API_KEY:-}
       UN_SONARR_0_PATHS_0: /media
       UN_RADARR_0_URL: http://radarr:7878
       UN_RADARR_0_API_KEY: ${RADARR_API_KEY:-}
       UN_RADARR_0_PATHS_0: /media
-      UN_WEBSERVER_METRICS: true
-      UN_WEBSERVER_LISTEN_ADDR: 0.0.0.0:5656
-      UN_INTERVAL: 2m
-      UN_START_DELAY: 1m
+      UN_INTERVAL: 1h
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/unpackerr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
-      - 127.0.0.1:${UNPACKERR_PORT:-5656}:5656
+      - ${UNPACKERR_PORT:-5656}:5656
     depends_on:
       sonarr:
         condition: service_healthy
@@ -290,8 +285,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
-    security_opt:
-      - no-new-privileges:true
     networks:
       - torrent-services-network
     healthcheck:
