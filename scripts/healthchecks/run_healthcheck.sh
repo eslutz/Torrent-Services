@@ -46,10 +46,10 @@ run_probe() {
   return $?
 }
 
-while [ $RETRY -le $MAX_RETRIES ]; do
+while [ "$RETRY" -le "$MAX_RETRIES" ]; do
   run_probe
   CODE=$?
-  if [ $CODE -eq 0 ]; then
+  if [ "$CODE" -eq 0 ]; then
     log_event "healthy" "Healthcheck passed (attempt $RETRY)"
     exit 0
   fi
@@ -57,10 +57,16 @@ while [ $RETRY -le $MAX_RETRIES ]; do
   # Non-zero means unhealthy or remediation requested
   log_event "probe_failed" "Healthcheck probe returned $CODE (attempt $RETRY)"
   RETRY=$((RETRY+1))
-  if [ $RETRY -le $MAX_RETRIES ]; then
-    SLEEP_TIME=$((BACKOFF_BASE ** RETRY))
+  if [ "$RETRY" -le "$MAX_RETRIES" ]; then
+    # POSIX sh compatible: BACKOFF_BASE^RETRY via loop
+    SLEEP_TIME=1
+    i=0
+    while [ "$i" -lt "$RETRY" ]; do
+      SLEEP_TIME=$((SLEEP_TIME * BACKOFF_BASE))
+      i=$((i + 1))
+    done
     log_event "backoff" "Sleeping ${SLEEP_TIME}s before retry"
-    sleep $SLEEP_TIME
+    sleep "$SLEEP_TIME"
   fi
 done
 

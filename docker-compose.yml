@@ -13,8 +13,8 @@ services:
       # ProtonVPN Configuration
       VPN_SERVICE_PROVIDER: protonvpn
       VPN_TYPE: wireguard
-      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
-      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:-}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:-}
       # Server Selection Filters
       SERVER_COUNTRIES: ${SERVER_COUNTRIES:-}
       SERVER_CITIES: ${SERVER_CITIES:-}
@@ -79,7 +79,7 @@ services:
       TZ: ${TZ:-America/New_York}
       WEBUI_PORT: 8080
     volumes:
-      - ${TORRENT_MEDIA_DIR}:/media
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/qbittorrent:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -153,7 +153,7 @@ services:
       TZ: ${TZ:-America/New_York}
       SONARR_API_KEY: ${SONARR_API_KEY:-}
     volumes:
-      - ${TORRENT_MEDIA_DIR}:/media
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/sonarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -190,7 +190,7 @@ services:
       TZ: ${TZ:-America/New_York}
       RADARR_API_KEY: ${RADARR_API_KEY:-}
     volumes:
-      - ${TORRENT_MEDIA_DIR}:/media
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/radarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -227,7 +227,7 @@ services:
       TZ: ${TZ:-America/New_York}
       BAZARR_API_KEY: ${BAZARR_API_KEY:-}
     volumes:
-      - ${TORRENT_MEDIA_DIR}:/media
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/bazarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -255,18 +255,71 @@ services:
     mem_limit: ${BAZARR_MEM_LIMIT:-512m}
     cpus: ${BAZARR_CPUS:-0.5}
 
+  # Unpackerr - Extracts completed downloads for *arr apps
+  unpackerr:
+    image: ghcr.io/unpackerr/unpackerr:latest
+    container_name: unpackerr
+    init: true
+    user: ${PUID:-1000}:${PGID:-1000}
+    environment:
+      TZ: ${TZ:-America/New_York}
+      UN_LOG_FILE: /logs/unpackerr/unpackerr.log
+      UN_LOG_FILES: 5
+      UN_LOG_FILE_MB: 10
+      UN_SONARR_0_URL: http://sonarr:8989
+      UN_SONARR_0_API_KEY: ${SONARR_API_KEY:-}
+      UN_SONARR_0_PATHS_0: /media
+      UN_RADARR_0_URL: http://radarr:7878
+      UN_RADARR_0_API_KEY: ${RADARR_API_KEY:-}
+      UN_RADARR_0_PATHS_0: /media
+      UN_WEBSERVER_METRICS: true
+      UN_WEBSERVER_LISTEN_ADDR: 0.0.0.0:5656
+      UN_INTERVAL: 2m
+      UN_START_DELAY: 1m
+    volumes:
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ./config/unpackerr:/config
+      - ./scripts/healthchecks:/scripts:ro
+      - ./logs:/logs
+    ports:
+      - 127.0.0.1:${UNPACKERR_PORT:-5656}:5656
+    depends_on:
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - torrent-services-network
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/unpackerr.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${UNPACKERR_MEM_LIMIT:-512m}
+    cpus: ${UNPACKERR_CPUS:-0.5}
+
   # Email notifier for container events
   events-notifier:
     image: debian:stable-slim
     container_name: events-notifier
     restart: unless-stopped
     environment:
-      - EMAIL_TO=${EMAIL_TO}
+      - EMAIL_TO=${EMAIL_TO:-}
       - SMTP_HOST=${SMTP_HOST:-smtp.mail.me.com}
       - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - SMTP_FROM=${SMTP_FROM}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:r
       - ./config:/config:rw
@@ -293,11 +346,12 @@ services:
   forwardarr:
     image: ghcr.io/eslutz/forwardarr:latest
     container_name: forwardarr
+    init: true
     environment:
       GLUETUN_PORT_FILE: /tmp/gluetun/forwarded_port
       TORRENT_CLIENT_URL: http://gluetun:8080
       TORRENT_CLIENT_USER: ${SERVICE_USER:-admin}
-      TORRENT_CLIENT_PASSWORD: ${QBITTORRENT_PASSWORD}
+      TORRENT_CLIENT_PASSWORD: ${QBITTORRENT_PASSWORD:-}
       SYNC_INTERVAL: ${FORWARDARR_SYNC_INTERVAL:-60}
       LOG_LEVEL: ${FORWARDARR_LOG_LEVEL:-info}
     volumes:
@@ -313,6 +367,8 @@ services:
     networks:
       - torrent-services-network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "wget", "-qO-", "--timeout=5", "http://localhost:9090/health"]
       interval: 30s
@@ -332,6 +388,7 @@ services:
   torarr:
     image: ghcr.io/eslutz/torarr:latest
     container_name: torarr
+    init: true
     environment:
       TZ: ${TZ:-America/New_York}
     ports:
@@ -343,6 +400,8 @@ services:
     restart: unless-stopped
     networks:
       - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "wget", "-qO-", "--timeout=10", "http://localhost:8085/health"]
       interval: 60s
@@ -364,7 +423,7 @@ services:
     environment:
       QBITTORRENT_BASE_URL: http://gluetun:8080
       QBITTORRENT_USERNAME: ${SERVICE_USER:-admin}
-      QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD}
+      QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD:-}
       EXPORTER_PORT: 8090
       LOG_LEVEL: INFO
       ENABLE_TRACKER: true
@@ -394,16 +453,16 @@ services:
       GENERAL_PORT: 7100
       GENERAL_PATH: /metrics
       SONARR_URL: http://sonarr:8989
-      SONARR_API_KEY: ${SONARR_API_KEY}
+      SONARR_API_KEY: ${SONARR_API_KEY:-}
       SONARR_INTERVAL: 30
       RADARR_URL: http://radarr:7878
-      RADARR_API_KEY: ${RADARR_API_KEY}
+      RADARR_API_KEY: ${RADARR_API_KEY:-}
       RADARR_INTERVAL: 30
       PROWLARR_URL: http://prowlarr:9696
-      PROWLARR_API_KEY: ${PROWLARR_API_KEY}
+      PROWLARR_API_KEY: ${PROWLARR_API_KEY:-}
       PROWLARR_INTERVAL: 30
       BAZARR_URL: http://bazarr:6767
-      BAZARR_API_KEY: ${BAZARR_API_KEY}
+      BAZARR_API_KEY: ${BAZARR_API_KEY:-}
       BAZARR_INTERVAL: 30
     depends_on:
       sonarr:

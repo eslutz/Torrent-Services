@@ -3,8 +3,8 @@
 
 set -eu
 
+export SERVICE_NAME=health-monitor
 SCRIPT_DIR="$(dirname "$0")"
-SERVICE_NAME="health-monitor"
 LOG_PATH=${LOG_PATH:-/logs/health-monitor/events.log}
 mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 

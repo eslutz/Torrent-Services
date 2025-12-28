@@ -2,11 +2,10 @@
 # Prometheus metrics exporter for healthcheck events
 # Usage: sh metrics_exporter.sh > /config/healthcheck_metrics.prom
 
-METRICS_FILE="/config/healthcheck_metrics.prom"
 LOG_DIR="/config"
 
 # Find all healthcheck logs
-for LOG in $(find "$LOG_DIR" -type f -name healthcheck.log); do
+find "$LOG_DIR" -type f -name healthcheck.log | while IFS= read -r LOG; do
   SERVICE=$(echo "$LOG" | awk -F/ '{print $(NF-2)}')
   HEALTHY=$(grep -c '"event": "healthy"' "$LOG")
   UNHEALTHY=$(grep -c '"event": "unhealthy"' "$LOG")

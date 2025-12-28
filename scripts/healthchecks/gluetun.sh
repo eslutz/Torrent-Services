@@ -18,7 +18,7 @@
 #  ❌ Control server API failures
 #  ❌ Network connectivity problems
 
-SERVICE_NAME=gluetun
+export SERVICE_NAME=gluetun
 LOG_PATH=${LOG_PATH:-/logs/gluetun/healthcheck.log}
 SCRIPT_DIR="$(dirname "$0")"
 mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true

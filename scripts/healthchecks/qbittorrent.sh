@@ -5,7 +5,7 @@
 #  - Service is running and responding
 #  - Web UI accessible (returns HTTP 200 or 403)
 
-SERVICE_NAME=qbittorrent
+export SERVICE_NAME=qbittorrent
 LOG_PATH=${LOG_PATH:-/logs/qbittorrent/healthcheck.log}
 mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 SCRIPT_DIR="$(dirname "$0")"

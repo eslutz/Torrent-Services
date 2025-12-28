@@ -15,6 +15,7 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Sonarr** | TV show management | [Sonarr](https://sonarr.tv/) |
 | **Radarr** | Movie management | [Radarr](https://radarr.video/) |
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
+| **Unpackerr** | Extracts completed downloads for *arr apps | [Unpackerr](https://github.com/Unpackerr/unpackerr) |
 | **Torarr** | Optional SOCKS5 proxy for Tor-only indexers | [Torarr](https://github.com/eslutz/Torarr) |
 | **Forwardarr** | Syncs Gluetun forwarded port into qBittorrent | [Forwardarr](https://github.com/eslutz/Forwardarr) |
 | **Monitoring Exporters** | Prometheus metrics via Scraparr (*arr apps) + martabal/qbittorrent-exporter | [Scraparr](https://github.com/thecfu/scraparr) / [martabal/qbittorrent-exporter](https://github.com/martabal/qbittorrent-exporter) |

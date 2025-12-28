@@ -5,7 +5,7 @@
 # 1. Without API key (initial deployment):
 #    - Service is running and responding
 #
-SERVICE_NAME=prowlarr
+export SERVICE_NAME=prowlarr
 LOG_PATH=${LOG_PATH:-/logs/prowlarr/healthcheck.log}
 mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 SCRIPT_DIR="$(dirname "$0")"

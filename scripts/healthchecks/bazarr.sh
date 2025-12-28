@@ -6,6 +6,7 @@
 #    - Service is running and responding
 #    - Web interface returns HTTP 200
 
+export SERVICE_NAME=bazarr
 LOG_PATH=${LOG_PATH:-/logs/bazarr/healthcheck.log}
 mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 SCRIPT_DIR="$(dirname "$0")"
