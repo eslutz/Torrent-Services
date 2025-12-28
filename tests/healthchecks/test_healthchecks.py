@@ -81,6 +81,9 @@ case "$url" in
   http://localhost:5454/api/v1/ping)
     echo '{"status":"ok"}'
     ;;
+  http://localhost:5055/api/v1/status)
+    echo '{"version":"1.33.2"}'
+    ;;
   *)
     echo "  HTTP/1.1 200 OK"
     ;;
@@ -187,5 +190,12 @@ def test_notifiarr_healthcheck_api_mode(tmp_path):
         tmp_path,
         {"DN_API_KEY": "test", "LOG_PATH": str(tmp_path / "healthcheck.log")},
     )
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "healthy" in result.stdout
+
+
+def test_overseerr_healthcheck(tmp_path):
+    script = Path(__file__).resolve().parents[2] / "scripts/healthchecks/overseerr.sh"
+    result = _run_script(str(script), tmp_path, {"LOG_PATH": str(tmp_path / "healthcheck.log")})
     assert result.returncode == 0, result.stderr or result.stdout
     assert "healthy" in result.stdout

@@ -1,0 +1,42 @@
+#!/bin/sh
+# Overseerr healthcheck - verify API health and responsiveness
+# 
+# Validates that Overseerr is responding on port 5055
+
+export SERVICE_NAME=overseerr
+LOG_PATH=${LOG_PATH:-/logs/overseerr/healthcheck.log}
+mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
+SCRIPT_DIR="$(dirname "$0")"
+. "$SCRIPT_DIR/healthcheck_utils.sh"
+
+set -e
+
+MAX_RESPONSE_TIME=${MAX_RESPONSE_TIME:-5}
+
+# Check status endpoint
+STATUS_URL="http://localhost:5055/api/v1/status"
+
+START=$(date +%s)
+RESPONSE=$(wget -qO- --timeout=10 "$STATUS_URL" 2>/dev/null || echo "")
+END=$(date +%s)
+
+if [ -z "$RESPONSE" ]; then
+  log_event "error" "Overseerr not responding"
+  exit 1
+fi
+
+# Check for valid JSON response with version field
+if ! echo "$RESPONSE" | grep -q '"version"'; then
+  log_event "error" "Overseerr returned invalid response: $RESPONSE"
+  exit 1
+fi
+
+RESPONSE_TIME=$((END - START))
+if [ "$RESPONSE_TIME" -gt "$MAX_RESPONSE_TIME" ]; then
+  log_event "error" "Overseerr response too slow: ${RESPONSE_TIME}s (max ${MAX_RESPONSE_TIME}s)"
+  exit 1
+fi
+
+log_event "healthy" "response_time=${RESPONSE_TIME}s (API check)"
+
+exit 0

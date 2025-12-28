@@ -159,6 +159,16 @@ else
     echo -e "${YELLOW}[WARNING]${NC} No Notifiarr backup found - skipping"
 fi
 
+# Overseerr - Direct restore
+OVERSEERR_BACKUP="$BACKUP_DIR/overseerr_backup.tar.gz"
+if [ -f "$OVERSEERR_BACKUP" ]; then
+    mkdir -p config/overseerr
+    tar -xzf "$OVERSEERR_BACKUP" -C config
+    echo -e "${GREEN}[SUCCESS]${NC} Restored Overseerr configuration"
+else
+    echo -e "${YELLOW}[WARNING]${NC} No Overseerr backup found - skipping"
+fi
+
 # Gluetun
 GLUETUN_SERVERS="$BACKUP_DIR/gluetun_servers.json"
 if [ -f "$GLUETUN_SERVERS" ]; then

@@ -18,6 +18,7 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Unpackerr** | Extracts completed downloads for *arr apps | [Unpackerr](https://github.com/Unpackerr/unpackerr) |
 | **Tdarr** | Automated media transcoding (H.265/HEVC) | [Tdarr](https://tdarr.io/) |
 | **Notifiarr** | Unified notifications for *arr apps | [Notifiarr](https://notifiarr.com/) |
+| **Overseerr** | Request management and media discovery | [Overseerr](https://overseerr.dev/) |
 | **Torarr** | Optional SOCKS5 proxy for Tor-only indexers | [Torarr](https://github.com/eslutz/Torarr) |
 | **Forwardarr** | Syncs Gluetun forwarded port into qBittorrent | [Forwardarr](https://github.com/eslutz/Forwardarr) |
 | **Monitoring Exporters** | Prometheus metrics via Scraparr (*arr apps) + martabal/qbittorrent-exporter | [Scraparr](https://github.com/thecfu/scraparr) / [martabal/qbittorrent-exporter](https://github.com/martabal/qbittorrent-exporter) |
@@ -381,6 +382,48 @@ Notifiarr provides a single interface for monitoring and receiving notifications
 
 ---
 
+## Overseerr - Request Management
+
+Overseerr provides a sleek interface for users to request movies and TV shows, integrating with Plex/Emby/Jellyfin and automatically sending requests to Sonarr/Radarr.
+
+### Features
+
+- **User-friendly requests:** Simple interface for requesting media
+- **Plex/Emby/Jellyfin integration:** Sync libraries and user permissions
+- **Automatic processing:** Requests sent directly to Sonarr/Radarr
+- **User management:** Control who can request and approve content
+- **Mobile-friendly:** Responsive design for all devices
+
+### Configuration
+
+1. **Access Overseerr:**
+   - Web UI: <http://localhost:5055>
+   - Complete the setup wizard on first launch
+
+2. **Connect Media Server:**
+   - Add your Plex, Emby, or Jellyfin server
+   - Configure library sync settings
+   - Set user permissions
+
+3. **Configure *arr Integration:**
+   - Add Sonarr: `http://sonarr:8989` with API key from `.env`
+   - Add Radarr: `http://radarr:7878` with API key from `.env`
+   - Configure quality profiles and root folders
+
+4. **User Settings:**
+   - Enable/disable user registration
+   - Set request limits per user
+   - Configure approval workflows
+
+### Health Checks
+
+- Overseerr health verified via `/api/v1/status` endpoint
+- Checks for valid version response
+- Monitors response time (max 5s)
+- Depends on Sonarr and Radarr being healthy
+
+---
+
 ## Healthchecks & Autoheal
 
 ### The Process
@@ -429,6 +472,7 @@ curl -sf http://127.0.0.1:9090/health
 | Bazarr | <http://localhost:6767> | <http://bazarr.home.arpa:6767> | <http://192.168.1.254:6767> | Subtitles |
 | Tdarr | <http://localhost:8265> | <http://tdarr.home.arpa:8265> | <http://192.168.1.254:8265> | Transcoding |
 | Notifiarr | <http://localhost:5454> | <http://notifiarr.home.arpa:5454> | <http://192.168.1.254:5454> | Notifications |
+| Overseerr | <http://localhost:5055> | <http://overseerr.home.arpa:5055> | <http://192.168.1.254:5055> | Requests |
 
 **Addressing Guide:**
 

@@ -428,6 +428,45 @@ services:
     mem_limit: ${NOTIFIARR_MEM_LIMIT:-256m}
     cpus: ${NOTIFIARR_CPUS:-0.5}
 
+  # Overseerr - Request management and media discovery tool
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+    volumes:
+      - ./config/overseerr:/config
+      - ./scripts/healthchecks:/scripts:ro
+      - ./logs:/logs
+    ports:
+      - ${OVERSEERR_PORT:-5055}:5055
+    depends_on:
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/overseerr.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${OVERSEERR_MEM_LIMIT:-512m}
+    cpus: ${OVERSEERR_CPUS:-1.0}
+
   # Email notifier for container events
   events-notifier:
     image: debian:stable-slim
