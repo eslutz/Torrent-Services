@@ -5,7 +5,7 @@
 # 1. Without API key (initial deployment):
 #    - Service is running and responding
 #
-SERVICE_NAME=sonarr
+export SERVICE_NAME=sonarr
 LOG_PATH=${LOG_PATH:-/logs/sonarr/healthcheck.log}
 mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 SCRIPT_DIR="$(dirname "$0")"

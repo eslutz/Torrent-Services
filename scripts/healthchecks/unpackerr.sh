@@ -1,8 +1,7 @@
 #!/bin/sh
 # Unpackerr healthcheck - verify web server/metrics endpoint responds quickly
 
-# shellcheck disable=SC2034  # Used by sourced healthcheck_utils.sh
-SERVICE_NAME=unpackerr
+export SERVICE_NAME=unpackerr
 LOG_PATH=${LOG_PATH:-/logs/unpackerr/healthcheck.log}
 mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 SCRIPT_DIR="$(dirname "$0")"
