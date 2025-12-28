@@ -2,8 +2,6 @@
 # Shared utilities for healthcheck scripts
 # Provides: log_event(), send_email()
 
-SCRIPT_DIR="$(dirname "$0")"
-
 EMAIL_TO=${EMAIL_TO:-admin@example.com}
 
 log_event() {
@@ -24,7 +22,7 @@ send_email() {
   MAX_EMAIL_RETRIES=3
   BACKOFF_BASE=2
   ATTEMPT=1
-  while [ $ATTEMPT -le $MAX_EMAIL_RETRIES ]; do
+  while [ "$ATTEMPT" -le "$MAX_EMAIL_RETRIES" ]; do
     if command -v msmtp >/dev/null 2>&1; then
       printf "Subject: %s\nTo: %s\n\n%s\n" "$SUBJECT" "$EMAIL_TO" "$BODY" | msmtp -t "$EMAIL_TO" && return 0
     elif command -v mail >/dev/null 2>&1; then
@@ -40,11 +38,11 @@ send_email() {
     # POSIX sh compatible: 2^ATTEMPT via loop
     SLEEP_TIME=1
     i=0
-    while [ $i -lt $ATTEMPT ]; do
+    while [ "$i" -lt "$ATTEMPT" ]; do
       SLEEP_TIME=$((SLEEP_TIME * BACKOFF_BASE))
       i=$((i + 1))
     done
-    sleep $SLEEP_TIME
+    sleep "$SLEEP_TIME"
     ATTEMPT=$((ATTEMPT+1))
   done
   echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"email_failed\", \"details\": \"All retries failed for: $SUBJECT\"}"
