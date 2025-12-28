@@ -6,6 +6,7 @@ This script helps retrieve the Notifiarr API key when it's been configured
 but not saved to .env. It checks both the container logs and config file.
 """
 
+import re
 import sys
 import json
 import subprocess
@@ -76,13 +77,15 @@ def extract_from_logs():
         for line in logs.split("\n"):
             # Common patterns where API key might appear
             if "api" in line.lower() and "key" in line.lower():
-                # Look for key-like strings (alphanumeric, 32+ chars)
-                import re
-                # Notifiarr API keys are typically long alphanumeric strings
-                matches = re.findall(r'\b[a-zA-Z0-9]{32,}\b', line)
+                # Notifiarr API keys are long alphanumeric strings (typically 40+ chars)
+                # Match sequences that look like API keys with specific length
+                matches = re.findall(r'\b[a-zA-Z0-9]{40,64}\b', line)
                 if matches:
-                    log(f"Possible API key found in logs: {matches[0][:8]}...", "INFO")
-                    return matches[0]
+                    # Additional validation: keys shouldn't contain common words
+                    for match in matches:
+                        if not any(word in match.lower() for word in ['http', 'https', 'docker']):
+                            log(f"Possible API key found in logs: {match[:8]}...", "INFO")
+                            return match
 
         log("No API key found in recent logs", "WARNING")
         return None
@@ -143,8 +146,10 @@ def update_env_file(api_key):
                 updated_lines.append(line)
 
         if not key_exists:
-            # Add the key at the end
-            updated_lines.append(f'\nNOTIFIARR_API_KEY="{api_key}"\n')
+            # Add the key at the end, checking for trailing newline
+            if updated_lines and not updated_lines[-1].endswith('\n'):
+                updated_lines.append('\n')
+            updated_lines.append(f'NOTIFIARR_API_KEY="{api_key}"\n')
             log("Added NOTIFIARR_API_KEY to .env", "SUCCESS")
 
         # Write back to file
