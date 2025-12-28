@@ -139,6 +139,26 @@ else
     echo -e "${YELLOW}[WARNING]${NC} No qBittorrent backup found - skipping"
 fi
 
+# Tdarr - Direct restore
+TDARR_BACKUP="$BACKUP_DIR/tdarr_backup.tar.gz"
+if [ -f "$TDARR_BACKUP" ]; then
+    mkdir -p config/tdarr
+    tar -xzf "$TDARR_BACKUP" -C config
+    echo -e "${GREEN}[SUCCESS]${NC} Restored Tdarr configuration"
+else
+    echo -e "${YELLOW}[WARNING]${NC} No Tdarr backup found - skipping"
+fi
+
+# Notifiarr - Direct restore
+NOTIFIARR_BACKUP="$BACKUP_DIR/notifiarr/notifiarr.conf"
+if [ -f "$NOTIFIARR_BACKUP" ]; then
+    mkdir -p config/notifiarr
+    cp "$NOTIFIARR_BACKUP" config/notifiarr/
+    echo -e "${GREEN}[SUCCESS]${NC} Restored Notifiarr configuration"
+else
+    echo -e "${YELLOW}[WARNING]${NC} No Notifiarr backup found - skipping"
+fi
+
 # Gluetun
 GLUETUN_SERVERS="$BACKUP_DIR/gluetun_servers.json"
 if [ -f "$GLUETUN_SERVERS" ]; then

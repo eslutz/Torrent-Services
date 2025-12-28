@@ -16,6 +16,8 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Radarr** | Movie management | [Radarr](https://radarr.video/) |
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 | **Unpackerr** | Extracts completed downloads for *arr apps | [Unpackerr](https://github.com/Unpackerr/unpackerr) |
+| **Tdarr** | Automated media transcoding (H.265/HEVC) | [Tdarr](https://tdarr.io/) |
+| **Notifiarr** | Unified notifications for *arr apps | [Notifiarr](https://notifiarr.com/) |
 | **Torarr** | Optional SOCKS5 proxy for Tor-only indexers | [Torarr](https://github.com/eslutz/Torarr) |
 | **Forwardarr** | Syncs Gluetun forwarded port into qBittorrent | [Forwardarr](https://github.com/eslutz/Forwardarr) |
 | **Monitoring Exporters** | Prometheus metrics via Scraparr (*arr apps) + martabal/qbittorrent-exporter | [Scraparr](https://github.com/thecfu/scraparr) / [martabal/qbittorrent-exporter](https://github.com/martabal/qbittorrent-exporter) |
@@ -294,6 +296,91 @@ You should see logs like:
 
 ---
 
+## Tdarr - Automated Media Transcoding
+
+Tdarr automatically transcodes media files to save storage space and ensure compatibility. It waits for torrents to complete and meet seeding requirements before transcoding.
+
+### Features
+
+- **In-place transcoding:** Replace original files with transcoded versions
+- **H.265/HEVC encoding:** Significant space savings with minimal quality loss
+- **English-only:** Keep only English audio and subtitle tracks by default
+- **Torrent-aware:** Only processes files after qBittorrent confirms completion and seeding goals met
+- **Distributed processing:** Server manages flows, nodes perform the work
+
+### Configuration
+
+1. **Access Tdarr Web UI:** <http://localhost:8265>
+
+2. **Configure Libraries:**
+   - Add your media paths (`/media` points to your `TORRENT_MEDIA_DIR`)
+   - Set folder watch settings to monitor for new files
+   - Enable in-place transcoding (cache files are temporary)
+
+3. **Create Transcode Flows:**
+   - **Output codec:** H.265 (HEVC) - set via `TDARR_OUTPUT_CODEC` env var
+   - **Output container:** .m4v or .mp4 - set via `TDARR_OUTPUT_CONTAINER` env var
+   - **Audio:** Keep only English tracks, remove others
+   - **Subtitles:** Keep only English tracks, remove others
+   - **Conditions:** Only process files in complete/seeded state
+
+4. **Wait for Completion:**
+   Tdarr depends on qBittorrent being healthy, ensuring files are fully downloaded before processing. For seeding requirements, configure flow conditions to check:
+   - File age (e.g., only process files older than 7 days to allow seeding)
+   - Or manually verify torrents meet seeding goals before adding to Tdarr library
+
+### Environment Variables
+
+See `.env.example` for configuration options:
+- `TDARR_WEBUI_PORT` - Web interface (default: 8265)
+- `TDARR_SERVER_PORT` - API/node communication (default: 8266)
+- `TDARR_NODE_PORT` - Worker node port (default: 8267)
+- `TDARR_OUTPUT_CODEC` - Default output codec (default: hevc)
+- `TDARR_OUTPUT_CONTAINER` - Default container format (default: m4v)
+
+### Health Checks
+
+- Tdarr server health is verified via API endpoint on port 8266
+- If API is unavailable, falls back to web UI check on port 8265
+- Both server and node containers are monitored for responsiveness
+
+---
+
+## Notifiarr - Unified Notifications
+
+Notifiarr provides a single interface for monitoring and receiving notifications from all your *arr applications.
+
+### Features
+
+- **Unified dashboard:** Monitor all services in one place
+- **Custom notifications:** Discord, Telegram, email, and more
+- **Integration hub:** Connect to Plex, Tautulli, and other services
+- **Health monitoring:** Get alerts when services are down
+
+### Configuration
+
+1. **Get API Key:**
+   - Sign up at <https://notifiarr.com>
+   - Copy your API key from the dashboard
+   - Add to `.env`: `NOTIFIARR_API_KEY=your_key_here`
+
+2. **Access Notifiarr:**
+   - Web UI: <http://localhost:5454>
+   - Configure integrations for Sonarr, Radarr, Prowlarr, etc.
+   - Set up notification channels (Discord, Telegram, etc.)
+
+3. **Connect Services:**
+   - Use service URLs like `http://sonarr:8989` for inter-container communication
+   - Notifiarr depends on *arr services being healthy before starting
+
+### Health Checks
+
+- Notifiarr health verified via API endpoint with authentication
+- Falls back to ping check if API key is not configured
+- Monitors for response time and service availability
+
+---
+
 ## Healthchecks & Autoheal
 
 ### The Process
@@ -340,6 +427,8 @@ curl -sf http://127.0.0.1:9090/health
 | Radarr | <http://localhost:7878> | <http://radarr.home.arpa:7878> | <http://192.168.1.254:7878> | Movies |
 | Prowlarr | <http://localhost:9696> | <http://prowlarr.home.arpa:9696> | <http://192.168.1.254:9696> | Indexers |
 | Bazarr | <http://localhost:6767> | <http://bazarr.home.arpa:6767> | <http://192.168.1.254:6767> | Subtitles |
+| Tdarr | <http://localhost:8265> | <http://tdarr.home.arpa:8265> | <http://192.168.1.254:8265> | Transcoding |
+| Notifiarr | <http://localhost:5454> | <http://notifiarr.home.arpa:5454> | <http://192.168.1.254:5454> | Notifications |
 
 **Addressing Guide:**
 

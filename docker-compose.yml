@@ -301,6 +301,133 @@ services:
     mem_limit: ${UNPACKERR_MEM_LIMIT:-512m}
     cpus: ${UNPACKERR_CPUS:-0.5}
 
+  # Tdarr Server - Transcode manager (waits for qBittorrent to complete torrents)
+  tdarr-server:
+    image: ghcr.io/haveagitgat/tdarr:latest
+    container_name: tdarr-server
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      serverIP: 0.0.0.0
+      serverPort: ${TDARR_SERVER_PORT:-8266}
+      webUIPort: ${TDARR_WEBUI_PORT:-8265}
+      internalNode: true
+      inContainer: true
+      nodeName: TdarrNode
+    volumes:
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ./config/tdarr/server:/app/server
+      - ./config/tdarr/configs:/app/configs
+      - ./config/tdarr/logs:/app/logs
+      - ./scripts/healthchecks:/scripts:ro
+      - ./logs:/logs
+    ports:
+      - ${TDARR_WEBUI_PORT:-8265}:8265
+      - ${TDARR_SERVER_PORT:-8266}:8266
+    depends_on:
+      qbittorrent:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/tdarr.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${TDARR_SERVER_MEM_LIMIT:-1g}
+    cpus: ${TDARR_SERVER_CPUS:-1.0}
+
+  # Tdarr Node - Transcode worker (processes files after torrents complete)
+  tdarr-node:
+    image: ghcr.io/haveagitgat/tdarr:latest
+    container_name: tdarr-node
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      nodeID: TdarrNode
+      nodeIP: 0.0.0.0
+      nodePort: ${TDARR_NODE_PORT:-8267}
+      serverIP: tdarr-server
+      serverPort: ${TDARR_SERVER_PORT:-8266}
+    volumes:
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ./config/tdarr/configs:/app/configs
+      - ./config/tdarr/logs:/app/logs
+      - tdarr-transcode-cache:/temp
+    ports:
+      - ${TDARR_NODE_PORT:-8267}:8267
+    depends_on:
+      tdarr-server:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${TDARR_NODE_MEM_LIMIT:-2g}
+    cpus: ${TDARR_NODE_CPUS:-2.0}
+
+  # Notifiarr - Notification and integration client for *arr apps
+  notifiarr:
+    image: golift/notifiarr:latest
+    container_name: notifiarr
+    init: true
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      DN_API_KEY: ${NOTIFIARR_API_KEY:-}
+    volumes:
+      - ./config/notifiarr:/config
+      - ./scripts/healthchecks:/scripts:ro
+      - ./logs:/logs
+    ports:
+      - ${NOTIFIARR_PORT:-5454}:5454
+    depends_on:
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+      prowlarr:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/notifiarr.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${NOTIFIARR_MEM_LIMIT:-256m}
+    cpus: ${NOTIFIARR_CPUS:-0.5}
+
   # Email notifier for container events
   events-notifier:
     image: debian:stable-slim
@@ -560,3 +687,4 @@ volumes:
       type: tmpfs
       device: tmpfs
   tor-data:
+  tdarr-transcode-cache:
