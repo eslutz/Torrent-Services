@@ -364,6 +364,10 @@ Notifiarr provides a single interface for monitoring and receiving notifications
    - Sign up at <https://notifiarr.com>
    - Copy your API key from the dashboard
    - Add to `.env`: `NOTIFIARR_API_KEY=your_key_here`
+   - **Or** configure via web UI and extract the key later:
+     ```bash
+     python3 scripts/utilities/extract_notifiarr_key.py
+     ```
 
 2. **Access Notifiarr:**
    - Web UI: <http://localhost:5454>
@@ -373,6 +377,19 @@ Notifiarr provides a single interface for monitoring and receiving notifications
 3. **Connect Services:**
    - Use service URLs like `http://sonarr:8989` for inter-container communication
    - Notifiarr depends on *arr services being healthy before starting
+
+### Extracting API Key
+
+If you configured Notifiarr through its web UI but didn't save the API key to `.env`, use the extraction utility:
+
+```bash
+python3 scripts/utilities/extract_notifiarr_key.py
+```
+
+This script will:
+- Check the config file, container environment, and logs
+- Display the found API key
+- Optionally save it to `.env` file
 
 ### Health Checks
 

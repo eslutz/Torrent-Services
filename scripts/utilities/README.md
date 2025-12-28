@@ -242,3 +242,40 @@ Dumps the current qBittorrent preferences to the console. Useful for verifying s
 ```bash
 python3 scripts/utilities/check_qbittorrent_config.py
 ```
+
+## extract_notifiarr_key.py
+
+Extracts the Notifiarr API key from the container's config file, environment, or logs. Useful for recovering the API key when it's been configured in the Notifiarr web UI but not saved to `.env`.
+
+### Usage
+
+```bash
+python3 scripts/utilities/extract_notifiarr_key.py
+```
+
+The script will:
+1. Check the Notifiarr config file (`config/notifiarr/notifiarr.conf`)
+2. Check the container's environment variables
+3. Check recent container logs for API key references
+4. Prompt to save the extracted key to `.env` file
+
+### When to Use
+
+- After configuring Notifiarr through its web UI
+- When the API key is configured but not in `.env`
+- When restoring from a backup and API key is missing
+- For troubleshooting Notifiarr authentication issues
+
+### Alternative Methods
+
+**Manual extraction from config:**
+```bash
+# View the config file
+cat config/notifiarr/notifiarr.conf | grep apikey
+```
+
+**Check container environment:**
+```bash
+docker exec notifiarr printenv DN_API_KEY
+```
+
