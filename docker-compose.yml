@@ -259,22 +259,23 @@ services:
   unpackerr:
     image: ghcr.io/unpackerr/unpackerr:latest
     container_name: unpackerr
+    init: true
     user: ${PUID:-1000}:${PGID:-1000}
     environment:
       TZ: ${TZ:-America/New_York}
-      UN_LOG_FILE: ${UNPACKERR_LOG_FILE:-/logs/unpackerr/unpackerr.log}
-      UN_LOG_FILES: ${UNPACKERR_LOG_FILES:-5}
-      UN_LOG_FILE_MB: ${UNPACKERR_LOG_FILE_MB:-10}
+      UN_LOG_FILE: /logs/unpackerr/unpackerr.log
+      UN_LOG_FILES: 5
+      UN_LOG_FILE_MB: 10
       UN_SONARR_0_URL: http://sonarr:8989
       UN_SONARR_0_API_KEY: ${SONARR_API_KEY:-}
       UN_SONARR_0_PATHS_0: /media
       UN_RADARR_0_URL: http://radarr:7878
       UN_RADARR_0_API_KEY: ${RADARR_API_KEY:-}
       UN_RADARR_0_PATHS_0: /media
-      UN_WEBSERVER_METRICS: ${UNPACKERR_WEBSERVER_METRICS:-true}
-      UN_WEBSERVER_LISTEN_ADDR: 0.0.0.0:${UNPACKERR_PORT:-5656}
-      UN_INTERVAL: ${UNPACKERR_INTERVAL:-2m}
-      UN_START_DELAY: ${UNPACKERR_START_DELAY:-1m}
+      UN_WEBSERVER_METRICS: true
+      UN_WEBSERVER_LISTEN_ADDR: 0.0.0.0:5656
+      UN_INTERVAL: 2m
+      UN_START_DELAY: 1m
     volumes:
       - ${TORRENT_MEDIA_DIR}:/media
       - ./config/unpackerr:/config
@@ -289,6 +290,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
     networks:
       - torrent-services-network
     healthcheck:
@@ -343,6 +346,7 @@ services:
   forwardarr:
     image: ghcr.io/eslutz/forwardarr:latest
     container_name: forwardarr
+    init: true
     environment:
       GLUETUN_PORT_FILE: /tmp/gluetun/forwarded_port
       TORRENT_CLIENT_URL: http://gluetun:8080
@@ -363,6 +367,8 @@ services:
     networks:
       - torrent-services-network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "wget", "-qO-", "--timeout=5", "http://localhost:9090/health"]
       interval: 30s
@@ -382,6 +388,7 @@ services:
   torarr:
     image: ghcr.io/eslutz/torarr:latest
     container_name: torarr
+    init: true
     environment:
       TZ: ${TZ:-America/New_York}
     ports:
@@ -393,6 +400,8 @@ services:
     restart: unless-stopped
     networks:
       - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "wget", "-qO-", "--timeout=10", "http://localhost:8085/health"]
       interval: 60s
