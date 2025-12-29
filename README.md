@@ -637,9 +637,35 @@ python3 scripts/utilities/sync_api_keys.py
 
 ### Health Checks
 
-- Apprise health verified via `/health` endpoint
+- Apprise starts independently (no dependencies on *arr apps) to monitor ALL services
+- Health verified via `/health` endpoint
 - Monitors for response time and service availability
 - No authentication required for health checks
+- Can report on *arr app health issues via webhooks
+
+### Configuration Approaches
+
+Apprise supports two configuration methods depending on your use case:
+
+**1. Persistent Configurations (Recommended for *arr Webhooks):**
+- Save notification URLs to `/config` volume via web UI or API
+- Create named configs (e.g., "arr-alerts") reusable across all apps
+- Configurations survive container restarts
+- Tag-based routing for different event types
+- Centralized management via web UI at <http://localhost:8000>
+- **Best for:** *arr app webhooks, centralized notification management
+
+**2. Environment Variables (Optional for Simple Setups):**
+- Configure notification URLs directly in `.env` file
+- No persistent config volume needed
+- Simpler deployment for stateless environments
+- **Best for:** Single notification channel, simple deployments
+
+**Health Check Notifications:**
+- Current setup uses `EMAIL_TO` env var with `healthcheck_utils.sh`
+- Docker health check failures trigger emails via send_email() function
+- Requires MTA configuration (msmtp/sendmail)
+- Optional enhancement: Can integrate Apprise by modifying `docker_events_notifier.sh` to call Apprise API
 
 ### Supported Services
 

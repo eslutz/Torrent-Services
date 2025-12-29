@@ -387,6 +387,7 @@ services:
     cpus: ${TDARR_NODE_CPUS:-2.0}
 
   # Apprise - Unified notification service (100+ platforms)
+  # NOTE: Starts independently (no dependencies) so it can monitor ALL services including *arr apps
   apprise:
     image: lscr.io/linuxserver/apprise-api:latest
     container_name: apprise
@@ -403,13 +404,7 @@ services:
       - ./attachments:/attachments
     ports:
       - ${APPRISE_PORT:-8000}:8000
-    depends_on:
-      sonarr:
-        condition: service_healthy
-      radarr:
-        condition: service_healthy
-      prowlarr:
-        condition: service_healthy
+    # No depends_on - starts independently to monitor all services
     restart: unless-stopped
     stop_grace_period: 30s
     networks:
