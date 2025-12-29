@@ -339,6 +339,32 @@ See `.env.example` for configuration options:
 - `TDARR_OUTPUT_CODEC` - Default output codec (default: hevc)
 - `TDARR_OUTPUT_CONTAINER` - Default container format (default: m4v)
 
+### Horizontal Scaling for Better Performance
+
+Tdarr supports running multiple node containers to significantly speed up transcoding:
+
+**Benefits:**
+- **Linear performance scaling:** 2 nodes = 2x throughput, 3 nodes = 3x throughput
+- **Better resource utilization:** Spread workload across CPU cores
+- **Faster processing:** Reduce transcode queue times
+
+**Setup:**
+1. Edit `docker-compose.yml` and uncomment additional `tdarr-node-2` and `tdarr-node-3` sections
+2. Uncomment corresponding volume definitions at the bottom
+3. Optional: Customize worker counts per node in `.env.example`:
+   ```bash
+   TDARR_CPU_WORKERS="2"        # Workers for node 1
+   TDARR_NODE2_CPU_WORKERS="2"  # Workers for node 2
+   TDARR_NODE3_CPU_WORKERS="2"  # Workers for node 3
+   ```
+4. Restart: `docker compose up -d`
+
+**Recommendations:**
+- Start with 1 node and add more if transcode queue grows
+- Each node should have 1-2GB RAM per worker
+- Monitor CPU usage - add nodes if CPU is consistently maxed out
+- For GPU transcoding, pass through GPU to nodes and set `TDARR_GPU_WORKERS`
+
 ### Health Checks
 
 - Tdarr server health is verified via API endpoint on port 8266
