@@ -1,5 +1,5 @@
 #!/bin/sh
-# Listen to Docker container events and send email alerts for unhealthy/stop events
+# Listen to Docker container events and send Apprise alerts for unhealthy/stop events
 
 set -eu
 
@@ -28,12 +28,12 @@ handle_event() {
     health_status)
       if [ "$HEALTH" = "unhealthy" ]; then
         log_line "Container unhealthy: ${NAME} (image: ${IMAGE})"
-        send_email "Container unhealthy: ${NAME}" "The container ${NAME} is reporting UNHEALTHY (image: ${IMAGE})."
+        send_notification "Container unhealthy: ${NAME}" "The container ${NAME} is reporting UNHEALTHY (image: ${IMAGE})."
       fi
       ;;
     die|oom|kill|stop)
       log_line "Container ${ACTION}: ${NAME} (image: ${IMAGE})"
-      send_email "Container ${ACTION}: ${NAME}" "The container ${NAME} reported event ${ACTION} (image: ${IMAGE})."
+      send_notification "Container ${ACTION}: ${NAME}" "The container ${NAME} reported event ${ACTION} (image: ${IMAGE})."
       ;;
   esac
 }
@@ -59,7 +59,7 @@ follow_autoheal_log() {
     if echo "$ACTION" | grep -qi "restart"; then
       log_line "Autoheal restart detected for ${NAME}: ${ACTION} (code=${CODE}, err=${ERR})"
       BODY="Autoheal restarted container ${NAME}.\nAction: ${ACTION}\nCode: ${CODE}\nError: ${ERR}"
-      send_email "Autoheal restart: ${NAME}" "$BODY"
+      send_notification "Autoheal restart: ${NAME}" "$BODY"
     fi
   done
 }
@@ -75,6 +75,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 log_line "Starting docker event notifier (watching stop/die/kill/oom/unhealthy)"
+log_line "Notifications will be sent via Apprise API"
 follow_autoheal_log &
 
 while true; do

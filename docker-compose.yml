@@ -37,6 +37,11 @@ services:
       HTTP_CONTROL_SERVER_PASSWORD: ${CONTROL_APIKEY:-}
       LOG_LEVEL: info
       TZ: ${TZ:-America/New_York}
+      # Apprise notification configuration for healthchecks
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_HEALTHCHECK_TAG: ${APPRISE_HEALTHCHECK_TAG:-health-alerts}
+      APPRISE_CONFIG_MODE: ${APPRISE_CONFIG_MODE:-persistent}
+      APPRISE_STATELESS_URLS: ${APPRISE_STATELESS_URLS:-}
     ports:
       - ${QBITTORRENT_PORT:-8080}:8080
     volumes:
@@ -78,6 +83,11 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
       WEBUI_PORT: 8080
+      # Apprise notification configuration for healthchecks
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_HEALTHCHECK_TAG: ${APPRISE_HEALTHCHECK_TAG:-health-alerts}
+      APPRISE_CONFIG_MODE: ${APPRISE_CONFIG_MODE:-persistent}
+      APPRISE_STATELESS_URLS: ${APPRISE_STATELESS_URLS:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/qbittorrent:/config
@@ -117,6 +127,11 @@ services:
       COMPlus_EnableDiagnostics: 0
       # Runtime Dir
       XDG_RUNTIME_DIR: /config/tmp
+      # Apprise notification configuration for healthchecks
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_HEALTHCHECK_TAG: ${APPRISE_HEALTHCHECK_TAG:-health-alerts}
+      APPRISE_CONFIG_MODE: ${APPRISE_CONFIG_MODE:-persistent}
+      APPRISE_STATELESS_URLS: ${APPRISE_STATELESS_URLS:-}
     volumes:
       - ./config/prowlarr:/config
       - ./scripts/healthchecks:/scripts:ro
@@ -152,6 +167,11 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
       SONARR_API_KEY: ${SONARR_API_KEY:-}
+      # Apprise notification configuration for healthchecks
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_HEALTHCHECK_TAG: ${APPRISE_HEALTHCHECK_TAG:-health-alerts}
+      APPRISE_CONFIG_MODE: ${APPRISE_CONFIG_MODE:-persistent}
+      APPRISE_STATELESS_URLS: ${APPRISE_STATELESS_URLS:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/sonarr:/config
@@ -189,6 +209,11 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
       RADARR_API_KEY: ${RADARR_API_KEY:-}
+      # Apprise notification configuration for healthchecks
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_HEALTHCHECK_TAG: ${APPRISE_HEALTHCHECK_TAG:-health-alerts}
+      APPRISE_CONFIG_MODE: ${APPRISE_CONFIG_MODE:-persistent}
+      APPRISE_STATELESS_URLS: ${APPRISE_STATELESS_URLS:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/radarr:/config
@@ -226,6 +251,11 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
       BAZARR_API_KEY: ${BAZARR_API_KEY:-}
+      # Apprise notification configuration for healthchecks
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_HEALTHCHECK_TAG: ${APPRISE_HEALTHCHECK_TAG:-health-alerts}
+      APPRISE_CONFIG_MODE: ${APPRISE_CONFIG_MODE:-persistent}
+      APPRISE_STATELESS_URLS: ${APPRISE_STATELESS_URLS:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/bazarr:/config
@@ -312,6 +342,11 @@ services:
       internalNode: true
       inContainer: true
       nodeName: TdarrNode
+      # Apprise notification configuration for healthchecks
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_HEALTHCHECK_TAG: ${APPRISE_HEALTHCHECK_TAG:-health-alerts}
+      APPRISE_CONFIG_MODE: ${APPRISE_CONFIG_MODE:-persistent}
+      APPRISE_STATELESS_URLS: ${APPRISE_STATELESS_URLS:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/tdarr/server:/app/server
@@ -397,6 +432,8 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
       APPRISE_ATTACH_SIZE: ${APPRISE_ATTACH_SIZE:-5}
+      APPRISE_CONFIG_MODE: ${APPRISE_CONFIG_MODE:-persistent}
+      APPRISE_STATELESS_URLS: ${APPRISE_STATELESS_URLS:-}
     volumes:
       - ./config/apprise:/config
       - ./scripts/healthchecks:/scripts:ro
@@ -433,6 +470,11 @@ services:
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
+      # Apprise notification configuration for healthchecks
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_HEALTHCHECK_TAG: ${APPRISE_HEALTHCHECK_TAG:-health-alerts}
+      APPRISE_CONFIG_MODE: ${APPRISE_CONFIG_MODE:-persistent}
+      APPRISE_STATELESS_URLS: ${APPRISE_STATELESS_URLS:-}
     volumes:
       - ./config/overseerr:/config
       - ./scripts/healthchecks:/scripts:ro

@@ -655,17 +655,39 @@ Apprise supports two configuration methods depending on your use case:
 - Centralized management via web UI at <http://localhost:8000>
 - **Best for:** *arr app webhooks, centralized notification management
 
-**2. Environment Variables (Optional for Simple Setups):**
-- Configure notification URLs directly in `.env` file
-- No persistent config volume needed
-- Simpler deployment for stateless environments
-- **Best for:** Single notification channel, simple deployments
+**2. Stateless Configuration (Environment Variables Only):**
+- Configure notification URLs directly in `.env` file via `APPRISE_STATELESS_URLS`
+- Set `APPRISE_CONFIG_MODE=stateless` to enable
+- No persistent config volume needed, all configuration via env vars
+- Comma-separated list of service URLs (e.g., `mailto://...,discord://...`)
+- **Best for:** Single notification channel, containerized/stateless deployments
 
 **Health Check Notifications:**
-- Current setup uses `EMAIL_TO` env var with `healthcheck_utils.sh`
-- Docker health check failures trigger emails via send_email() function
-- Requires MTA configuration (msmtp/sendmail)
-- Optional enhancement: Can integrate Apprise by modifying `docker_events_notifier.sh` to call Apprise API
+
+All health check alerts now use Apprise for unified multi-channel notifications:
+
+- **Docker events:** Container failures (unhealthy/stop/die/oom) trigger Apprise notifications
+- **Autoheal:** Container restarts send alerts via Apprise
+- **Service healthchecks:** Failed health probes use Apprise API
+- **Configuration:** Set notification URLs in `.env` and configure mode:
+  - Persistent mode: Create "health-alerts" config in Apprise web UI
+  - Stateless mode: Set `APPRISE_STATELESS_URLS` with desired notification URLs
+
+**Stateless Example:**
+```bash
+# .env configuration for stateless health alerts
+APPRISE_CONFIG_MODE="stateless"
+APPRISE_STATELESS_URLS="mailto://user:pass@smtp.gmail.com:587?to=admin@example.com,discord://webhook_id/token"
+APPRISE_HEALTHCHECK_TAG="health-alerts"
+```
+
+**Persistent Example:**
+```bash
+# .env configuration for persistent mode
+APPRISE_CONFIG_MODE="persistent"
+APPRISE_HEALTHCHECK_TAG="health-alerts"
+# Then create "health-alerts" config via Apprise web UI with your notification URLs
+```
 
 ### Supported Services
 
