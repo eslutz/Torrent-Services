@@ -341,33 +341,42 @@ See `.env.example` for configuration options:
 
 ### Horizontal Scaling for Better Performance
 
-Tdarr supports running multiple node containers to significantly speed up transcoding. Use the dedicated `docker-compose.tdarr-node.yml` file to dynamically add or remove nodes without modifying the main compose file.
+Tdarr supports running multiple node containers to significantly speed up transcoding. Use the helper scripts for automatic unique name generation, or manually use the compose file directly.
 
 **Benefits:**
 - **Linear performance scaling:** 2 nodes = 2x throughput, 3 nodes = 3x throughput
-- **Dynamic management:** Add/remove nodes on demand without editing main compose file
+- **Automatic unique naming:** Each node gets a unique identifier
 - **Better resource utilization:** Spread workload across CPU cores
 - **Faster processing:** Reduce transcode queue times
 
-**Add Additional Nodes:**
+**Quick Start (Recommended):**
 ```bash
-# Start node 2
+# Start a new node with auto-generated unique name
+./scripts/utilities/start_tdarr_node.sh
+
+# Start with custom settings
+./scripts/utilities/start_tdarr_node.sh --cpu-workers 4 --mem-limit 4g
+
+# List all running nodes
+./scripts/utilities/manage_tdarr_nodes.sh list
+
+# Stop a specific node
+./scripts/utilities/manage_tdarr_nodes.sh stop <unique-id>
+
+# Stop all additional nodes
+./scripts/utilities/manage_tdarr_nodes.sh stop-all
+```
+
+**Manual Method (Advanced):**
+```bash
+# Start node with manual project name
 docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-2 up -d
 
-# Start node 3
-docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-3 up -d
+# Stop specific node
+docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-2 down
 
 # View all running nodes
 docker ps --filter "name=tdarr-node"
-```
-
-**Remove a Node:**
-```bash
-# Stop and remove node 2
-docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-2 down
-
-# Stop and remove node 3
-docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-3 down
 ```
 
 **Optional Customization:**
@@ -377,11 +386,16 @@ TDARR_GPU_WORKERS="0"      # GPU workers (requires GPU passthrough)
 TDARR_CPU_WORKERS="2"      # CPU workers per node
 ```
 
+Or override per-node when using the script:
+```bash
+./scripts/utilities/start_tdarr_node.sh --cpu-workers 4 --gpu-workers 1 --cpus 4.0
+```
+
 **Recommendations:**
 - Start with 1 node and add more if transcode queue grows
 - Each node should have 1-2GB RAM per worker
 - Monitor CPU usage - add nodes if CPU is consistently maxed out
-- For GPU transcoding, uncomment GPU passthrough in `docker-compose.tdarr-node.yml`
+- For GPU transcoding, use `--gpu-workers` flag or uncomment GPU passthrough in compose file
 
 ### Health Checks
 
