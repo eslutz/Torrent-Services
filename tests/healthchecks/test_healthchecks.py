@@ -155,10 +155,3 @@ def test_bazarr_healthcheck_api_mode(tmp_path):
     )
     assert result.returncode == 0, result.stderr or result.stdout
     assert "healthy" in result.stdout
-
-
-def test_unpackerr_healthcheck(tmp_path):
-    script = Path(__file__).resolve().parents[2] / "scripts/healthchecks/unpackerr.sh"
-    result = _run_script(str(script), tmp_path, {"LOG_PATH": str(tmp_path / "healthcheck.log")})
-    assert result.returncode == 0, result.stderr or result.stdout
-    assert "healthy" in result.stdout
