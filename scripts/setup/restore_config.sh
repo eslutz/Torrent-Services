@@ -169,15 +169,10 @@ else
     echo -e "${YELLOW}[WARNING]${NC} No Overseerr backup found - skipping"
 fi
 
-# Unpackerr - Direct restore
-UNPACKERR_BACKUP="$BACKUP_DIR/unpackerr_backup.tar.gz"
-if [ -f "$UNPACKERR_BACKUP" ]; then
-    mkdir -p config/unpackerr
-    tar -xzf "$UNPACKERR_BACKUP" -C config
-    echo -e "${GREEN}[SUCCESS]${NC} Restored Unpackerr configuration"
-else
-    echo -e "${YELLOW}[WARNING]${NC} No Unpackerr backup found - skipping"
-fi
+# Unpackerr - Skip (env-vars only, no config directory)
+# NOTE: Unpackerr is configured entirely via UN_* environment variables.
+# No config directory exists, so nothing to restore.
+echo -e "${BLUE}[INFO]${NC} Unpackerr uses env-vars only (no config to restore)"
 
 # Gluetun
 GLUETUN_SERVERS="$BACKUP_DIR/gluetun_servers.json"

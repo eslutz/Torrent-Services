@@ -307,27 +307,45 @@ Unpackerr automatically detects and extracts compressed downloads (RAR, ZIP, 7z,
 - **Multi-format support:** RAR, ZIP, 7z, tar, gzip, bzip2
 - **Password handling:** Attempts common passwords for protected archives
 - **Cleanup:** Removes archives after successful extraction
-- **Integration:** Works seamlessly with Sonarr and Radarr
-- **Health monitoring:** Metrics endpoint for status checks
+- **Integration:** Works seamlessly with Sonarr and Radarr via environment variables
+- **Health monitoring:** Metrics endpoint for external status checks
 
 ### Configuration
 
+Unpackerr is **env-vars-only** - all configuration is done via environment variables in `docker-compose.yml`. No config directory or backup needed.
+
+**Note:** Unpackerr is configured entirely via environment variables (`UN_*` prefixed variables in `docker-compose.yml`). It does not use a `/config` directory or config file, which avoids storing API keys on disk and simplifies deployment. The distroless/minimal image lacks shell/curl, so there is no Docker healthcheck - validate health externally via the metrics endpoint.
+
+**Configuration example:**
+```yaml
+environment:
+  UN_SONARR_0_URL: http://sonarr:8989
+  UN_SONARR_0_API_KEY: ${SONARR_API_KEY:-}
+  UN_RADARR_0_URL: http://radarr:7878
+  UN_RADARR_0_API_KEY: ${RADARR_API_KEY:-}
+  UN_WEBSERVER_METRICS: true
+  UN_INTERVAL: 1h
+```
+
+API keys are sourced from environment variables which reference values in the `.env` file.
+
 1. **Verify Integration:**
-   The service is pre-configured with environment variables to connect to Sonarr and Radarr. No manual configuration needed.
+   The service is pre-configured to connect to Sonarr and Radarr. No manual configuration needed.
 
 2. **Monitor Extraction:**
    ```bash
    # View logs
    docker logs unpackerr --tail 50
    
-   # Check metrics endpoint
+   # Check metrics endpoint (for health validation)
    curl http://localhost:5656/metrics
    ```
 
 3. **Customization (Optional):**
-   Adjust settings in `.env`:
+   Adjust settings in `docker-compose.yml` environment variables:
    - `UN_INTERVAL`: How often to scan for archives (default: 1h)
-   - Resource limits via `UNPACKERR_MEM_LIMIT` and `UNPACKERR_CPUS`
+   - `UN_LOG_FILE`: Log file path
+   - Resource limits via `UNPACKERR_MEM_LIMIT` and `UNPACKERR_CPUS` in `.env`
 
 ### How It Works
 
