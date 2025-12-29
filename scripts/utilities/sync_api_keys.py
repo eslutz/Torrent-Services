@@ -2,10 +2,7 @@
 """
 Sync and validate API keys between services.
 
-This script:
-1. Validates and syncs Prowlarr API keys to Sonarr/Radarr indexers
-2. Extracts Notifiarr API key from config/logs if missing from .env
-3. Updates .env file with discovered keys
+This script validates and syncs Prowlarr API keys to Sonarr/Radarr indexers.
 """
 
 import os
@@ -101,118 +98,11 @@ def update_env_file(key_name, api_key):
         return False
 
 
-def extract_notifiarr_key_from_config():
-    """Extract Notifiarr API key from config file."""
-    config_path = Path("config/notifiarr/notifiarr.conf")
-
-    if not config_path.exists():
-        return None
-
-    try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-
-        # Notifiarr stores the API key in the 'apikey' field
-        api_key = config.get("apikey", "")
-        if api_key:
-            return api_key
-        return None
-
-    except (json.JSONDecodeError, IOError, OSError):
-        return None
-
-
-def extract_notifiarr_key_from_env():
-    """Extract Notifiarr API key from container environment."""
-    try:
-        result = subprocess.run(
-            ["docker", "exec", "notifiarr", "printenv", "DN_API_KEY"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-
-        return None
-
-    except Exception:
-        return None
-
-
-def extract_notifiarr_key_from_logs():
-    """Extract Notifiarr API key from container logs."""
-    try:
-        result = subprocess.run(
-            ["docker", "logs", "notifiarr", "--tail", "500"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-
-        if result.returncode != 0:
-            return None
-
-        logs = result.stdout + result.stderr
-
-        # Look for API key patterns in logs - be conservative to avoid false positives
-        for line in logs.split("\n"):
-            # Only check lines that explicitly mention API keys
-            if "api" in line.lower() and "key" in line.lower():
-                # Notifiarr API keys are long alphanumeric strings (typically 40-64 chars)
-                # Must start with alphanumeric and maintain consistent format
-                matches = re.findall(r'\b[a-zA-Z][a-zA-Z0-9]{39,63}\b', line)
-                if matches:
-                    # Additional validation: keys shouldn't contain common words or URL patterns
-                    for match in matches:
-                        lower_match = match.lower()
-                        if not any(word in lower_match for word in
-                                   ['http', 'https', 'docker', 'container', 'config', 'localhost']):
-                            # Verify it's sufficiently random (not a common word)
-                            if len(set(match)) > 10:  # At least 10 unique characters
-                                return match
-
-        return None
-
-    except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-        return None
-
-
-def extract_notifiarr_key():
-    """Extract Notifiarr API key from multiple sources."""
-    log("Checking for Notifiarr API key...", "INFO")
-
-    # Try different extraction methods in order of reliability
-    # 1. Try config file (most reliable)
-    api_key = extract_notifiarr_key_from_config()
-    if api_key:
-        log("Found Notifiarr API key in config file", "SUCCESS")
-        return api_key
-
-    # 2. Try container environment
-    api_key = extract_notifiarr_key_from_env()
-    if api_key:
-        log("Found Notifiarr API key in container environment", "SUCCESS")
-        return api_key
-
-    # 3. Try logs (least reliable)
-    api_key = extract_notifiarr_key_from_logs()
-    if api_key:
-        log("Found Notifiarr API key in container logs", "SUCCESS")
-        return api_key
-
-    log("Could not extract Notifiarr API key", "WARNING")
-    log("Configure manually at https://notifiarr.com", "INFO")
-    return None
-
-
 load_env()
 
 PROWLARR_API_KEY = os.environ.get("PROWLARR_API_KEY")
 SONARR_API_KEY = os.environ.get("SONARR_API_KEY")
 RADARR_API_KEY = os.environ.get("RADARR_API_KEY")
-NOTIFIARR_API_KEY = os.environ.get("NOTIFIARR_API_KEY")
 
 # Use localhost if running from host, or container names if running inside docker network
 SONARR_URL = "http://localhost:8989"
@@ -287,33 +177,11 @@ def fix_indexers(app_name, base_url, app_api_key, correct_prowlarr_key):
 
 if __name__ == "__main__":
     print("=" * 60)
-    log("API Key Sync and Validation", "INFO")
+    log("Prowlarr API Key Sync and Validation", "INFO")
     print("=" * 60)
     print()
 
-    # 1. Check and extract Notifiarr API key if missing
-    if not NOTIFIARR_API_KEY:
-        log("NOTIFIARR_API_KEY not found in .env", "WARNING")
-        extracted_key = extract_notifiarr_key()
-        if extracted_key:
-            # Ask user if they want to save it
-            try:
-                response = input("\nSave Notifiarr API key to .env? (yes/no): ").strip().lower()
-                if response in ["yes", "y"]:
-                    if update_env_file("NOTIFIARR_API_KEY", extracted_key):
-                        NOTIFIARR_API_KEY = extracted_key
-                        log("Restart Notifiarr container: docker compose restart notifiarr", "INFO")
-                else:
-                    log("Skipped saving Notifiarr API key", "INFO")
-            except KeyboardInterrupt:
-                print()
-                log("Cancelled by user", "WARNING")
-        print()
-    else:
-        log("NOTIFIARR_API_KEY found in .env", "SUCCESS")
-        print()
-
-    # 2. Sync Prowlarr keys to Sonarr/Radarr
+    # Sync Prowlarr keys to Sonarr/Radarr
     if not PROWLARR_API_KEY:
         log("PROWLARR_API_KEY missing - cannot sync indexers", "ERROR")
         sys.exit(1)

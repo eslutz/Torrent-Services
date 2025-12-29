@@ -389,22 +389,23 @@ services:
     mem_limit: ${TDARR_NODE_MEM_LIMIT:-2g}
     cpus: ${TDARR_NODE_CPUS:-2.0}
 
-  # Notifiarr - Notification and integration client for *arr apps
-  notifiarr:
-    image: golift/notifiarr:latest
-    container_name: notifiarr
+  # Apprise - Unified notification service (100+ platforms)
+  apprise:
+    image: lscr.io/linuxserver/apprise-api:latest
+    container_name: apprise
     init: true
     environment:
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
-      DN_API_KEY: ${NOTIFIARR_API_KEY:-}
+      APPRISE_ATTACH_SIZE: ${APPRISE_ATTACH_SIZE:-5}
     volumes:
-      - ./config/notifiarr:/config
+      - ./config/apprise:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
+      - ./attachments:/attachments
     ports:
-      - ${NOTIFIARR_PORT:-5454}:5454
+      - ${APPRISE_PORT:-8000}:8000
     depends_on:
       sonarr:
         condition: service_healthy
@@ -419,18 +420,18 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/notifiarr.sh"]
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/apprise.sh"]
       interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 90s
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${NOTIFIARR_MEM_LIMIT:-256m}
-    cpus: ${NOTIFIARR_CPUS:-0.5}
+    mem_limit: ${APPRISE_MEM_LIMIT:-256m}
+    cpus: ${APPRISE_CPUS:-0.5}
 
   # Overseerr - Request management and media discovery tool
   overseerr:

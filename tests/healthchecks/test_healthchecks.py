@@ -75,10 +75,7 @@ case "$url" in
   http://localhost:8266/api/v2/status)
     echo '{"status":"running"}'
     ;;
-  http://localhost:5454/api/v1/health)
-    echo '{"status":"ok"}'
-    ;;
-  http://localhost:5454/api/v1/ping)
+  http://localhost:8000/health)
     echo '{"status":"ok"}'
     ;;
   http://localhost:5055/api/v1/status)
@@ -183,12 +180,12 @@ def test_tdarr_healthcheck(tmp_path):
     assert "healthy" in result.stdout
 
 
-def test_notifiarr_healthcheck_api_mode(tmp_path):
-    script = Path(__file__).resolve().parents[2] / "scripts/healthchecks/notifiarr.sh"
+def test_apprise_healthcheck(tmp_path):
+    script = Path(__file__).resolve().parents[2] / "scripts/healthchecks/apprise.sh"
     result = _run_script(
         str(script),
         tmp_path,
-        {"DN_API_KEY": "test", "LOG_PATH": str(tmp_path / "healthcheck.log")},
+        {"LOG_PATH": str(tmp_path / "healthcheck.log")},
     )
     assert result.returncode == 0, result.stderr or result.stdout
     assert "healthy" in result.stdout

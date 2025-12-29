@@ -17,7 +17,7 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 | **Unpackerr** | Extracts completed downloads for *arr apps | [Unpackerr](https://github.com/Unpackerr/unpackerr) |
 | **Tdarr** | Automated media transcoding (H.265/HEVC) | [Tdarr](https://tdarr.io/) |
-| **Notifiarr** | Unified notifications for *arr apps | [Notifiarr](https://notifiarr.com/) |
+| **Apprise** | Unified notification service (100+ platforms) | [Apprise](https://github.com/caronc/apprise) |
 | **Overseerr** | Request management and media discovery | [Overseerr](https://overseerr.dev/) |
 | **Torarr** | Optional SOCKS5 proxy for Tor-only indexers | [Torarr](https://github.com/eslutz/Torarr) |
 | **Forwardarr** | Syncs Gluetun forwarded port into qBittorrent | [Forwardarr](https://github.com/eslutz/Forwardarr) |
@@ -405,41 +405,71 @@ Or override per-node when using the script:
 
 ---
 
-## Notifiarr - Unified Notifications
+## Apprise - Unified Notifications
 
-Notifiarr provides a single interface for monitoring and receiving notifications from all your *arr applications.
+Apprise provides a unified REST API for sending notifications to 100+ services including Discord, Telegram, Email, Slack, Microsoft Teams, Signal, Home Assistant, and more—all fully self-hosted with no third-party cloud dependencies.
 
 ### Features
 
-- **Unified dashboard:** Monitor all services in one place
-- **Custom notifications:** Discord, Telegram, email, and more
-- **Integration hub:** Connect to Plex, Tautulli, and other services
-- **Health monitoring:** Get alerts when services are down
+- **100+ notification services:** Discord, Telegram, email, Slack, Teams, Signal, Home Assistant, SMS, and more
+- **Fully self-hosted:** No external registration or cloud dependencies required
+- **REST API:** Simple HTTP interface for sending notifications
+- **Web UI:** Configure and test notifications through browser
+- **Persistent configs:** Save notification URLs with tags for easy reuse
+- **Attachments:** Send images and files with notifications
 
 ### Configuration
 
-1. **Get API Key:**
-   - Sign up at <https://notifiarr.com>
-   - Copy your API key from the dashboard
-   - Add to `.env`: `NOTIFIARR_API_KEY=your_key_here`
-   - **Or** configure via web UI and extract the key later:
-     ```bash
-     python3 scripts/utilities/sync_api_keys.py
-     ```
+1. **Access Apprise:**
+   - Web UI: <http://localhost:8000>
+   - API endpoint: <http://localhost:8000/notify>
 
-2. **Access Notifiarr:**
-   - Web UI: <http://localhost:5454>
-   - Configure integrations for Sonarr, Radarr, Prowlarr, etc.
-   - Set up notification channels (Discord, Telegram, etc.)
+2. **Add Notification URLs:**
+   Configure your notification services in `.env` or via the web UI. Examples:
 
-3. **Connect Services:**
-   - Use service URLs like `http://sonarr:8989` for inter-container communication
-   - Notifiarr depends on *arr services being healthy before starting
+   ```bash
+   # Email
+   APPRISE_EMAIL_URL="mailto://user:password@smtp.gmail.com:587?to=recipient@example.com"
+   
+   # Discord
+   APPRISE_DISCORD_URL="discord://webhook_id/webhook_token"
+   
+   # Slack
+   APPRISE_SLACK_URL="slack://bot_token/#channel"
+   
+   # Microsoft Teams
+   APPRISE_TEAMS_URL="msteams://Webhook_ID/Webhook_Key/"
+   
+   # Signal (requires signal-cli-rest-api)
+   APPRISE_SIGNAL_URL="signal://+15551234567@signal-api:8080"
+   
+   # Home Assistant
+   APPRISE_HOMEASSISTANT_URL="hassios://hostname/access_token"
+   
+   # SMS via Twilio
+   APPRISE_TWILIO_SMS_URL="twilio://account_sid:auth_token@from/to"
+   
+   # macOS Notifications (local macOS host only)
+   APPRISE_MACOS_URL="macosx://"
+   ```
+
+   See `.env.example` for complete examples and 100+ more services.
+
+3. **Integrate with *arr Apps:**
+   - In Sonarr/Radarr/Prowlarr: Settings → Connect → Add Connection → Webhook
+   - **URL:** `http://apprise:8000/notify/apprise`
+   - **Method:** POST
+   - Configure which events trigger notifications
+
+4. **Send Test Notification:**
+   ```bash
+   curl -X POST http://localhost:8000/notify \
+     -d "urls=discord://webhook_id/token&body=Test notification"
+   ```
 
 ### API Key Management
 
-The `sync_api_keys.py` utility handles all API key operations:
-- **Extracts** Notifiarr API key from config/environment/logs if missing
+The `sync_api_keys.py` utility now focuses solely on Prowlarr key synchronization:
 - **Syncs** Prowlarr API keys to Sonarr/Radarr indexers
 - **Validates** all API key configurations
 
@@ -447,16 +477,23 @@ The `sync_api_keys.py` utility handles all API key operations:
 python3 scripts/utilities/sync_api_keys.py
 ```
 
-This unified script will:
-- Check if Notifiarr API key is missing and attempt extraction
-- Prompt to save discovered keys to `.env`
-- Update and test Prowlarr indexers in Sonarr/Radarr
-
 ### Health Checks
 
-- Notifiarr health verified via API endpoint with authentication
-- Falls back to ping check if API key is not configured
+- Apprise health verified via `/health` endpoint
 - Monitors for response time and service availability
+- No authentication required for health checks
+
+### Supported Services
+
+Apprise supports 100+ notification services out of the box:
+- **Chat:** Discord, Slack, Microsoft Teams, Telegram, Matrix, Mattermost
+- **Email:** SMTP, Gmail, Outlook, SendGrid, Mailgun
+- **SMS:** Twilio, ClickSend, AWS SNS, Vonage
+- **Push:** Pushbullet, Pushover, Gotify, ntfy, Join
+- **Voice:** AWS Polly, Google TTS
+- **Smart Home:** Home Assistant, IFTTT, Zapier
+- **Desktop:** macOS Notification Center (when run on macOS host)
+- And many more! See [Apprise Wiki](https://github.com/caronc/apprise/wiki) for complete list.
 
 ---
 
@@ -549,7 +586,7 @@ curl -sf http://127.0.0.1:9090/health
 | Prowlarr | <http://localhost:9696> | <http://prowlarr.home.arpa:9696> | <http://192.168.1.254:9696> | Indexers |
 | Bazarr | <http://localhost:6767> | <http://bazarr.home.arpa:6767> | <http://192.168.1.254:6767> | Subtitles |
 | Tdarr | <http://localhost:8265> | <http://tdarr.home.arpa:8265> | <http://192.168.1.254:8265> | Transcoding |
-| Notifiarr | <http://localhost:5454> | <http://notifiarr.home.arpa:5454> | <http://192.168.1.254:5454> | Notifications |
+| Apprise | <http://localhost:8000> | <http://apprise.home.arpa:8000> | <http://192.168.1.254:8000> | Notifications |
 | Overseerr | <http://localhost:5055> | <http://overseerr.home.arpa:5055> | <http://192.168.1.254:5055> | Requests |
 
 **Addressing Guide:**

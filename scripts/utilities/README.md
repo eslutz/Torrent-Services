@@ -245,10 +245,9 @@ python3 scripts/utilities/check_qbittorrent_config.py
 
 ## sync_api_keys.py
 
-Syncs and validates API keys between services. This unified script handles:
+Syncs and validates API keys between services. This script handles:
 1. **Prowlarr → Sonarr/Radarr**: Validates and updates Prowlarr API keys in indexers
-2. **Notifiarr**: Extracts missing API keys from config file, container environment, or logs
-3. **Environment Updates**: Optionally saves discovered keys to `.env`
+2. **Environment Validation**: Ensures all required API keys are present
 
 ### Usage
 
@@ -257,32 +256,16 @@ python3 scripts/utilities/sync_api_keys.py
 ```
 
 The script will:
-1. Check if Notifiarr API key is in `.env`, and if missing:
-   - Extract from config file (`config/notifiarr/notifiarr.conf`)
-   - Extract from container environment variables
-   - Extract from recent container logs
-   - Prompt to save the extracted key to `.env`
-2. Validate and sync Prowlarr API keys to Sonarr/Radarr indexers
+1. Validate Prowlarr API key exists in `.env`
+2. Sync Prowlarr API keys to Sonarr/Radarr indexers
 3. Test each updated indexer to ensure proper connectivity
 
 ### When to Use
 
-- After configuring Notifiarr through its web UI
-- When the API key is configured but not in `.env`
-- When restoring from a backup and API key is missing
 - When Prowlarr API keys need to be synced to Sonarr/Radarr
+- After adding new indexers in Prowlarr
 - For troubleshooting API authentication issues
-
-### Alternative Methods
-
-**Manual Notifiarr key extraction:**
-```bash
-# View the config file
-cat config/notifiarr/notifiarr.conf | grep apikey
-
-# Check container environment
-docker exec notifiarr printenv DN_API_KEY
-```
+- When restoring from backup
 
 ## start_tdarr_node.sh
 

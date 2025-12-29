@@ -149,14 +149,14 @@ else
     echo -e "${YELLOW}[WARNING]${NC} No Tdarr backup found - skipping"
 fi
 
-# Notifiarr - Direct restore
-NOTIFIARR_BACKUP="$BACKUP_DIR/notifiarr/notifiarr.conf"
-if [ -f "$NOTIFIARR_BACKUP" ]; then
-    mkdir -p config/notifiarr
-    cp "$NOTIFIARR_BACKUP" config/notifiarr/
-    echo -e "${GREEN}[SUCCESS]${NC} Restored Notifiarr configuration"
+# Apprise - Direct restore
+APPRISE_BACKUP="$BACKUP_DIR/apprise_backup.tar.gz"
+if [ -f "$APPRISE_BACKUP" ]; then
+    mkdir -p config
+    tar -xzf "$APPRISE_BACKUP" -C config
+    echo -e "${GREEN}[SUCCESS]${NC} Restored Apprise configuration"
 else
-    echo -e "${YELLOW}[WARNING]${NC} No Notifiarr backup found - skipping"
+    echo -e "${YELLOW}[WARNING]${NC} No Apprise backup found - skipping"
 fi
 
 # Overseerr - Direct restore

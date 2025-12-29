@@ -135,15 +135,15 @@ else
     echo -e "${YELLOW}[WARNING]${NC} Tdarr config directory not found"
 fi
 
-# 6. Backup Notifiarr
+# 6. Backup Apprise
 echo ""
-NOTIFIARR_CONFIG="config/notifiarr/notifiarr.conf"
-if [ -f "$NOTIFIARR_CONFIG" ]; then
-    mkdir -p "$BACKUP_DIR/notifiarr"
-    cp "$NOTIFIARR_CONFIG" "$BACKUP_DIR/notifiarr/"
-    echo -e "${GREEN}[SUCCESS]${NC} Backed up Notifiarr configuration"
+APPRISE_CONFIG="config/apprise"
+if [ -d "$APPRISE_CONFIG" ]; then
+    mkdir -p "$BACKUP_DIR"
+    tar -czf "$BACKUP_DIR/apprise_backup.tar.gz" -C "config" "apprise"
+    echo -e "${GREEN}[SUCCESS]${NC} Backed up Apprise configuration"
 else
-    echo -e "${YELLOW}[WARNING]${NC} No Notifiarr configuration found"
+    echo -e "${YELLOW}[WARNING]${NC} Apprise config directory not found"
 fi
 
 # 7. Backup Overseerr
@@ -193,7 +193,7 @@ Contents:
 - bazarr_backup.zip (subtitle providers, language profiles)
 - qbittorrent_backup.tar.gz (torrent state, categories, preferences)
 - tdarr_backup.tar.gz (transcode flows, nodes, settings)
-- notifiarr/notifiarr.conf (notification integrations)
+- apprise_backup.tar.gz (notification URLs, stored configurations)
 - overseerr_backup.tar.gz (request management, user settings)
 - gluetun_servers.json (VPN server list - if customized)
 - setup.config.json (legacy programmatic setup config)
