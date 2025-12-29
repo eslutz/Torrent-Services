@@ -274,7 +274,6 @@ services:
       UN_INTERVAL: 1h
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
-      - ./config/unpackerr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
