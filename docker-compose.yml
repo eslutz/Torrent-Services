@@ -38,7 +38,7 @@ services:
       LOG_LEVEL: info
       TZ: ${TZ:-America/New_York}
     ports:
-      - 8080:8080
+      - ${QBITTORRENT_PORT:-8080}:8080
     volumes:
       - gluetun-tmp:/tmp/gluetun
       - ./config/gluetun:/gluetun
@@ -122,7 +122,7 @@ services:
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
-      - 9696:9696
+      - ${PROWLARR_PORT:-9696}:9696
     depends_on:
       torarr:
         condition: service_healthy
@@ -158,7 +158,7 @@ services:
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
-      - 8989:8989
+      - ${SONARR_PORT:-8989}:8989
     depends_on:
       prowlarr:
         condition: service_healthy
@@ -195,7 +195,7 @@ services:
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
-      - 7878:7878
+      - ${RADARR_PORT:-7878}:7878
     depends_on:
       prowlarr:
         condition: service_healthy
@@ -232,7 +232,7 @@ services:
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
-      - 6767:6767
+      - ${BAZARR_PORT:-6767}:6767
     depends_on:
       sonarr:
         condition: service_healthy
@@ -517,7 +517,7 @@ services:
       - gluetun-tmp:/tmp/gluetun:ro
       - ./logs:/logs
     ports:
-      - 127.0.0.1:9090:9090
+      - 127.0.0.1:${FORWARDARR_PORT:-9090}:9090
     depends_on:
       gluetun:
         condition: service_healthy
@@ -551,7 +551,7 @@ services:
     environment:
       TZ: ${TZ:-America/New_York}
     ports:
-      - 127.0.0.1:9050:9050 # SOCKS5 proxy
+      - 127.0.0.1:${TORARR_PORT:-9050}:9050 # SOCKS5 proxy
       - 127.0.0.1:8085:8085 # Health/metrics endpoint
     volumes:
       - tor-data:/var/lib/tor
