@@ -6,7 +6,6 @@ This script validates and syncs Prowlarr API keys to Sonarr/Radarr indexers.
 """
 
 import os
-import re
 import sys
 import json
 import subprocess
