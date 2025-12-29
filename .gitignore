@@ -199,6 +199,9 @@ cython_debug/
 # Poetry local configuration file - https://python-poetry.org/docs/configuration/#local-configuration
 poetry.toml
 
+# Local/runtime-generated app configs (not versioned)
+config/unpackerr/
+
 # ruff
 .ruff_cache/
 

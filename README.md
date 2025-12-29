@@ -205,7 +205,7 @@ torrent-services/
 
 **Volume Mappings:**
 
-- **Config directories** are mounted to `/config` in each container
+- **Config directories** are mounted to `/config` for services that use on-disk configs (most of the *arr apps, qBittorrent, etc.). Unpackerr is configured via `UN_*` environment variables and does not require a `/config` bind mount.
 - **Media directory** is mounted to `/media` in containers, providing a unified view of the data directory structure that allows all services to reference the same paths for media libraries and downloads
 - `.env` holds ProtonVPN credentials, qBittorrent credentials, and (after running the bootstrap process) the API keys required for the monitoring exporters.
 - Optional CPU/RAM limits are controlled through `.env` (see **Resource Limit Overrides** below) so machines with different sizes can share the same compose file.

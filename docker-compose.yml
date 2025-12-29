@@ -270,10 +270,10 @@ services:
       UN_RADARR_0_URL: http://radarr:7878
       UN_RADARR_0_API_KEY: ${RADARR_API_KEY:-}
       UN_RADARR_0_PATHS_0: /media
+      UN_WEBSERVER_METRICS: true
       UN_INTERVAL: 1h
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
-      - ./config/unpackerr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
@@ -287,12 +287,9 @@ services:
     stop_grace_period: 30s
     networks:
       - torrent-services-network
-    healthcheck:
-      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/unpackerr.sh"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 90s
+    # NOTE: No Docker healthcheck for Unpackerr.
+    # The upstream image is distroless/minimal (no sh/bash/curl/wget/nc), so typical healthcheck commands cannot run.
+    # Validate externally via the metrics endpoint: http://<host>:${UNPACKERR_PORT:-5656}/metrics
     logging:
       driver: "json-file"
       options:
