@@ -341,29 +341,47 @@ See `.env.example` for configuration options:
 
 ### Horizontal Scaling for Better Performance
 
-Tdarr supports running multiple node containers to significantly speed up transcoding:
+Tdarr supports running multiple node containers to significantly speed up transcoding. Use the dedicated `docker-compose.tdarr-node.yml` file to dynamically add or remove nodes without modifying the main compose file.
 
 **Benefits:**
 - **Linear performance scaling:** 2 nodes = 2x throughput, 3 nodes = 3x throughput
+- **Dynamic management:** Add/remove nodes on demand without editing main compose file
 - **Better resource utilization:** Spread workload across CPU cores
 - **Faster processing:** Reduce transcode queue times
 
-**Setup:**
-1. Edit `docker-compose.yml` and uncomment additional `tdarr-node-2` and `tdarr-node-3` sections
-2. Uncomment corresponding volume definitions at the bottom
-3. Optional: Customize worker counts per node in `.env.example`:
-   ```bash
-   TDARR_CPU_WORKERS="2"        # Workers for node 1
-   TDARR_NODE2_CPU_WORKERS="2"  # Workers for node 2
-   TDARR_NODE3_CPU_WORKERS="2"  # Workers for node 3
-   ```
-4. Restart: `docker compose up -d`
+**Add Additional Nodes:**
+```bash
+# Start node 2
+docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-2 up -d
+
+# Start node 3
+docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-3 up -d
+
+# View all running nodes
+docker ps --filter "name=tdarr-node"
+```
+
+**Remove a Node:**
+```bash
+# Stop and remove node 2
+docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-2 down
+
+# Stop and remove node 3
+docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-3 down
+```
+
+**Optional Customization:**
+Set worker counts in `.env` (applies to all additional nodes):
+```bash
+TDARR_GPU_WORKERS="0"      # GPU workers (requires GPU passthrough)
+TDARR_CPU_WORKERS="2"      # CPU workers per node
+```
 
 **Recommendations:**
 - Start with 1 node and add more if transcode queue grows
 - Each node should have 1-2GB RAM per worker
 - Monitor CPU usage - add nodes if CPU is consistently maxed out
-- For GPU transcoding, pass through GPU to nodes and set `TDARR_GPU_WORKERS`
+- For GPU transcoding, uncomment GPU passthrough in `docker-compose.tdarr-node.yml`
 
 ### Health Checks
 
