@@ -169,6 +169,16 @@ else
     echo -e "${YELLOW}[WARNING]${NC} No Overseerr backup found - skipping"
 fi
 
+# Unpackerr - Direct restore
+UNPACKERR_BACKUP="$BACKUP_DIR/unpackerr_backup.tar.gz"
+if [ -f "$UNPACKERR_BACKUP" ]; then
+    mkdir -p config/unpackerr
+    tar -xzf "$UNPACKERR_BACKUP" -C config
+    echo -e "${GREEN}[SUCCESS]${NC} Restored Unpackerr configuration"
+else
+    echo -e "${YELLOW}[WARNING]${NC} No Unpackerr backup found - skipping"
+fi
+
 # Gluetun
 GLUETUN_SERVERS="$BACKUP_DIR/gluetun_servers.json"
 if [ -f "$GLUETUN_SERVERS" ]; then

@@ -297,6 +297,69 @@ You should see logs like:
 
 ---
 
+## Unpackerr - Automated Archive Extraction
+
+Unpackerr automatically detects and extracts compressed downloads (RAR, ZIP, 7z, tar) from Sonarr and Radarr, then notifies them to import the extracted files.
+
+### Features
+
+- **Automatic extraction:** Monitors completed downloads for compressed files
+- **Multi-format support:** RAR, ZIP, 7z, tar, gzip, bzip2
+- **Password handling:** Attempts common passwords for protected archives
+- **Cleanup:** Removes archives after successful extraction
+- **Integration:** Works seamlessly with Sonarr and Radarr
+- **Health monitoring:** Metrics endpoint for status checks
+
+### Configuration
+
+1. **Verify Integration:**
+   The service is pre-configured with environment variables to connect to Sonarr and Radarr. No manual configuration needed.
+
+2. **Monitor Extraction:**
+   ```bash
+   # View logs
+   docker logs unpackerr --tail 50
+   
+   # Check metrics endpoint
+   curl http://localhost:5656/metrics
+   ```
+
+3. **Customization (Optional):**
+   Adjust settings in `.env`:
+   - `UN_INTERVAL`: How often to scan for archives (default: 1h)
+   - Resource limits via `UNPACKERR_MEM_LIMIT` and `UNPACKERR_CPUS`
+
+### How It Works
+
+1. Sonarr/Radarr downloads a torrent containing compressed files
+2. qBittorrent completes the download
+3. Sonarr/Radarr notify Unpackerr via webhook
+4. Unpackerr extracts the archives in-place
+5. Unpackerr notifies Sonarr/Radarr to import the extracted files
+6. Original archives are removed after successful import
+
+### Troubleshooting
+
+**Extraction not happening:**
+- Check Unpackerr logs: `docker logs unpackerr`
+- Verify API keys in `.env` match Sonarr/Radarr
+- Ensure proper file permissions on media directory
+
+**Password-protected archives:**
+- Unpackerr attempts common passwords automatically
+- If extraction fails, check logs for password errors
+- Consider adding custom passwords via environment variables
+
+**Supported formats:**
+- RAR (any version)
+- ZIP
+- 7z
+- tar/tar.gz/tar.bz2
+- gzip
+- bzip2
+
+---
+
 ## Tdarr - Automated Media Transcoding
 
 Tdarr automatically transcodes media files to save storage space and ensure compatibility. It waits for torrents to complete and meet seeding requirements before transcoding.
@@ -585,6 +648,7 @@ curl -sf http://127.0.0.1:9090/health
 | Radarr | <http://localhost:7878> | <http://radarr.home.arpa:7878> | <http://192.168.1.254:7878> | Movies |
 | Prowlarr | <http://localhost:9696> | <http://prowlarr.home.arpa:9696> | <http://192.168.1.254:9696> | Indexers |
 | Bazarr | <http://localhost:6767> | <http://bazarr.home.arpa:6767> | <http://192.168.1.254:6767> | Subtitles |
+| Unpackerr | <http://localhost:5656> | <http://unpackerr.home.arpa:5656> | <http://192.168.1.254:5656> | Extract archives |
 | Tdarr | <http://localhost:8265> | <http://tdarr.home.arpa:8265> | <http://192.168.1.254:8265> | Transcoding |
 | Apprise | <http://localhost:8000> | <http://apprise.home.arpa:8000> | <http://192.168.1.254:8000> | Notifications |
 | Overseerr | <http://localhost:5055> | <http://overseerr.home.arpa:5055> | <http://192.168.1.254:5055> | Requests |

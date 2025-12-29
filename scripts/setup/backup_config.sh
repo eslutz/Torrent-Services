@@ -165,7 +165,26 @@ else
     echo -e "${YELLOW}[WARNING]${NC} Overseerr config directory not found"
 fi
 
-# 8. Backup setup configuration
+# 8. Backup Unpackerr
+echo ""
+UNPACKERR_CONFIG_DIR="config/unpackerr"
+if [ -d "$UNPACKERR_CONFIG_DIR" ]; then
+    tar -czf "$BACKUP_DIR/unpackerr_backup.tar.gz" \
+        -C config \
+        unpackerr \
+        2>/dev/null || true
+    
+    if [ -f "$BACKUP_DIR/unpackerr_backup.tar.gz" ]; then
+        SIZE=$(du -h "$BACKUP_DIR/unpackerr_backup.tar.gz" | cut -f1)
+        echo -e "${GREEN}[SUCCESS]${NC} Backed up Unpackerr configuration ($SIZE)"
+    else
+        echo -e "${YELLOW}[WARNING]${NC} Failed to create Unpackerr backup"
+    fi
+else
+    echo -e "${YELLOW}[WARNING]${NC} Unpackerr config directory not found"
+fi
+
+# 9. Backup setup configuration
 echo ""
 SETUP_CONFIG="scripts/setup/setup.config.json"
 if [ -f "$SETUP_CONFIG" ]; then
@@ -175,7 +194,7 @@ else
     echo -e "${YELLOW}[WARNING]${NC} No setup.config.json found"
 fi
 
-# 9. Create backup manifest
+# 10. Create backup manifest
 echo ""
 echo -e "${BLUE}[INFO]${NC} Creating backup manifest..."
 
@@ -195,6 +214,7 @@ Contents:
 - tdarr_backup.tar.gz (transcode flows, nodes, settings)
 - apprise_backup.tar.gz (notification URLs, stored configurations)
 - overseerr_backup.tar.gz (request management, user settings)
+- unpackerr_backup.tar.gz (extraction settings, monitored paths)
 - gluetun_servers.json (VPN server list - if customized)
 - setup.config.json (legacy programmatic setup config)
 
