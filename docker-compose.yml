@@ -363,8 +363,8 @@ services:
       serverIP: tdarr-server
       serverPort: ${TDARR_SERVER_PORT:-8266}
       # Optional: Set worker limits per node based on hardware
-      # transcodegpuWorkers: ${TDARR_GPU_WORKERS:-0}
-      # transcodecpuWorkers: ${TDARR_CPU_WORKERS:-2}
+      # transcodeGpuWorkers: ${TDARR_GPU_WORKERS:-0}
+      # transcodeCpuWorkers: ${TDARR_CPU_WORKERS:-2}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/tdarr/configs:/app/configs
@@ -406,8 +406,8 @@ services:
   #     serverIP: tdarr-server
   #     serverPort: ${TDARR_SERVER_PORT:-8266}
   #     # Optional: Customize workers for this node's hardware
-  #     # transcodegpuWorkers: ${TDARR_NODE2_GPU_WORKERS:-0}
-  #     # transcodecpuWorkers: ${TDARR_NODE2_CPU_WORKERS:-2}
+  #     # transcodeGpuWorkers: ${TDARR_NODE2_GPU_WORKERS:-0}
+  #     # transcodeCpuWorkers: ${TDARR_NODE2_CPU_WORKERS:-2}
   #   volumes:
   #     - ${TORRENT_MEDIA_DIR:-./media}:/media
   #     - ./config/tdarr/configs:/app/configs
