@@ -478,7 +478,7 @@ Apprise provides a unified REST API for sending notifications to 100+ services i
 - **Fully self-hosted:** No external registration or cloud dependencies required
 - **REST API:** Simple HTTP interface for sending notifications
 - **Web UI:** Configure and test notifications through browser
-- **Persistent configs:** Save notification URLs with tags for easy reuse
+- **Persistent configs:** Save notification URLs with tags to `/config` volume for easy reuse across restarts (no need to re-enter credentials)
 - **Attachments:** Send images and files with notifications
 
 ### Configuration
@@ -518,17 +518,94 @@ Apprise provides a unified REST API for sending notifications to 100+ services i
 
    See `.env.example` for complete examples and 100+ more services.
 
-3. **Integrate with *arr Apps:**
-   - In Sonarr/Radarr/Prowlarr: Settings → Connect → Add Connection → Webhook
-   - **URL:** `http://apprise:8000/notify/apprise`
-   - **Method:** POST
-   - Configure which events trigger notifications
+3. **Create Persistent Configuration (Optional but Recommended):**
+   
+   Via Web UI:
+   - Go to <http://localhost:8000>
+   - Click "Configuration" → "Add New Configuration"
+   - Enter a config name (e.g., "arr-alerts")
+   - Add your notification URLs (one per line)
+   - Add tags (e.g., "sonarr", "radarr", "critical")
+   - Click "Save"
 
-4. **Send Test Notification:**
+   Via API:
    ```bash
-   curl -X POST http://localhost:8000/notify \
-     -d "urls=discord://webhook_id/token&body=Test notification"
+   # Create persistent config named "arr-alerts"
+   curl -X POST http://localhost:8000/add/arr-alerts \
+     -d "urls=discord://webhook_id/token&format=text&tag=arr-apps"
    ```
+
+4. **Integrate with Sonarr:**
+   - Go to Sonarr: <http://localhost:8989>
+   - Navigate: **Settings** → **Connect** → **Add** → **Webhook**
+   - Configure:
+     - **Name:** Apprise Notifications
+     - **On Grab:** ✓ (optional - when episode is sent to download client)
+     - **On Import:** ✓ (recommended - when episode is imported)
+     - **On Upgrade:** ✓ (optional - when episode is upgraded)
+     - **On Rename:** (optional - usually not needed)
+     - **On Series Add:** (optional - when new series added)
+     - **On Series Delete:** ✓ (optional - when series removed)
+     - **On Episode File Delete:** ✓ (optional - when files deleted)
+     - **On Health Issue:** ✓ (recommended - for warnings/errors)
+     - **On Health Restored:** ✓ (optional)
+     - **On Application Update:** ✓ (optional)
+     - **Tags:** (leave empty to apply to all, or specify series tags)
+   - **URL:** Choose one option:
+     - **Using persistent config:** `http://apprise:8000/notify/arr-alerts`
+     - **Using direct URL:** `http://apprise:8000/notify/?urls=discord://webhook_id/token`
+   - **Method:** POST
+   - **Username:** (leave empty)
+   - **Password:** (leave empty)
+   - Click **Test** to verify connection
+   - Click **Save**
+
+5. **Integrate with Radarr:**
+   - Go to Radarr: <http://localhost:7878>
+   - Navigate: **Settings** → **Connect** → **Add** → **Webhook**
+   - Configure (same as Sonarr but with movie-specific events):
+     - **Name:** Apprise Notifications
+     - **On Grab:** ✓ (optional)
+     - **On Import:** ✓ (recommended)
+     - **On Upgrade:** ✓ (optional)
+     - **On Rename:** (optional)
+     - **On Movie Added:** (optional)
+     - **On Movie Delete:** ✓ (optional)
+     - **On Movie File Delete:** ✓ (optional)
+     - **On Health Issue:** ✓ (recommended)
+     - **On Health Restored:** ✓ (optional)
+     - **On Application Update:** ✓ (optional)
+   - **URL:** `http://apprise:8000/notify/arr-alerts` (or direct URL)
+   - **Method:** POST
+   - Click **Test** and **Save**
+
+6. **Integrate with Prowlarr:**
+   - Go to Prowlarr: <http://localhost:9696>
+   - Navigate: **Settings** → **Connect** → **Add** → **Webhook**
+   - Configure:
+     - **Name:** Apprise Notifications
+     - **On Health Issue:** ✓ (recommended)
+     - **On Health Restored:** ✓ (optional)
+     - **On Application Update:** ✓ (optional)
+   - **URL:** `http://apprise:8000/notify/arr-alerts` (or direct URL)
+   - **Method:** POST
+   - Click **Test** and **Save**
+
+7. **Send Test Notification:**
+   ```bash
+   # Test with direct URL
+   curl -X POST http://localhost:8000/notify \
+     -d "urls=discord://webhook_id/token&body=Test notification from *arr apps"
+
+   # Test with persistent config
+   curl -X POST http://localhost:8000/notify/arr-alerts \
+     -d "body=Test notification using saved config"
+   ```
+
+8. **Verify Notifications:**
+   - Download a new episode/movie in Sonarr/Radarr
+   - Check that notifications arrive in your configured services
+   - Check Apprise logs if issues occur: `docker logs apprise`
 
 ### API Key Management
 
