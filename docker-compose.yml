@@ -37,8 +37,15 @@ services:
       HTTP_CONTROL_SERVER_PASSWORD: ${CONTROL_APIKEY:-}
       LOG_LEVEL: info
       TZ: ${TZ:-America/New_York}
+      # Email notification configuration for healthchecks
+      EMAIL_TO: ${EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.mail.me.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     ports:
-      - 8080:8080
+      - ${QBITTORRENT_PORT:-8080}:8080
     volumes:
       - gluetun-tmp:/tmp/gluetun
       - ./config/gluetun:/gluetun
@@ -78,6 +85,13 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
       WEBUI_PORT: 8080
+      # Email notification configuration for healthchecks
+      EMAIL_TO: ${EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.mail.me.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/qbittorrent:/config
@@ -117,12 +131,19 @@ services:
       COMPlus_EnableDiagnostics: 0
       # Runtime Dir
       XDG_RUNTIME_DIR: /config/tmp
+      # Email notification configuration for healthchecks
+      EMAIL_TO: ${EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.mail.me.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - ./config/prowlarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
-      - 9696:9696
+      - ${PROWLARR_PORT:-9696}:9696
     depends_on:
       torarr:
         condition: service_healthy
@@ -152,13 +173,20 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
       SONARR_API_KEY: ${SONARR_API_KEY:-}
+      # Email notification configuration for healthchecks
+      EMAIL_TO: ${EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.mail.me.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/sonarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
-      - 8989:8989
+      - ${SONARR_PORT:-8989}:8989
     depends_on:
       prowlarr:
         condition: service_healthy
@@ -189,13 +217,20 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
       RADARR_API_KEY: ${RADARR_API_KEY:-}
+      # Email notification configuration for healthchecks
+      EMAIL_TO: ${EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.mail.me.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/radarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
-      - 7878:7878
+      - ${RADARR_PORT:-7878}:7878
     depends_on:
       prowlarr:
         condition: service_healthy
@@ -226,13 +261,20 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-America/New_York}
       BAZARR_API_KEY: ${BAZARR_API_KEY:-}
+      # Email notification configuration for healthchecks
+      EMAIL_TO: ${EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.mail.me.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/bazarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
-      - 6767:6767
+      - ${BAZARR_PORT:-6767}:6767
     depends_on:
       sonarr:
         condition: service_healthy
@@ -298,6 +340,147 @@ services:
     mem_limit: ${UNPACKERR_MEM_LIMIT:-512m}
     cpus: ${UNPACKERR_CPUS:-0.5}
 
+  # Tdarr Server - Transcode manager (waits for qBittorrent to complete torrents)
+  tdarr-server:
+    image: ghcr.io/haveagitgat/tdarr:latest
+    container_name: tdarr-server
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      serverIP: 0.0.0.0
+      serverPort: ${TDARR_SERVER_PORT:-8266}
+      webUIPort: ${TDARR_WEBUI_PORT:-8265}
+      internalNode: true
+      inContainer: true
+      nodeName: TdarrNode
+      # Email notification configuration for healthchecks
+      EMAIL_TO: ${EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.mail.me.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    volumes:
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ./config/tdarr/server:/app/server
+      - ./config/tdarr/configs:/app/configs
+      - ./config/tdarr/logs:/app/logs
+      - ./scripts/healthchecks:/scripts:ro
+      - ./logs:/logs
+    ports:
+      - ${TDARR_WEBUI_PORT:-8265}:8265
+      - ${TDARR_SERVER_PORT:-8266}:8266
+    depends_on:
+      qbittorrent:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/tdarr.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${TDARR_SERVER_MEM_LIMIT:-1g}
+    cpus: ${TDARR_SERVER_CPUS:-1.0}
+
+  # Tdarr Node - Transcode worker (processes files after torrents complete)
+  # For horizontal scaling, use docker-compose.tdarr-node.yml to add more nodes dynamically
+  tdarr-node:
+    image: ghcr.io/haveagitgat/tdarr:latest
+    container_name: tdarr-node
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      nodeID: TdarrNode
+      nodeIP: 0.0.0.0
+      nodePort: ${TDARR_NODE_PORT:-8267}
+      serverIP: tdarr-server
+      serverPort: ${TDARR_SERVER_PORT:-8266}
+      # Optional: Set worker limits per node based on hardware
+      transcodeGpuWorkers: ${TDARR_GPU_WORKERS:-0}
+      transcodeCpuWorkers: ${TDARR_CPU_WORKERS:-2}
+    volumes:
+      - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ./config/tdarr/configs:/app/configs
+      - ./config/tdarr/logs:/app/logs
+      - tdarr-transcode-cache:/temp
+    ports:
+      - ${TDARR_NODE_PORT:-8267}:8267
+    depends_on:
+      tdarr-server:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${TDARR_NODE_MEM_LIMIT:-2g}
+    cpus: ${TDARR_NODE_CPUS:-2.0}
+
+  # Overseerr - Request management and media discovery tool
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      # Email notification configuration for healthchecks
+      EMAIL_TO: ${EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.mail.me.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    volumes:
+      - ./config/overseerr:/config
+      - ./scripts/healthchecks:/scripts:ro
+      - ./logs:/logs
+    ports:
+      - ${OVERSEERR_PORT:-5055}:5055
+    depends_on:
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/overseerr.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${OVERSEERR_MEM_LIMIT:-512m}
+    cpus: ${OVERSEERR_CPUS:-1.0}
+
   # Email notifier for container events
   events-notifier:
     image: debian:stable-slim
@@ -348,7 +531,7 @@ services:
       - gluetun-tmp:/tmp/gluetun:ro
       - ./logs:/logs
     ports:
-      - 127.0.0.1:9090:9090
+      - 127.0.0.1:${FORWARDARR_PORT:-9090}:9090
     depends_on:
       gluetun:
         condition: service_healthy
@@ -382,7 +565,7 @@ services:
     environment:
       TZ: ${TZ:-America/New_York}
     ports:
-      - 127.0.0.1:9050:9050 # SOCKS5 proxy
+      - 127.0.0.1:${TORARR_PORT:-9050}:9050 # SOCKS5 proxy
       - 127.0.0.1:8085:8085 # Health/metrics endpoint
     volumes:
       - tor-data:/var/lib/tor
@@ -557,3 +740,4 @@ volumes:
       type: tmpfs
       device: tmpfs
   tor-data:
+  tdarr-transcode-cache:

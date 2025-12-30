@@ -242,3 +242,137 @@ Dumps the current qBittorrent preferences to the console. Useful for verifying s
 ```bash
 python3 scripts/utilities/check_qbittorrent_config.py
 ```
+
+## sync_api_keys.py
+
+Syncs and validates API keys between services. This script handles:
+1. **Prowlarr → Sonarr/Radarr**: Validates and updates Prowlarr API keys in indexers
+2. **Environment Validation**: Ensures all required API keys are present
+
+### Usage
+
+```bash
+python3 scripts/utilities/sync_api_keys.py
+```
+
+The script will:
+1. Validate Prowlarr API key exists in `.env`
+2. Sync Prowlarr API keys to Sonarr/Radarr indexers
+3. Test each updated indexer to ensure proper connectivity
+
+### When to Use
+
+- When Prowlarr API keys need to be synced to Sonarr/Radarr
+- After adding new indexers in Prowlarr
+- For troubleshooting API authentication issues
+- When restoring from backup
+
+## start_tdarr_node.sh
+
+Automatically starts additional Tdarr transcode nodes with unique auto-generated names. Eliminates the need to manually specify project names or track node IDs.
+
+### Features
+
+- **Auto-generated unique names**: Uses timestamp + random number for container/node names
+- **Configurable resources**: Set CPU/GPU workers, memory limits, and CPU limits per node
+- **No manual tracking**: Each node gets a globally unique identifier
+- **Easy to use**: Single command to add more transcode capacity
+
+### Usage
+
+**Start with defaults:**
+```bash
+./scripts/utilities/start_tdarr_node.sh
+```
+
+**Start with custom settings:**
+```bash
+# More CPU workers and memory
+./scripts/utilities/start_tdarr_node.sh --cpu-workers 4 --mem-limit 4g
+
+# Enable GPU transcoding
+./scripts/utilities/start_tdarr_node.sh --gpu-workers 1 --cpus 4.0
+
+# Full customization
+./scripts/utilities/start_tdarr_node.sh \
+  --cpu-workers 4 \
+  --gpu-workers 1 \
+  --mem-limit 4g \
+  --cpus 4.0
+```
+
+### Default Values
+
+- CPU Workers: 2
+- GPU Workers: 0
+- Memory Limit: 2g
+- CPU Limit: 2.0
+
+### Output
+
+The script displays:
+- Generated container name (e.g., `tdarr-node-1735436789123`)
+- Node ID used by Tdarr server
+- Configuration settings
+- Commands to view logs or stop the node
+
+## manage_tdarr_nodes.sh
+
+Manages running Tdarr nodes - list, stop specific nodes, or stop all additional nodes.
+
+### Features
+
+- **List all nodes**: View all running Tdarr transcode nodes
+- **Stop specific node**: Stop a node by container name or unique ID
+- **Stop all nodes**: Stop all additional nodes (keeps main node running)
+- **Safe operations**: Properly cleans up docker-compose resources
+
+### Usage
+
+**List all running nodes:**
+```bash
+./scripts/utilities/manage_tdarr_nodes.sh list
+# or just
+./scripts/utilities/manage_tdarr_nodes.sh
+```
+
+**Stop a specific node:**
+```bash
+# Using the unique ID from the list command
+./scripts/utilities/manage_tdarr_nodes.sh stop 1735436789123
+
+# Or using full container name
+./scripts/utilities/manage_tdarr_nodes.sh stop tdarr-node-1735436789123
+```
+
+**Stop all additional nodes:**
+```bash
+./scripts/utilities/manage_tdarr_nodes.sh stop-all
+```
+This will prompt for confirmation before stopping all nodes. The main `tdarr-node` container remains running.
+
+### When to Use
+
+- **Add nodes**: When transcode queue is growing and you need more processing power
+- **Remove nodes**: When queue is empty or you want to free up system resources
+- **Monitor**: Check which nodes are running and their status
+- **Maintenance**: Clean up nodes that are no longer needed
+
+### Workflow Example
+
+```bash
+# 1. Start a few nodes during high activity
+./scripts/utilities/start_tdarr_node.sh
+./scripts/utilities/start_tdarr_node.sh --cpu-workers 4
+./scripts/utilities/start_tdarr_node.sh --cpu-workers 4
+
+# 2. Check what's running
+./scripts/utilities/manage_tdarr_nodes.sh list
+
+# 3. Stop a specific node when done
+./scripts/utilities/manage_tdarr_nodes.sh stop 1735436789123
+
+# 4. Or stop all additional nodes
+./scripts/utilities/manage_tdarr_nodes.sh stop-all
+```
+

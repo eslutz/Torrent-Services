@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Backup Torrent Services Configuration
-# 
+#
 # Creates a timestamped backup directory containing:
 # - Service-native backup ZIPs (Sonarr/Radarr/Prowlarr/Bazarr)
 # - qBittorrent torrent state and configuration
@@ -51,7 +51,7 @@ echo -e "${BLUE}[INFO]${NC} Backing up service configurations..."
 for service in sonarr radarr prowlarr; do
     BACKUP_PATH="config/$service/Backups/scheduled"
     if [ -d "$BACKUP_PATH" ]; then
-        LATEST=$(ls -t "$BACKUP_PATH"/*.zip 2>/dev/null | head -1)
+        LATEST=$(find "$BACKUP_PATH" -maxdepth 1 -name '*.zip' -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
         if [ -n "$LATEST" ]; then
             cp "$LATEST" "$BACKUP_DIR/${service}_backup.zip"
             FILENAME=$(basename "$LATEST")
@@ -67,7 +67,7 @@ done
 # Bazarr - Copy latest backup
 BAZARR_BACKUP_PATH="config/bazarr/backup"
 if [ -d "$BAZARR_BACKUP_PATH" ]; then
-    BAZARR_LATEST=$(ls -t "$BAZARR_BACKUP_PATH"/*.zip 2>/dev/null | head -1)
+    BAZARR_LATEST=$(find "$BAZARR_BACKUP_PATH" -maxdepth 1 -name '*.zip' -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
     if [ -n "$BAZARR_LATEST" ]; then
         cp "$BAZARR_LATEST" "$BACKUP_DIR/bazarr_backup.zip"
         FILENAME=$(basename "$BAZARR_LATEST")
@@ -91,7 +91,7 @@ if [ -d "$QBIT_CONFIG_DIR" ]; then
         BT_backup \
         config/qBittorrent.conf \
         2>/dev/null || true
-    
+
     if [ -f "$BACKUP_DIR/qbittorrent_backup.tar.gz" ]; then
         SIZE=$(du -h "$BACKUP_DIR/qbittorrent_backup.tar.gz" | cut -f1)
         echo -e "${GREEN}[SUCCESS]${NC} Backed up qBittorrent torrents and config ($SIZE)"
@@ -112,7 +112,55 @@ else
     echo -e "${BLUE}[INFO]${NC} No custom Gluetun server list found (using defaults)"
 fi
 
-# 5. Backup setup configuration
+# 5. Backup Tdarr (configs and server data)
+echo ""
+echo -e "${BLUE}[INFO]${NC} Backing up Tdarr configuration..."
+
+TDARR_CONFIG_DIR="config/tdarr"
+if [ -d "$TDARR_CONFIG_DIR" ]; then
+    # Create tar of Tdarr config directories
+    tar -czf "$BACKUP_DIR/tdarr_backup.tar.gz" \
+        -C config \
+        tdarr/server \
+        tdarr/configs \
+        2>/dev/null || true
+
+    if [ -f "$BACKUP_DIR/tdarr_backup.tar.gz" ]; then
+        SIZE=$(du -h "$BACKUP_DIR/tdarr_backup.tar.gz" | cut -f1)
+        echo -e "${GREEN}[SUCCESS]${NC} Backed up Tdarr configuration ($SIZE)"
+    else
+        echo -e "${YELLOW}[WARNING]${NC} Failed to create Tdarr backup"
+    fi
+else
+    echo -e "${YELLOW}[WARNING]${NC} Tdarr config directory not found"
+fi
+
+# 6. Backup Overseerr
+echo ""
+OVERSEERR_CONFIG_DIR="config/overseerr"
+if [ -d "$OVERSEERR_CONFIG_DIR" ]; then
+    tar -czf "$BACKUP_DIR/overseerr_backup.tar.gz" \
+        -C config \
+        overseerr \
+        2>/dev/null || true
+
+    if [ -f "$BACKUP_DIR/overseerr_backup.tar.gz" ]; then
+        SIZE=$(du -h "$BACKUP_DIR/overseerr_backup.tar.gz" | cut -f1)
+        echo -e "${GREEN}[SUCCESS]${NC} Backed up Overseerr configuration ($SIZE)"
+    else
+        echo -e "${YELLOW}[WARNING]${NC} Failed to create Overseerr backup"
+    fi
+else
+    echo -e "${YELLOW}[WARNING]${NC} Overseerr config directory not found"
+fi
+
+# 8. Unpackerr - Skip (env-vars only, no config directory)
+# NOTE: Unpackerr is configured entirely via UN_* environment variables.
+# No config directory exists, so nothing to back up.
+echo ""
+echo -e "${BLUE}[INFO]${NC} Unpackerr uses env-vars only (no config to back up)"
+
+# 9. Backup setup configuration
 echo ""
 SETUP_CONFIG="scripts/setup/setup.config.json"
 if [ -f "$SETUP_CONFIG" ]; then
@@ -122,7 +170,7 @@ else
     echo -e "${YELLOW}[WARNING]${NC} No setup.config.json found"
 fi
 
-# 6. Create backup manifest
+# 10. Create backup manifest
 echo ""
 echo -e "${BLUE}[INFO]${NC} Creating backup manifest..."
 
@@ -139,8 +187,12 @@ Contents:
 - prowlarr_backup.zip (indexer definitions, sync settings)
 - bazarr_backup.zip (subtitle providers, language profiles)
 - qbittorrent_backup.tar.gz (torrent state, categories, preferences)
+- tdarr_backup.tar.gz (transcode flows, nodes, settings)
+- overseerr_backup.tar.gz (request management, user settings)
 - gluetun_servers.json (VPN server list - if customized)
 - setup.config.json (legacy programmatic setup config)
+
+Note: Unpackerr is configured via environment variables only (no config directory).
 
 To restore this backup:
 ./scripts/utilities/restore_config.sh $BACKUP_DIR

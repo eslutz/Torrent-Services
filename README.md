@@ -16,9 +16,39 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Radarr** | Movie management | [Radarr](https://radarr.video/) |
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 | **Unpackerr** | Extracts completed downloads for *arr apps | [Unpackerr](https://github.com/Unpackerr/unpackerr) |
+| **Tdarr** | Automated media transcoding (H.265/HEVC) | [Tdarr](https://tdarr.io/) |
+| **Overseerr** | Request management and media discovery | [Overseerr](https://overseerr.dev/) |
 | **Torarr** | Optional SOCKS5 proxy for Tor-only indexers | [Torarr](https://github.com/eslutz/Torarr) |
 | **Forwardarr** | Syncs Gluetun forwarded port into qBittorrent | [Forwardarr](https://github.com/eslutz/Forwardarr) |
 | **Monitoring Exporters** | Prometheus metrics via Scraparr (*arr apps) + martabal/qbittorrent-exporter | [Scraparr](https://github.com/thecfu/scraparr) / [martabal/qbittorrent-exporter](https://github.com/martabal/qbittorrent-exporter) |
+
+### Notifications
+
+This stack uses a two-tier notification approach:
+
+**1. Infrastructure Alerts (Email)**
+- Healthcheck failures, service restarts, and Docker events
+- Sent via email using SMTP (configured in `.env`)
+- Handled by `healthcheck_utils.sh` and `events-notifier` container
+
+**2. Media Notifications (Native *arr Apps)**
+- Download completions, new media additions, failed grabs
+- Configure in each app's web UI → Settings → Connect
+- Supported services: Discord, Telegram, Slack, Pushover, Email, Webhooks, and many more
+
+**Configuring Native *arr Notifications:**
+
+1. **Sonarr/Radarr:** Settings → Connect → Add → Choose service (e.g., Discord, Email)
+2. **Prowlarr:** Settings → Notifications → Add → Choose service
+3. **Bazarr:** Settings → Notifications → Configure providers
+4. **Overseerr:** Settings → Notifications → Configure services
+
+Each app supports 50+ notification services natively. See their respective documentation for detailed setup:
+- [Sonarr Notifications](https://wiki.servarr.com/sonarr/settings#connect)
+- [Radarr Notifications](https://wiki.servarr.com/radarr/settings#connect)
+- [Prowlarr Notifications](https://wiki.servarr.com/prowlarr/settings#notifications)
+- [Bazarr Notifications](https://wiki.bazarr.media/Additional-Configuration/Notifications/)
+- [Overseerr Notifications](https://docs.overseerr.dev/using-overseerr/notifications)
 
 **VPN:** ProtonVPN with automatic port forwarding via Gluetun for optimal torrent performance and privacy.
 
@@ -294,6 +324,237 @@ You should see logs like:
 
 ---
 
+## Unpackerr - Automated Archive Extraction
+
+Unpackerr automatically detects and extracts compressed downloads (RAR, ZIP, 7z, tar) from Sonarr and Radarr, then notifies them to import the extracted files.
+
+### Features
+
+- **Automatic extraction:** Monitors completed downloads for compressed files
+- **Multi-format support:** RAR, ZIP, 7z, tar, gzip, bzip2
+- **Password handling:** Attempts common passwords for protected archives
+- **Cleanup:** Removes archives after successful extraction
+- **Integration:** Works seamlessly with Sonarr and Radarr via environment variables
+- **Health monitoring:** Metrics endpoint for external status checks
+
+### Configuration
+
+Unpackerr is **env-vars-only** - all configuration is done via environment variables in `docker-compose.yml`. No config directory or backup needed.
+
+**Note:** Unpackerr is configured entirely via environment variables (`UN_*` prefixed variables in `docker-compose.yml`). It does not use a `/config` directory or config file, which avoids storing API keys on disk and simplifies deployment. The distroless/minimal image lacks shell/curl, so there is no Docker healthcheck - validate health externally via the metrics endpoint.
+
+**Configuration example:**
+```yaml
+environment:
+  UN_SONARR_0_URL: http://sonarr:8989
+  UN_SONARR_0_API_KEY: ${SONARR_API_KEY:-}
+  UN_RADARR_0_URL: http://radarr:7878
+  UN_RADARR_0_API_KEY: ${RADARR_API_KEY:-}
+  UN_WEBSERVER_METRICS: true
+  UN_INTERVAL: 1h
+```
+
+API keys are sourced from environment variables which reference values in the `.env` file.
+
+1. **Verify Integration:**
+   The service is pre-configured to connect to Sonarr and Radarr. No manual configuration needed.
+
+2. **Monitor Extraction:**
+   ```bash
+   # View logs
+   docker logs unpackerr --tail 50
+
+   # Check metrics endpoint (for health validation)
+   curl http://localhost:5656/metrics
+   ```
+
+3. **Customization (Optional):**
+   Adjust settings in `docker-compose.yml` environment variables:
+   - `UN_INTERVAL`: How often to scan for archives (default: 1h)
+   - `UN_LOG_FILE`: Log file path
+   - Resource limits via `UNPACKERR_MEM_LIMIT` and `UNPACKERR_CPUS` in `.env`
+
+### How It Works
+
+1. Sonarr/Radarr downloads a torrent containing compressed files
+2. qBittorrent completes the download
+3. Sonarr/Radarr notify Unpackerr via webhook
+4. Unpackerr extracts the archives in-place
+5. Unpackerr notifies Sonarr/Radarr to import the extracted files
+6. Original archives are removed after successful import
+
+### Troubleshooting
+
+**Extraction not happening:**
+- Check Unpackerr logs: `docker logs unpackerr`
+- Verify API keys in `.env` match Sonarr/Radarr
+- Ensure proper file permissions on media directory
+
+**Password-protected archives:**
+- Unpackerr attempts common passwords automatically
+- If extraction fails, check logs for password errors
+- Consider adding custom passwords via environment variables
+
+**Supported formats:**
+- RAR (any version)
+- ZIP
+- 7z
+- tar/tar.gz/tar.bz2
+- gzip
+- bzip2
+
+---
+
+## Tdarr - Automated Media Transcoding
+
+Tdarr automatically transcodes media files to save storage space and ensure compatibility. It waits for torrents to complete and meet seeding requirements before transcoding.
+
+### Features
+
+- **In-place transcoding:** Replace original files with transcoded versions
+- **H.265/HEVC encoding:** Significant space savings with minimal quality loss
+- **English-only:** Keep only English audio and subtitle tracks by default
+- **Torrent-aware:** Only processes files after qBittorrent confirms completion and seeding goals met
+- **Distributed processing:** Server manages flows, nodes perform the work
+
+### Configuration
+
+1. **Access Tdarr Web UI:** <http://localhost:8265>
+
+2. **Configure Libraries:**
+   - Add your media paths (`/media` points to your `TORRENT_MEDIA_DIR`)
+   - Set folder watch settings to monitor for new files
+   - Enable in-place transcoding (cache files are temporary)
+
+3. **Create Transcode Flows:**
+   - **Output codec:** H.265 (HEVC) - set via `TDARR_OUTPUT_CODEC` env var
+   - **Output container:** .m4v or .mp4 - set via `TDARR_OUTPUT_CONTAINER` env var
+   - **Audio:** Keep only English tracks, remove others
+   - **Subtitles:** Keep only English tracks, remove others
+   - **Conditions:** Only process files in complete/seeded state
+
+4. **Wait for Completion:**
+   Tdarr depends on qBittorrent being healthy, ensuring files are fully downloaded before processing. For seeding requirements, configure flow conditions to check:
+   - File age (e.g., only process files older than 7 days to allow seeding)
+   - Or manually verify torrents meet seeding goals before adding to Tdarr library
+
+### Environment Variables
+
+See `.env.example` for configuration options:
+- `TDARR_WEBUI_PORT` - Web interface (default: 8265)
+- `TDARR_SERVER_PORT` - API/node communication (default: 8266)
+- `TDARR_NODE_PORT` - Worker node port (default: 8267)
+- `TDARR_OUTPUT_CODEC` - Default output codec (default: hevc)
+- `TDARR_OUTPUT_CONTAINER` - Default container format (default: m4v)
+
+### Horizontal Scaling for Better Performance
+
+Tdarr supports running multiple node containers to significantly speed up transcoding. Use the helper scripts for automatic unique name generation, or manually use the compose file directly.
+
+**Benefits:**
+- **Linear performance scaling:** 2 nodes = 2x throughput, 3 nodes = 3x throughput
+- **Automatic unique naming:** Each node gets a unique identifier
+- **Better resource utilization:** Spread workload across CPU cores
+- **Faster processing:** Reduce transcode queue times
+
+**Quick Start (Recommended):**
+```bash
+# Start a new node with auto-generated unique name
+./scripts/utilities/start_tdarr_node.sh
+
+# Start with custom settings
+./scripts/utilities/start_tdarr_node.sh --cpu-workers 4 --mem-limit 4g
+
+# List all running nodes
+./scripts/utilities/manage_tdarr_nodes.sh list
+
+# Stop a specific node
+./scripts/utilities/manage_tdarr_nodes.sh stop <unique-id>
+
+# Stop all additional nodes
+./scripts/utilities/manage_tdarr_nodes.sh stop-all
+```
+
+**Manual Method (Advanced):**
+```bash
+# Start node with manual project name
+docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-2 up -d
+
+# Stop specific node
+docker compose -f docker-compose.tdarr-node.yml --project-name tdarr-node-2 down
+
+# View all running nodes
+docker ps --filter "name=tdarr-node"
+```
+
+**Optional Customization:**
+Set worker counts in `.env` (applies to all additional nodes):
+```bash
+TDARR_GPU_WORKERS="0"      # GPU workers (requires GPU passthrough)
+TDARR_CPU_WORKERS="2"      # CPU workers per node
+```
+
+Or override per-node when using the script:
+```bash
+./scripts/utilities/start_tdarr_node.sh --cpu-workers 4 --gpu-workers 1 --cpus 4.0
+```
+
+**Recommendations:**
+- Start with 1 node and add more if transcode queue grows
+- Each node should have 1-2GB RAM per worker
+- Monitor CPU usage - add nodes if CPU is consistently maxed out
+- For GPU transcoding, use `--gpu-workers` flag or uncomment GPU passthrough in compose file
+
+### Health Checks
+
+- Tdarr server health is verified via API endpoint on port 8266
+- If API is unavailable, falls back to web UI check on port 8265
+- Both server and node containers are monitored for responsiveness
+
+---
+
+## Overseerr - Request Management
+
+Overseerr provides a sleek interface for users to request movies and TV shows, integrating with Plex/Emby/Jellyfin and automatically sending requests to Sonarr/Radarr.
+
+### Features
+
+- **User-friendly requests:** Simple interface for requesting media
+- **Plex/Emby/Jellyfin integration:** Sync libraries and user permissions
+- **Automatic processing:** Requests sent directly to Sonarr/Radarr
+- **User management:** Control who can request and approve content
+- **Mobile-friendly:** Responsive design for all devices
+
+### Configuration
+
+1. **Access Overseerr:**
+   - Web UI: <http://localhost:5055>
+   - Complete the setup wizard on first launch
+
+2. **Connect Media Server:**
+   - Add your Plex, Emby, or Jellyfin server
+   - Configure library sync settings
+   - Set user permissions
+
+3. **Configure *arr Integration:**
+   - Add Sonarr: `http://sonarr:8989` with API key from `.env`
+   - Add Radarr: `http://radarr:7878` with API key from `.env`
+   - Configure quality profiles and root folders
+
+4. **User Settings:**
+   - Enable/disable user registration
+   - Set request limits per user
+   - Configure approval workflows
+
+### Health Checks
+
+- Overseerr health verified via `/api/v1/status` endpoint
+- Checks for valid version response
+- Monitors response time (max 5s)
+- Depends on Sonarr and Radarr being healthy
+
+---
+
 ## Healthchecks & Autoheal
 
 ### The Process
@@ -340,6 +601,9 @@ curl -sf http://127.0.0.1:9090/health
 | Radarr | <http://localhost:7878> | <http://radarr.home.arpa:7878> | <http://192.168.1.254:7878> | Movies |
 | Prowlarr | <http://localhost:9696> | <http://prowlarr.home.arpa:9696> | <http://192.168.1.254:9696> | Indexers |
 | Bazarr | <http://localhost:6767> | <http://bazarr.home.arpa:6767> | <http://192.168.1.254:6767> | Subtitles |
+| Unpackerr | <http://localhost:5656> | <http://unpackerr.home.arpa:5656> | <http://192.168.1.254:5656> | Extract archives |
+| Tdarr | <http://localhost:8265> | <http://tdarr.home.arpa:8265> | <http://192.168.1.254:8265> | Transcoding |
+| Overseerr | <http://localhost:5055> | <http://overseerr.home.arpa:5055> | <http://192.168.1.254:5055> | Requests |
 
 **Addressing Guide:**
 

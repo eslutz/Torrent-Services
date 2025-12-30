@@ -72,6 +72,15 @@ case "$url" in
   http://localhost:5656/metrics)
     echo "  HTTP/1.1 200 OK"
     ;;
+  http://localhost:8266/api/v2/status)
+    echo '{"status":"running"}'
+    ;;
+  http://localhost:8000/health)
+    echo '{"status":"ok"}'
+    ;;
+  http://localhost:5055/api/v1/status)
+    echo '{"version":"1.33.2"}'
+    ;;
   *)
     echo "  HTTP/1.1 200 OK"
     ;;
