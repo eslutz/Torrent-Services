@@ -2,11 +2,13 @@
 # Shared utilities for healthcheck scripts
 # Provides: log_event(), send_notification()
 
-# Apprise configuration
-APPRISE_URL=${APPRISE_URL:-http://apprise:8000}
-APPRISE_HEALTHCHECK_TAG=${APPRISE_HEALTHCHECK_TAG:-health-alerts}
-APPRISE_CONFIG_MODE=${APPRISE_CONFIG_MODE:-persistent}
-APPRISE_STATELESS_URLS=${APPRISE_STATELESS_URLS:-}
+# Email configuration (SMTP via msmtp)
+EMAIL_TO=${EMAIL_TO:-}
+SMTP_HOST=${SMTP_HOST:-smtp.mail.me.com}
+SMTP_PORT=${SMTP_PORT:-587}
+SMTP_USER=${SMTP_USER:-}
+SMTP_PASSWORD=${SMTP_PASSWORD:-}
+SMTP_FROM=${SMTP_FROM:-}
 
 log_event() {
   EVENT="$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"$1\", \"details\": \"$2\"}"
@@ -22,47 +24,58 @@ log_event() {
 send_notification() {
   TITLE="$1"
   BODY="$2"
+
+  # Skip if email not configured
+  if [ -z "$EMAIL_TO" ] || [ -z "$SMTP_USER" ] || [ -z "$SMTP_PASSWORD" ]; then
+    echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_skipped\", \"details\": \"Email not configured (missing EMAIL_TO, SMTP_USER, or SMTP_PASSWORD)\"}"
+    return 0
+  fi
+
   MAX_RETRIES=3
   BACKOFF_BASE=2
   ATTEMPT=1
 
-  # Determine Apprise endpoint based on configuration mode
-  if [ "$APPRISE_CONFIG_MODE" = "stateless" ] && [ -n "$APPRISE_STATELESS_URLS" ]; then
-    # Stateless mode: send directly with URLs in query param
-    ENDPOINT="${APPRISE_URL}/notify"
-    NOTIFY_PAYLOAD="{\"urls\":\"${APPRISE_STATELESS_URLS}\",\"title\":\"${TITLE}\",\"body\":\"${BODY}\",\"type\":\"warning\"}"
-  else
-    # Persistent mode: use named config tag
-    ENDPOINT="${APPRISE_URL}/notify/${APPRISE_HEALTHCHECK_TAG}"
-    NOTIFY_PAYLOAD="{\"title\":\"${TITLE}\",\"body\":\"${BODY}\",\"type\":\"warning\"}"
-  fi
-
   while [ "$ATTEMPT" -le "$MAX_RETRIES" ]; do
-    if command -v curl >/dev/null 2>&1; then
-      RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$ENDPOINT" \
-        -H "Content-Type: application/json" \
-        -d "$NOTIFY_PAYLOAD" 2>&1)
-      HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-      
-      if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
-        echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_sent\", \"details\": \"Sent via Apprise: $TITLE\"}"
+    # Create msmtp config in temp file
+    MSMTP_CONFIG=$(mktemp)
+    cat > "$MSMTP_CONFIG" << EOF
+defaults
+auth on
+tls on
+tls_starttls on
+tls_certcheck on
+logfile /dev/null
+timeout 15
+
+account default
+host $SMTP_HOST
+port $SMTP_PORT
+from $SMTP_FROM
+user $SMTP_USER
+password $SMTP_PASSWORD
+EOF
+    chmod 600 "$MSMTP_CONFIG"
+
+    # Send email using msmtp
+    if command -v msmtp >/dev/null 2>&1; then
+      EMAIL_RESULT=$(printf "To: %s\nFrom: %s\nSubject: [Torrent Services] %s\nContent-Type: text/plain; charset=utf-8\n\n%s\n\n--\nSent from: %s\nTimestamp: %s" \
+        "$EMAIL_TO" "$SMTP_FROM" "$TITLE" "$BODY" "${SERVICE_NAME:-healthcheck}" "$(date -Iseconds)" | \
+        msmtp -C "$MSMTP_CONFIG" "$EMAIL_TO" 2>&1)
+      EXIT_CODE=$?
+      rm -f "$MSMTP_CONFIG"
+
+      if [ $EXIT_CODE -eq 0 ]; then
+        echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_sent\", \"details\": \"Email sent: $TITLE\"}"
         return 0
       fi
-      
-      echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_retry_failed\", \"details\": \"Attempt $ATTEMPT failed with HTTP $HTTP_CODE: $TITLE\"}"
-    elif command -v wget >/dev/null 2>&1; then
-      if wget --post-data="$NOTIFY_PAYLOAD" \
-             --header="Content-Type: application/json" \
-             -O- "$ENDPOINT" >/dev/null 2>&1; then
-        echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_sent\", \"details\": \"Sent via Apprise: $TITLE\"}"
-        return 0
-      fi
-      echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_retry_failed\", \"details\": \"Attempt $ATTEMPT failed: $TITLE\"}"
+
+      echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_retry_failed\", \"details\": \"Attempt $ATTEMPT failed: $EMAIL_RESULT\"}"
     else
-      echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_failed\", \"details\": \"No curl/wget available to send: $TITLE\"}"
+      rm -f "$MSMTP_CONFIG"
+      echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_failed\", \"details\": \"msmtp not available to send: $TITLE\"}"
       return 1
     fi
-    
+
     # Exponential backoff
     SLEEP_TIME=1
     i=0
@@ -73,7 +86,7 @@ send_notification() {
     sleep "$SLEEP_TIME"
     ATTEMPT=$((ATTEMPT+1))
   done
-  
+
   echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_failed\", \"details\": \"All retries failed for: $TITLE\"}"
   return 1
 }

@@ -17,11 +17,38 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 | **Unpackerr** | Extracts completed downloads for *arr apps | [Unpackerr](https://github.com/Unpackerr/unpackerr) |
 | **Tdarr** | Automated media transcoding (H.265/HEVC) | [Tdarr](https://tdarr.io/) |
-| **Apprise** | Unified notification service (100+ platforms) | [Apprise](https://github.com/caronc/apprise) |
 | **Overseerr** | Request management and media discovery | [Overseerr](https://overseerr.dev/) |
 | **Torarr** | Optional SOCKS5 proxy for Tor-only indexers | [Torarr](https://github.com/eslutz/Torarr) |
 | **Forwardarr** | Syncs Gluetun forwarded port into qBittorrent | [Forwardarr](https://github.com/eslutz/Forwardarr) |
 | **Monitoring Exporters** | Prometheus metrics via Scraparr (*arr apps) + martabal/qbittorrent-exporter | [Scraparr](https://github.com/thecfu/scraparr) / [martabal/qbittorrent-exporter](https://github.com/martabal/qbittorrent-exporter) |
+
+### Notifications
+
+This stack uses a two-tier notification approach:
+
+**1. Infrastructure Alerts (Email)**
+- Healthcheck failures, service restarts, and Docker events
+- Sent via email using SMTP (configured in `.env`)
+- Handled by `healthcheck_utils.sh` and `events-notifier` container
+
+**2. Media Notifications (Native *arr Apps)**
+- Download completions, new media additions, failed grabs
+- Configure in each app's web UI → Settings → Connect
+- Supported services: Discord, Telegram, Slack, Pushover, Email, Webhooks, and many more
+
+**Configuring Native *arr Notifications:**
+
+1. **Sonarr/Radarr:** Settings → Connect → Add → Choose service (e.g., Discord, Email)
+2. **Prowlarr:** Settings → Notifications → Add → Choose service
+3. **Bazarr:** Settings → Notifications → Configure providers
+4. **Overseerr:** Settings → Notifications → Configure services
+
+Each app supports 50+ notification services natively. See their respective documentation for detailed setup:
+- [Sonarr Notifications](https://wiki.servarr.com/sonarr/settings#connect)
+- [Radarr Notifications](https://wiki.servarr.com/radarr/settings#connect)
+- [Prowlarr Notifications](https://wiki.servarr.com/prowlarr/settings#notifications)
+- [Bazarr Notifications](https://wiki.bazarr.media/Additional-Configuration/Notifications/)
+- [Overseerr Notifications](https://docs.overseerr.dev/using-overseerr/notifications)
 
 **VPN:** ProtonVPN with automatic port forwarding via Gluetun for optimal torrent performance and privacy.
 
@@ -336,7 +363,7 @@ API keys are sourced from environment variables which reference values in the `.
    ```bash
    # View logs
    docker logs unpackerr --tail 50
-   
+
    # Check metrics endpoint (for health validation)
    curl http://localhost:5656/metrics
    ```
@@ -486,223 +513,6 @@ Or override per-node when using the script:
 
 ---
 
-## Apprise - Unified Notifications
-
-Apprise provides a unified REST API for sending notifications to 100+ services including Discord, Telegram, Email, Slack, Microsoft Teams, Signal, Home Assistant, and more—all fully self-hosted with no third-party cloud dependencies.
-
-### Features
-
-- **100+ notification services:** Discord, Telegram, email, Slack, Teams, Signal, Home Assistant, SMS, and more
-- **Fully self-hosted:** No external registration or cloud dependencies required
-- **REST API:** Simple HTTP interface for sending notifications
-- **Web UI:** Configure and test notifications through browser
-- **Persistent configs:** Save notification URLs with tags to `/config` volume for easy reuse across restarts (no need to re-enter credentials)
-- **Attachments:** Send images and files with notifications
-
-### Configuration
-
-1. **Access Apprise:**
-   - Web UI: <http://localhost:8000>
-   - API endpoint: <http://localhost:8000/notify>
-
-2. **Add Notification URLs:**
-   Configure your notification services in `.env` or via the web UI. Examples:
-
-   ```bash
-   # Email
-   APPRISE_EMAIL_URL="mailto://user:password@smtp.gmail.com:587?to=recipient@example.com"
-   
-   # Discord
-   APPRISE_DISCORD_URL="discord://webhook_id/webhook_token"
-   
-   # Slack
-   APPRISE_SLACK_URL="slack://bot_token/#channel"
-   
-   # Microsoft Teams
-   APPRISE_TEAMS_URL="msteams://Webhook_ID/Webhook_Key/"
-   
-   # Signal (requires signal-cli-rest-api)
-   APPRISE_SIGNAL_URL="signal://+15551234567@signal-api:8080"
-   
-   # Home Assistant
-   APPRISE_HOMEASSISTANT_URL="hassios://hostname/access_token"
-   
-   # SMS via Twilio
-   APPRISE_TWILIO_SMS_URL="twilio://account_sid:auth_token@from/to"
-   
-   # macOS Notifications (local macOS host only)
-   APPRISE_MACOS_URL="macosx://"
-   ```
-
-   See `.env.example` for complete examples and 100+ more services.
-
-3. **Create Persistent Configuration (Optional but Recommended):**
-   
-   Via Web UI:
-   - Go to <http://localhost:8000>
-   - Click "Configuration" → "Add New Configuration"
-   - Enter a config name (e.g., "arr-alerts")
-   - Add your notification URLs (one per line)
-   - Add tags (e.g., "sonarr", "radarr", "critical")
-   - Click "Save"
-
-   Via API:
-   ```bash
-   # Create persistent config named "arr-alerts"
-   curl -X POST http://localhost:8000/add/arr-alerts \
-     -d "urls=discord://webhook_id/token&format=text&tag=arr-apps"
-   ```
-
-4. **Integrate with Sonarr:**
-   - Go to Sonarr: <http://localhost:8989>
-   - Navigate: **Settings** → **Connect** → **Add** → **Webhook**
-   - Configure:
-     - **Name:** Apprise Notifications
-     - **On Grab:** ✓ (optional - when episode is sent to download client)
-     - **On Import:** ✓ (recommended - when episode is imported)
-     - **On Upgrade:** ✓ (optional - when episode is upgraded)
-     - **On Rename:** (optional - usually not needed)
-     - **On Series Add:** (optional - when new series added)
-     - **On Series Delete:** ✓ (optional - when series removed)
-     - **On Episode File Delete:** ✓ (optional - when files deleted)
-     - **On Health Issue:** ✓ (recommended - for warnings/errors)
-     - **On Health Restored:** ✓ (optional)
-     - **On Application Update:** ✓ (optional)
-     - **Tags:** (leave empty to apply to all, or specify series tags)
-   - **URL:** Choose one option:
-     - **Using persistent config:** `http://apprise:8000/notify/arr-alerts`
-     - **Using direct URL:** `http://apprise:8000/notify/?urls=discord://webhook_id/token`
-   - **Method:** POST
-   - **Username:** (leave empty)
-   - **Password:** (leave empty)
-   - Click **Test** to verify connection
-   - Click **Save**
-
-5. **Integrate with Radarr:**
-   - Go to Radarr: <http://localhost:7878>
-   - Navigate: **Settings** → **Connect** → **Add** → **Webhook**
-   - Configure (same as Sonarr but with movie-specific events):
-     - **Name:** Apprise Notifications
-     - **On Grab:** ✓ (optional)
-     - **On Import:** ✓ (recommended)
-     - **On Upgrade:** ✓ (optional)
-     - **On Rename:** (optional)
-     - **On Movie Added:** (optional)
-     - **On Movie Delete:** ✓ (optional)
-     - **On Movie File Delete:** ✓ (optional)
-     - **On Health Issue:** ✓ (recommended)
-     - **On Health Restored:** ✓ (optional)
-     - **On Application Update:** ✓ (optional)
-   - **URL:** `http://apprise:8000/notify/arr-alerts` (or direct URL)
-   - **Method:** POST
-   - Click **Test** and **Save**
-
-6. **Integrate with Prowlarr:**
-   - Go to Prowlarr: <http://localhost:9696>
-   - Navigate: **Settings** → **Connect** → **Add** → **Webhook**
-   - Configure:
-     - **Name:** Apprise Notifications
-     - **On Health Issue:** ✓ (recommended)
-     - **On Health Restored:** ✓ (optional)
-     - **On Application Update:** ✓ (optional)
-   - **URL:** `http://apprise:8000/notify/arr-alerts` (or direct URL)
-   - **Method:** POST
-   - Click **Test** and **Save**
-
-7. **Send Test Notification:**
-   ```bash
-   # Test with direct URL
-   curl -X POST http://localhost:8000/notify \
-     -d "urls=discord://webhook_id/token&body=Test notification from *arr apps"
-
-   # Test with persistent config
-   curl -X POST http://localhost:8000/notify/arr-alerts \
-     -d "body=Test notification using saved config"
-   ```
-
-8. **Verify Notifications:**
-   - Download a new episode/movie in Sonarr/Radarr
-   - Check that notifications arrive in your configured services
-   - Check Apprise logs if issues occur: `docker logs apprise`
-
-### API Key Management
-
-The `sync_api_keys.py` utility now focuses solely on Prowlarr key synchronization:
-- **Syncs** Prowlarr API keys to Sonarr/Radarr indexers
-- **Validates** all API key configurations
-
-```bash
-python3 scripts/utilities/sync_api_keys.py
-```
-
-### Health Checks
-
-- Apprise starts independently (no dependencies on *arr apps) to monitor ALL services
-- Health verified via `/health` endpoint
-- Monitors for response time and service availability
-- No authentication required for health checks
-- Can report on *arr app health issues via webhooks
-
-### Configuration Approaches
-
-Apprise supports two configuration methods depending on your use case:
-
-**1. Persistent Configurations (Recommended for *arr Webhooks):**
-- Save notification URLs to `/config` volume via web UI or API
-- Create named configs (e.g., "arr-alerts") reusable across all apps
-- Configurations survive container restarts
-- Tag-based routing for different event types
-- Centralized management via web UI at <http://localhost:8000>
-- **Best for:** *arr app webhooks, centralized notification management
-
-**2. Stateless Configuration (Environment Variables Only):**
-- Configure notification URLs directly in `.env` file via `APPRISE_STATELESS_URLS`
-- Set `APPRISE_CONFIG_MODE=stateless` to enable
-- No persistent config volume needed, all configuration via env vars
-- Comma-separated list of service URLs (e.g., `mailto://...,discord://...`)
-- **Best for:** Single notification channel, containerized/stateless deployments
-
-**Health Check Notifications:**
-
-All health check alerts now use Apprise for unified multi-channel notifications:
-
-- **Docker events:** Container failures (unhealthy/stop/die/oom) trigger Apprise notifications
-- **Autoheal:** Container restarts send alerts via Apprise
-- **Service healthchecks:** Failed health probes use Apprise API
-- **Configuration:** Set notification URLs in `.env` and configure mode:
-  - Persistent mode: Create "health-alerts" config in Apprise web UI
-  - Stateless mode: Set `APPRISE_STATELESS_URLS` with desired notification URLs
-
-**Stateless Example:**
-```bash
-# .env configuration for stateless health alerts
-APPRISE_CONFIG_MODE="stateless"
-APPRISE_STATELESS_URLS="mailto://user:pass@smtp.gmail.com:587?to=admin@example.com,discord://webhook_id/token"
-APPRISE_HEALTHCHECK_TAG="health-alerts"
-```
-
-**Persistent Example:**
-```bash
-# .env configuration for persistent mode
-APPRISE_CONFIG_MODE="persistent"
-APPRISE_HEALTHCHECK_TAG="health-alerts"
-# Then create "health-alerts" config via Apprise web UI with your notification URLs
-```
-
-### Supported Services
-
-Apprise supports 100+ notification services out of the box:
-- **Chat:** Discord, Slack, Microsoft Teams, Telegram, Matrix, Mattermost
-- **Email:** SMTP, Gmail, Outlook, SendGrid, Mailgun
-- **SMS:** Twilio, ClickSend, AWS SNS, Vonage
-- **Push:** Pushbullet, Pushover, Gotify, ntfy, Join
-- **Voice:** AWS Polly, Google TTS
-- **Smart Home:** Home Assistant, IFTTT, Zapier
-- **Desktop:** macOS Notification Center (when run on macOS host)
-- And many more! See [Apprise Wiki](https://github.com/caronc/apprise/wiki) for complete list.
-
----
-
 ## Overseerr - Request Management
 
 Overseerr provides a sleek interface for users to request movies and TV shows, integrating with Plex/Emby/Jellyfin and automatically sending requests to Sonarr/Radarr.
@@ -793,7 +603,6 @@ curl -sf http://127.0.0.1:9090/health
 | Bazarr | <http://localhost:6767> | <http://bazarr.home.arpa:6767> | <http://192.168.1.254:6767> | Subtitles |
 | Unpackerr | <http://localhost:5656> | <http://unpackerr.home.arpa:5656> | <http://192.168.1.254:5656> | Extract archives |
 | Tdarr | <http://localhost:8265> | <http://tdarr.home.arpa:8265> | <http://192.168.1.254:8265> | Transcoding |
-| Apprise | <http://localhost:8000> | <http://apprise.home.arpa:8000> | <http://192.168.1.254:8000> | Notifications |
 | Overseerr | <http://localhost:5055> | <http://overseerr.home.arpa:5055> | <http://192.168.1.254:5055> | Requests |
 
 **Addressing Guide:**

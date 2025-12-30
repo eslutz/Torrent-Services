@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Backup Torrent Services Configuration
-# 
+#
 # Creates a timestamped backup directory containing:
 # - Service-native backup ZIPs (Sonarr/Radarr/Prowlarr/Bazarr)
 # - qBittorrent torrent state and configuration
@@ -51,7 +51,7 @@ echo -e "${BLUE}[INFO]${NC} Backing up service configurations..."
 for service in sonarr radarr prowlarr; do
     BACKUP_PATH="config/$service/Backups/scheduled"
     if [ -d "$BACKUP_PATH" ]; then
-        LATEST=$(ls -t "$BACKUP_PATH"/*.zip 2>/dev/null | head -1)
+        LATEST=$(find "$BACKUP_PATH" -maxdepth 1 -name '*.zip' -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
         if [ -n "$LATEST" ]; then
             cp "$LATEST" "$BACKUP_DIR/${service}_backup.zip"
             FILENAME=$(basename "$LATEST")
@@ -67,7 +67,7 @@ done
 # Bazarr - Copy latest backup
 BAZARR_BACKUP_PATH="config/bazarr/backup"
 if [ -d "$BAZARR_BACKUP_PATH" ]; then
-    BAZARR_LATEST=$(ls -t "$BAZARR_BACKUP_PATH"/*.zip 2>/dev/null | head -1)
+    BAZARR_LATEST=$(find "$BAZARR_BACKUP_PATH" -maxdepth 1 -name '*.zip' -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
     if [ -n "$BAZARR_LATEST" ]; then
         cp "$BAZARR_LATEST" "$BACKUP_DIR/bazarr_backup.zip"
         FILENAME=$(basename "$BAZARR_LATEST")
@@ -91,7 +91,7 @@ if [ -d "$QBIT_CONFIG_DIR" ]; then
         BT_backup \
         config/qBittorrent.conf \
         2>/dev/null || true
-    
+
     if [ -f "$BACKUP_DIR/qbittorrent_backup.tar.gz" ]; then
         SIZE=$(du -h "$BACKUP_DIR/qbittorrent_backup.tar.gz" | cut -f1)
         echo -e "${GREEN}[SUCCESS]${NC} Backed up qBittorrent torrents and config ($SIZE)"
@@ -124,7 +124,7 @@ if [ -d "$TDARR_CONFIG_DIR" ]; then
         tdarr/server \
         tdarr/configs \
         2>/dev/null || true
-    
+
     if [ -f "$BACKUP_DIR/tdarr_backup.tar.gz" ]; then
         SIZE=$(du -h "$BACKUP_DIR/tdarr_backup.tar.gz" | cut -f1)
         echo -e "${GREEN}[SUCCESS]${NC} Backed up Tdarr configuration ($SIZE)"
@@ -135,18 +135,7 @@ else
     echo -e "${YELLOW}[WARNING]${NC} Tdarr config directory not found"
 fi
 
-# 6. Backup Apprise
-echo ""
-APPRISE_CONFIG="config/apprise"
-if [ -d "$APPRISE_CONFIG" ]; then
-    mkdir -p "$BACKUP_DIR"
-    tar -czf "$BACKUP_DIR/apprise_backup.tar.gz" -C "config" "apprise"
-    echo -e "${GREEN}[SUCCESS]${NC} Backed up Apprise configuration"
-else
-    echo -e "${YELLOW}[WARNING]${NC} Apprise config directory not found"
-fi
-
-# 7. Backup Overseerr
+# 6. Backup Overseerr
 echo ""
 OVERSEERR_CONFIG_DIR="config/overseerr"
 if [ -d "$OVERSEERR_CONFIG_DIR" ]; then
@@ -154,7 +143,7 @@ if [ -d "$OVERSEERR_CONFIG_DIR" ]; then
         -C config \
         overseerr \
         2>/dev/null || true
-    
+
     if [ -f "$BACKUP_DIR/overseerr_backup.tar.gz" ]; then
         SIZE=$(du -h "$BACKUP_DIR/overseerr_backup.tar.gz" | cut -f1)
         echo -e "${GREEN}[SUCCESS]${NC} Backed up Overseerr configuration ($SIZE)"
@@ -199,7 +188,6 @@ Contents:
 - bazarr_backup.zip (subtitle providers, language profiles)
 - qbittorrent_backup.tar.gz (torrent state, categories, preferences)
 - tdarr_backup.tar.gz (transcode flows, nodes, settings)
-- apprise_backup.tar.gz (notification URLs, stored configurations)
 - overseerr_backup.tar.gz (request management, user settings)
 - gluetun_servers.json (VPN server list - if customized)
 - setup.config.json (legacy programmatic setup config)

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Listen to Docker container events and send Apprise alerts for unhealthy/stop events
+# Listen to Docker container events and send email alerts for unhealthy/stop events
 
 set -eu
 
@@ -75,7 +75,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 log_line "Starting docker event notifier (watching stop/die/kill/oom/unhealthy)"
-log_line "Notifications will be sent via Apprise API"
+log_line "Notifications will be sent via email"
 follow_autoheal_log &
 
 while true; do

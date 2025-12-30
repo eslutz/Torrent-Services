@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # Restore Torrent Services Configuration
-# 
+#
 # Restores service configuration from a backup created by backup_config.sh
-# 
+#
 # Usage: ./scripts/utilities/restore_config.sh <backup_directory>
 #
 # Process:
@@ -149,16 +149,6 @@ else
     echo -e "${YELLOW}[WARNING]${NC} No Tdarr backup found - skipping"
 fi
 
-# Apprise - Direct restore
-APPRISE_BACKUP="$BACKUP_DIR/apprise_backup.tar.gz"
-if [ -f "$APPRISE_BACKUP" ]; then
-    mkdir -p config
-    tar -xzf "$APPRISE_BACKUP" -C config
-    echo -e "${GREEN}[SUCCESS]${NC} Restored Apprise configuration"
-else
-    echo -e "${YELLOW}[WARNING]${NC} No Apprise backup found - skipping"
-fi
-
 # Overseerr - Direct restore
 OVERSEERR_BACKUP="$BACKUP_DIR/overseerr_backup.tar.gz"
 if [ -f "$OVERSEERR_BACKUP" ]; then
@@ -229,12 +219,12 @@ if [ ${#MANUAL_SERVICES[@]} -eq 0 ]; then
 else
     # Get ports from .env
     source .env 2>/dev/null || true
-    
+
     SONARR_PORT="${SONARR_PORT:-8989}"
     RADARR_PORT="${RADARR_PORT:-7878}"
     PROWLARR_PORT="${PROWLARR_PORT:-9696}"
     BAZARR_PORT="${BAZARR_PORT:-6767}"
-    
+
     echo "For each service below:"
     echo "  1. Wait for service to be healthy (check with: docker compose ps)"
     echo "  2. Open the service URL in your browser"
@@ -242,7 +232,7 @@ else
     echo "  4. Find the backup file in the list"
     echo "  5. Click the 'Restore' button (service will restart automatically)"
     echo ""
-    
+
     for service in "${MANUAL_SERVICES[@]}"; do
         case $service in
             sonarr)
@@ -259,7 +249,7 @@ else
                 ;;
         esac
     done
-    
+
     echo ""
     echo -e "${BLUE}[INFO]${NC} Tip: You can check service health with:"
     echo -e "  ${YELLOW}docker compose ps${NC}"
