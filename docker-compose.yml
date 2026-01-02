@@ -182,6 +182,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
       - ./config/sonarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -226,6 +227,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
       - ./config/radarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -270,6 +272,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
       - ./config/bazarr:/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
@@ -297,15 +300,15 @@ services:
     mem_limit: ${BAZARR_MEM_LIMIT:-512m}
     cpus: ${BAZARR_CPUS:-0.5}
 
-  # Unpackerr - Extracts completed downloads for *arr apps
-  unpackerr:
+  # Unpackarr - Extracts completed downloads for *arr apps
+  unpackarr:
     image: ghcr.io/unpackerr/unpackerr:latest
-    container_name: unpackerr
+    container_name: unpackarr
     init: true
     user: ${PUID:-1000}:${PGID:-1000}
     environment:
       TZ: ${TZ:-America/New_York}
-      UN_LOG_FILE: /logs/unpackerr/unpackerr.log
+      UN_LOG_FILE: /logs/unpackarr/unpackarr.log
       UN_SONARR_0_URL: http://sonarr:8989
       UN_SONARR_0_API_KEY: ${SONARR_API_KEY:-}
       UN_SONARR_0_PATHS_0: /media
@@ -337,8 +340,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${UNPACKERR_MEM_LIMIT:-512m}
-    cpus: ${UNPACKERR_CPUS:-0.5}
+    mem_limit: ${UNPACKARR_MEM_LIMIT:-512m}
+    cpus: ${UNPACKARR_CPUS:-0.5}
 
   # Tdarr Server - Transcode manager (waits for qBittorrent to complete torrents)
   tdarr-server:
@@ -363,6 +366,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
       - ./config/tdarr/server:/app/server
       - ./config/tdarr/configs:/app/configs
       - ./config/tdarr/logs:/app/logs
@@ -413,6 +417,7 @@ services:
       transcodeCpuWorkers: ${TDARR_CPU_WORKERS:-2}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
       - ./config/tdarr/configs:/app/configs
       - ./config/tdarr/logs:/app/logs
       - tdarr-transcode-cache:/temp

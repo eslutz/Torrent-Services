@@ -1,5 +1,5 @@
 # Additional Tdarr Node for Horizontal Scaling
-# 
+#
 # This compose file allows you to dynamically add more Tdarr transcode nodes
 # without modifying the main docker-compose.yml file.
 #
@@ -46,6 +46,7 @@ services:
       transcodeCpuWorkers: ${TDARR_CPU_WORKERS:-2}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
+      - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
       - ./config/tdarr/configs:/app/configs
       - ./config/tdarr/logs:/app/logs
       # Each node gets its own transcode cache to prevent conflicts
