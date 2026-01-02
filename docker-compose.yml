@@ -697,42 +697,6 @@ services:
     mem_limit: ${AUTOHEAL_MEM_LIMIT:-128m}
     cpus: ${AUTOHEAL_CPUS:-0.1}
 
-  # Bootstrap - Orchestrates setup scripts
-  bootstrap:
-    image: mcr.microsoft.com/playwright/python:latest
-    container_name: bootstrap
-    profiles:
-      - bootstrap
-    volumes:
-      - .:/app
-      - /var/run/docker.sock:/var/run/docker.sock
-    working_dir: /app
-    environment:
-      TZ: ${TZ:-America/New_York}
-      PROWLARR_URL: http://prowlarr:9696
-      SONARR_URL: http://sonarr:8989
-      RADARR_URL: http://radarr:7878
-      BAZARR_URL: http://bazarr:6767
-      QBIT_URL: http://gluetun:8080
-      # Pass host project directory for correct volume mounting in dind
-      # Uses HOST_PROJECT_DIR from .env if set (Windows), otherwise falls back to shell PWD (macOS/Linux)
-      HOST_PROJECT_DIR: ${HOST_PROJECT_DIR:-${PWD}}
-    command: >
-      sh -c "apt-get update && apt-get install -y docker.io && pip install -r requirements.txt && python3 scripts/setup/bootstrap.py && echo 'Bootstrap completed successfully' || (echo 'Bootstrap failed'; exit 1)"
-    depends_on:
-      prowlarr:
-        condition: service_healthy
-      sonarr:
-        condition: service_healthy
-      radarr:
-        condition: service_healthy
-      bazarr:
-        condition: service_healthy
-      qbittorrent:
-        condition: service_healthy
-    networks:
-      - torrent-services-network
-
 networks:
   torrent-services-network:
     name: torrent-net
