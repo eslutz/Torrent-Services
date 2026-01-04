@@ -188,7 +188,7 @@ Contents:
 - bazarr_backup.zip (subtitle providers, language profiles)
 - qbittorrent_backup.tar.gz (torrent state, categories, preferences)
 - tdarr_backup.tar.gz (transcode flows, nodes, settings)
-- overseerr_backup.tar.gz (request management, user settings)
+- jellyseerr_backup.tar.gz (request management, user settings)
 - gluetun_servers.json (VPN server list - if customized)
 - setup.config.json (legacy programmatic setup config)
 

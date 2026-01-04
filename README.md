@@ -17,7 +17,7 @@ Automated media download and management using Docker with qBittorrent, Gluetun, 
 | **Bazarr** | Subtitle management | [Bazarr](https://www.bazarr.media) |
 | **Unpackerr** | Extracts completed downloads for *arr apps | [Unpackerr](https://github.com/Unpackerr/unpackerr) |
 | **Tdarr** | Automated media transcoding (H.265/HEVC) | [Tdarr](https://tdarr.io/) |
-| **Overseerr** | Request management and media discovery | [Overseerr](https://overseerr.dev/) |
+| **Jellyseerr** | Request management and media discovery | [Jellyseerr](https://github.com/Fallenbagel/jellyseerr) |
 | **Torarr** | Optional SOCKS5 proxy for Tor-only indexers | [Torarr](https://github.com/eslutz/Torarr) |
 | **Forwardarr** | Syncs Gluetun forwarded port into qBittorrent | [Forwardarr](https://github.com/eslutz/Forwardarr) |
 | **Monitoring Exporters** | Prometheus metrics via Scraparr (*arr apps) + martabal/qbittorrent-exporter | [Scraparr](https://github.com/thecfu/scraparr) / [martabal/qbittorrent-exporter](https://github.com/martabal/qbittorrent-exporter) |
@@ -41,14 +41,14 @@ This stack uses a two-tier notification approach:
 1. **Sonarr/Radarr:** Settings → Connect → Add → Choose service (e.g., Discord, Email)
 2. **Prowlarr:** Settings → Notifications → Add → Choose service
 3. **Bazarr:** Settings → Notifications → Configure providers
-4. **Overseerr:** Settings → Notifications → Configure services
+4. **Jellyseerr:** Settings → Notifications → Configure services
 
 Each app supports 50+ notification services natively. See their respective documentation for detailed setup:
 - [Sonarr Notifications](https://wiki.servarr.com/sonarr/settings#connect)
 - [Radarr Notifications](https://wiki.servarr.com/radarr/settings#connect)
 - [Prowlarr Notifications](https://wiki.servarr.com/prowlarr/settings#notifications)
 - [Bazarr Notifications](https://wiki.bazarr.media/Additional-Configuration/Notifications/)
-- [Overseerr Notifications](https://docs.overseerr.dev/using-overseerr/notifications)
+- [Jellyseerr Notifications](https://github.com/Fallenbagel/jellyseerr#notifications)
 
 **VPN:** ProtonVPN with automatic port forwarding via Gluetun for optimal torrent performance and privacy.
 
@@ -513,9 +513,9 @@ Or override per-node when using the script:
 
 ---
 
-## Overseerr - Request Management
+## Jellyseerr - Request Management
 
-Overseerr provides a sleek interface for users to request movies and TV shows, integrating with Plex/Emby/Jellyfin and automatically sending requests to Sonarr/Radarr.
+Jellyseerr provides a sleek interface for users to request movies and TV shows, integrating with Plex/Emby/Jellyfin and automatically sending requests to Sonarr/Radarr.
 
 ### Features
 
@@ -527,7 +527,7 @@ Overseerr provides a sleek interface for users to request movies and TV shows, i
 
 ### Configuration
 
-1. **Access Overseerr:**
+1. **Access Jellyseerr:**
    - Web UI: <http://localhost:5055>
    - Complete the setup wizard on first launch
 
@@ -548,7 +548,7 @@ Overseerr provides a sleek interface for users to request movies and TV shows, i
 
 ### Health Checks
 
-- Overseerr health verified via `/api/v1/status` endpoint
+- Jellyseerr health verified via `/api/v1/status` endpoint
 - Checks for valid version response
 - Monitors response time (max 5s)
 - Depends on Sonarr and Radarr being healthy

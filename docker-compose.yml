@@ -19,9 +19,8 @@ services:
       SERVER_COUNTRIES: ${SERVER_COUNTRIES:-}
       SERVER_CITIES: ${SERVER_CITIES:-}
       SERVER_HOSTNAMES: ${SERVER_HOSTNAMES:-}
-      PORT_FORWARD_ONLY: ${PORT_FORWARD_ONLY:-on}
-      # Port Forwarding
-      VPN_PORT_FORWARDING: ${VPN_PORT_FORWARDING:-on}
+      PORT_FORWARD_ONLY: on
+      VPN_PORT_FORWARDING: on
       # DNS Settings
       DNS_UPSTREAM_RESOLVERS: ${DNS_UPSTREAM_RESOLVERS:-cloudflare}
       BLOCK_MALICIOUS: ${BLOCK_MALICIOUS:-on}
@@ -71,7 +70,6 @@ services:
         max-file: "3"
     mem_limit: ${GLUETUN_MEM_LIMIT:-256m}
     cpus: ${GLUETUN_CPUS:-0.5}
-
 
   # qBittorrent - Torrent Client
   # Routes through Gluetun VPN with automatic port forwarding
@@ -180,6 +178,11 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+    # Increase file descriptor limit for ExFAT volumes on OrbStack
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
@@ -225,6 +228,11 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+    # Increase file descriptor limit for ExFAT volumes on OrbStack
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
@@ -270,6 +278,11 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+    # Increase file descriptor limit for ExFAT volumes on OrbStack
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
@@ -364,6 +377,11 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+    # Increase file descriptor limit for ExFAT volumes on OrbStack
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
@@ -415,6 +433,11 @@ services:
       # Optional: Set worker limits per node based on hardware
       transcodeGpuWorkers: ${TDARR_GPU_WORKERS:-0}
       transcodeCpuWorkers: ${TDARR_CPU_WORKERS:-2}
+    # Increase file descriptor limit for ExFAT volumes on OrbStack
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips
@@ -440,10 +463,11 @@ services:
     mem_limit: ${TDARR_NODE_MEM_LIMIT:-2g}
     cpus: ${TDARR_NODE_CPUS:-2.0}
 
-  # Overseerr - Request management and media discovery tool
-  overseerr:
-    image: lscr.io/linuxserver/overseerr:latest
-    container_name: overseerr
+  # Jellyseerr - Request management and media discovery tool
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    init: true
     environment:
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
@@ -456,11 +480,11 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
     volumes:
-      - ./config/overseerr:/config
+      - ./config/jellyseerr:/app/config
       - ./scripts/healthchecks:/scripts:ro
       - ./logs:/logs
     ports:
-      - ${OVERSEERR_PORT:-5055}:5055
+      - ${JELLYSEERR_PORT:-5055}:5055
     depends_on:
       sonarr:
         condition: service_healthy
@@ -473,7 +497,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/overseerr.sh"]
+      test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/jellyseerr.sh"]
       interval: 60s
       timeout: 10s
       retries: 3
@@ -483,8 +507,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${OVERSEERR_MEM_LIMIT:-512m}
-    cpus: ${OVERSEERR_CPUS:-1.0}
+    mem_limit: ${JELLYSEERR_MEM_LIMIT:-512m}
+    cpus: ${JELLYSEERR_CPUS:-1.0}
 
   # Email notifier for container events
   events-notifier:

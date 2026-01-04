@@ -44,6 +44,11 @@ services:
       # Optional: Customize worker counts
       transcodeGpuWorkers: ${TDARR_GPU_WORKERS:-0}
       transcodeCpuWorkers: ${TDARR_CPU_WORKERS:-2}
+    # Increase file descriptor limit for ExFAT volumes on OrbStack
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ${DVD_MEDIA_DIR:-./dvd-rips}:/dvd-rips

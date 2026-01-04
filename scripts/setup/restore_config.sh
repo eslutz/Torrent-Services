@@ -149,14 +149,14 @@ else
     echo -e "${YELLOW}[WARNING]${NC} No Tdarr backup found - skipping"
 fi
 
-# Overseerr - Direct restore
-OVERSEERR_BACKUP="$BACKUP_DIR/overseerr_backup.tar.gz"
-if [ -f "$OVERSEERR_BACKUP" ]; then
-    mkdir -p config/overseerr
-    tar -xzf "$OVERSEERR_BACKUP" -C config
-    echo -e "${GREEN}[SUCCESS]${NC} Restored Overseerr configuration"
+# Jellyseerr - Direct restore
+JELLYSEERR_BACKUP="$BACKUP_DIR/jellyseerr_backup.tar.gz"
+if [ -f "$JELLYSEERR_BACKUP" ]; then
+    mkdir -p config/jellyseerr
+    tar -xzf "$JELLYSEERR_BACKUP" -C config
+    echo -e "${GREEN}[SUCCESS]${NC} Restored Jellyseerr configuration"
 else
-    echo -e "${YELLOW}[WARNING]${NC} No Overseerr backup found - skipping"
+    echo -e "${YELLOW}[WARNING]${NC} No Jellyseerr backup found - skipping"
 fi
 
 # Unpackerr - Skip (env-vars only, no config directory)

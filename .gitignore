@@ -256,6 +256,12 @@ config/radarr/
 # Bazarr - all config auto-generated
 config/bazarr/
 
+# Tdarr - all config auto-generated
+config/tdarr/
+
+# Jellyseerr - all config auto-generated
+config/jellyseerr/
+
 # =============================================================================
 # Media Directory
 # =============================================================================
