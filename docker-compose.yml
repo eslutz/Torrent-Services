@@ -42,6 +42,8 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      # Notification rate limiting (5 minutes default)
+      NOTIFICATION_COOLDOWN: ${NOTIFICATION_COOLDOWN:-300}
     ports:
       - ${QBITTORRENT_PORT:-8080}:8080
     volumes:
@@ -521,6 +523,7 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - SMTP_FROM=${SMTP_FROM:-}
+      - NOTIFICATION_COOLDOWN=${NOTIFICATION_COOLDOWN:-300}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:r
       - ./config:/config:rw
@@ -702,6 +705,9 @@ services:
       AUTOHEAL_START_DELAY: 300
       AUTOHEAL_STOP_TIMEOUT: 30
       AUTOHEAL_LOG_PERSIST: true
+      # Limit restart attempts to prevent endless loops
+      AUTOHEAL_DEFAULT_STOP: ${AUTOHEAL_DEFAULT_STOP:-false}
+      AUTOHEAL_MAX_RETRIES: ${AUTOHEAL_MAX_RETRIES:-3}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/localtime:/etc/localtime:ro

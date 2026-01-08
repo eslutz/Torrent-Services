@@ -10,6 +10,11 @@ SMTP_USER=${SMTP_USER:-}
 SMTP_PASSWORD=${SMTP_PASSWORD:-}
 SMTP_FROM=${SMTP_FROM:-}
 
+# Rate limiting configuration
+NOTIFICATION_COOLDOWN=${NOTIFICATION_COOLDOWN:-300}  # 5 minutes default
+NOTIFICATION_STATE_DIR=${NOTIFICATION_STATE_DIR:-/tmp/notification_state}
+mkdir -p "$NOTIFICATION_STATE_DIR" 2>/dev/null || true
+
 log_event() {
   EVENT="$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"$1\", \"details\": \"$2\"}"
   if [ -n "${LOG_PATH:-}" ]; then
@@ -21,6 +26,28 @@ log_event() {
   fi
 }
 
+should_send_notification() {
+  NOTIFICATION_KEY="$1"
+  STATE_FILE="${NOTIFICATION_STATE_DIR}/${NOTIFICATION_KEY}"
+  CURRENT_TIME=$(date +%s)
+
+  # Check if notification was recently sent
+  if [ -f "$STATE_FILE" ]; then
+    LAST_SENT=$(cat "$STATE_FILE" 2>/dev/null || echo 0)
+    TIME_DIFF=$((CURRENT_TIME - LAST_SENT))
+
+    if [ "$TIME_DIFF" -lt "$NOTIFICATION_COOLDOWN" ]; then
+      REMAINING=$((NOTIFICATION_COOLDOWN - TIME_DIFF))
+      echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_throttled\", \"details\": \"Throttled: $NOTIFICATION_KEY (${REMAINING}s remaining)\"}"
+      return 1
+    fi
+  fi
+
+  # Update state file with current timestamp
+  echo "$CURRENT_TIME" > "$STATE_FILE"
+  return 0
+}
+
 send_notification() {
   TITLE="$1"
   BODY="$2"
@@ -28,6 +55,14 @@ send_notification() {
   # Skip if email not configured
   if [ -z "$EMAIL_TO" ] || [ -z "$SMTP_USER" ] || [ -z "$SMTP_PASSWORD" ]; then
     echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_skipped\", \"details\": \"Email not configured (missing EMAIL_TO, SMTP_USER, or SMTP_PASSWORD)\"}"
+    return 0
+  fi
+
+  # Generate notification key for deduplication (sanitize title)
+  NOTIFICATION_KEY=$(echo "${TITLE}" | tr -cs '[:alnum:]' '_' | tr '[:upper:]' '[:lower:]')
+
+  # Check rate limit
+  if ! should_send_notification "$NOTIFICATION_KEY"; then
     return 0
   fi
 
