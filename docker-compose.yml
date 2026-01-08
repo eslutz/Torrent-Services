@@ -12,9 +12,8 @@ services:
     environment:
       # ProtonVPN Configuration
       VPN_SERVICE_PROVIDER: protonvpn
-      VPN_TYPE: wireguard
-      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:-}
-      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:-}
+      OPENVPN_USER: ${OPENVPN_USER:-}
+      OPENVPN_PASSWORD: ${OPENVPN_PASSWORD:-}
       # Server Selection Filters
       SERVER_COUNTRIES: ${SERVER_COUNTRIES:-}
       SERVER_CITIES: ${SERVER_CITIES:-}
