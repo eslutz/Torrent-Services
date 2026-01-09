@@ -45,7 +45,7 @@ list_nodes() {
 extract_unique_id() {
   local container_name="$1"
   # Extract ID from tdarr-node-XXXXXXXX format
-  echo "$container_name" | sed 's/tdarr-node-//'
+  echo "${container_name#tdarr-node-}"
 }
 
 # Function to stop a specific node

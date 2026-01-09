@@ -466,7 +466,8 @@ After successful setup:
 For advanced configuration, see:
 - [docker-compose.yml](../../docker-compose.yml) - Service definitions
 - [.env.example](../../.env.example) - All available environment variables
-- [healthchecks/README.md](../healthchecks/README.md) - Health check details
+- [healthchecks/HEALTHCHECKS.md](../healthchecks/HEALTHCHECKS.md) - Health check details
+- [utilities/UTILITIES.md](../utilities/UTILITIES.md) - Utility scripts reference
 
 ---
 

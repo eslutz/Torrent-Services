@@ -46,4 +46,4 @@ venv/bin/python3 scripts/*/script_name.py
 - **Port forwarding**: Verify Gluetun port file: `docker exec gluetun cat /tmp/gluetun/forwarded_port`. Check Forwardarr logs: `docker logs forwardarr --tail 20`
 - **Missing media files**: Run `venv/bin/python3 scripts/utilities/rescan_missing_media.py --search` to detect and re-download
 
-See `scripts/setup/README.md` for setup instructions and troubleshooting.
+See `scripts/setup/SETUP.md` for setup instructions and troubleshooting.

@@ -30,7 +30,7 @@ Media automation stack with qBittorrent, Gluetun (VPN), Prowlarr, Sonarr, Radarr
 
 ## Quick Start (fresh install)
 
-For step-by-step details, see [scripts/setup/README.md](scripts/setup/README.md).
+For step-by-step details, see [scripts/setup/SETUP.md](scripts/setup/SETUP.md).
 
 ```bash
 cp .env.example .env
@@ -65,8 +65,11 @@ If your provider does not support forwarding, Forwardarr will log that no port w
 ## Health, Autoheal, Monitoring
 
 - Health scripts live in `scripts/healthchecks/` and gate startup; check with `docker compose ps` for `healthy` statuses.
-- Autoheal monitors container health and restarts stuck services.
+- Autoheal monitors container health and restarts stuck services with optional circuit breaker (enabled by default; configurable via `DEFAULT_STOP` and `MAX_RETRIES`).
+- Email notifications sent for container failures with detailed diagnostic information.
 - Monitoring profile (optional): set `ENABLE_MONITORING_PROFILE=true` in `.env`, then run `docker compose --profile monitoring up -d` for exporters. Prometheus/Grafana are not bundled.
+
+For detailed information on health check intervals, timeouts, email notifications, and troubleshooting, see [scripts/healthchecks/HEALTHCHECKS.md](scripts/healthchecks/HEALTHCHECKS.md).
 
 ### Exporter endpoints (localhost only)
 
@@ -94,6 +97,20 @@ docker compose --profile monitoring up -d    # Start exporters
 - Add a node: `./scripts/utilities/start_tdarr_node.sh`
 - Manage nodes: `./scripts/utilities/manage_tdarr_nodes.sh list|stop|stop-all`
 - Per-node overrides: flags on the helper scripts (CPU/GPU workers, limits) or env vars in `.env`.
+
+## Utility Scripts
+
+The `scripts/utilities/` directory contains helpful automation scripts:
+
+- **manage_storage.py** - Add/remove storage volumes with automatic service configuration
+- **vpn_speedtest.py** - Test VPN connection and throughput
+- **check_torrent_status.py** - View torrent status and analyze stalled downloads
+- **manage_torrents.py** - Fix save paths and delete broken torrents
+- **rescan_missing_media.py** - Detect missing files and trigger re-downloads
+- **sync_api_keys.py** - Sync API keys between Prowlarr, Sonarr, and Radarr
+- **Backup/restore scripts** - Capture and restore service configurations
+
+For complete usage instructions and examples, see [scripts/utilities/UTILITIES.md](scripts/utilities/UTILITIES.md).
 
 ## Troubleshooting quick checks
 

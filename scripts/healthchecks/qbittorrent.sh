@@ -1,6 +1,6 @@
 #!/bin/sh
 # qBittorrent healthcheck - verify web UI is responding
-# 
+#
 # Validates:
 #  - Service is running and responding
 #  - Web UI accessible (returns HTTP 200 or 403)
@@ -13,7 +13,7 @@ SCRIPT_DIR="$(dirname "$0")"
 
 set -e
 
-MAX_RESPONSE_TIME=${MAX_RESPONSE_TIME:-3}
+MAX_RESPONSE_TIME=3
 
 # qBittorrent requires auth but we check if port is listening and responsive
 # A 403 response means service is running (just requires auth)

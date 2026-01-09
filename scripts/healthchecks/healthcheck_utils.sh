@@ -16,7 +16,7 @@ NOTIFICATION_STATE_DIR=${NOTIFICATION_STATE_DIR:-/tmp/notification_state}
 mkdir -p "$NOTIFICATION_STATE_DIR" 2>/dev/null || true
 
 log_event() {
-  EVENT="$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"$1\", \"details\": \"$2\"}"
+  EVENT="$(date '+%Y-%m-%d %H:%M:%S %Z') {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"$1\", \"details\": \"$2\"}"
   if [ -n "${LOG_PATH:-}" ]; then
     echo "$EVENT" >> "$LOG_PATH"
   fi
@@ -38,7 +38,7 @@ should_send_notification() {
 
     if [ "$TIME_DIFF" -lt "$NOTIFICATION_COOLDOWN" ]; then
       REMAINING=$((NOTIFICATION_COOLDOWN - TIME_DIFF))
-      echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_throttled\", \"details\": \"Throttled: $NOTIFICATION_KEY (${REMAINING}s remaining)\"}"
+      echo "$(date '+%Y-%m-%d %H:%M:%S %Z') {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_throttled\", \"details\": \"Throttled: $NOTIFICATION_KEY (${REMAINING}s remaining)\"}"
       return 1
     fi
   fi
@@ -54,7 +54,7 @@ send_notification() {
 
   # Skip if email not configured
   if [ -z "$EMAIL_TO" ] || [ -z "$SMTP_USER" ] || [ -z "$SMTP_PASSWORD" ]; then
-    echo "$(date -Iseconds) {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_skipped\", \"details\": \"Email not configured (missing EMAIL_TO, SMTP_USER, or SMTP_PASSWORD)\"}"
+    echo "$(date '+%Y-%m-%d %H:%M:%S %Z') {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"notification_skipped\", \"details\": \"Email not configured (missing EMAIL_TO, SMTP_USER, or SMTP_PASSWORD)\"}"
     return 0
   fi
 
