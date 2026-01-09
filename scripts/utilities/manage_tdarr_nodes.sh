@@ -26,10 +26,10 @@ list_nodes() {
   echo "=========================================="
   echo "Running Tdarr Nodes"
   echo "=========================================="
-  
+
   # Get all tdarr-node containers
   NODES=$(docker ps --filter "name=tdarr-node" --format "table {{.Names}}\t{{.Status}}\t{{.ID}}" 2>/dev/null || true)
-  
+
   if [ -z "$NODES" ] || [ "$(echo "$NODES" | wc -l)" -eq 1 ]; then
     echo "No additional Tdarr nodes running (only main node)"
   else
@@ -51,13 +51,13 @@ extract_unique_id() {
 # Function to stop a specific node
 stop_node() {
   local identifier="$1"
-  
+
   if [ -z "$identifier" ]; then
     echo "Error: Please specify a container name or unique ID to stop"
     echo "Usage: $0 stop <container-name or unique-id>"
     exit 1
   fi
-  
+
   # Check if identifier is just the numeric ID or full container name
   if [[ "$identifier" =~ ^[0-9]+$ ]]; then
     # It's just the numeric ID, prepend tdarr-node-
@@ -66,7 +66,7 @@ stop_node() {
     # It might be the full container name or container ID
     CONTAINER_NAME="$identifier"
   fi
-  
+
   # Check if container exists
   if ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "Error: Container '${CONTAINER_NAME}' not found"
@@ -75,17 +75,17 @@ stop_node() {
     list_nodes
     exit 1
   fi
-  
+
   echo "Stopping Tdarr node: ${CONTAINER_NAME}"
-  
+
   # Extract unique ID for project name
   UNIQUE_ID=$(extract_unique_id "$CONTAINER_NAME")
   PROJECT_NAME="tdarr-node-${UNIQUE_ID}"
-  
+
   # Stop using docker-compose to properly clean up
   export TDARR_NODE_CONTAINER_NAME="${CONTAINER_NAME}"
   docker compose -f docker-compose.tdarr-node.yml --project-name "${PROJECT_NAME}" down
-  
+
   echo "✓ Node stopped and removed successfully"
 }
 
@@ -94,26 +94,26 @@ stop_all_nodes() {
   echo "=========================================="
   echo "Stopping All Additional Tdarr Nodes"
   echo "=========================================="
-  
+
   # Get all tdarr-node containers except the main one
   NODES=$(docker ps --filter "name=tdarr-node-" --format "{{.Names}}" | grep -v "^tdarr-node$" || true)
-  
+
   if [ -z "$NODES" ]; then
     echo "No additional Tdarr nodes to stop"
     return
   fi
-  
+
   echo "Found nodes to stop:"
   echo "$NODES"
   echo ""
-  
+
   read -p "Are you sure you want to stop all these nodes? (y/N): " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Cancelled"
     exit 0
   fi
-  
+
   # Stop each node
   for node in $NODES; do
     echo "Stopping: $node"
@@ -122,7 +122,7 @@ stop_all_nodes() {
     export TDARR_NODE_CONTAINER_NAME="$node"
     docker compose -f docker-compose.tdarr-node.yml --project-name "${PROJECT_NAME}" down 2>/dev/null || true
   done
-  
+
   echo ""
   echo "✓ All additional nodes stopped successfully"
   echo "  (Main tdarr-node container is still running)"
