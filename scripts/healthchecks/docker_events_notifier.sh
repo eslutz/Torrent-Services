@@ -3,9 +3,9 @@
 
 set -eu
 
-export SERVICE_NAME=health-monitor
+export SERVICE_NAME=events-notifier
 SCRIPT_DIR="$(dirname "$0")"
-LOG_PATH=${LOG_PATH:-/logs/health-monitor/events.log}
+LOG_PATH=${LOG_PATH:-/logs/events-notifier/events.log}
 mkdir -p "$(dirname "$LOG_PATH")" 2>/dev/null || true
 
 . "$SCRIPT_DIR/healthcheck_utils.sh"
@@ -44,15 +44,41 @@ handle_event() {
         LAST_OUTPUT=$(echo "$HEALTH_INFO" | jq -r '.Log[-1].Output // "No output available"' 2>/dev/null | head -c 500)
         LAST_EXIT=$(echo "$HEALTH_INFO" | jq -r '.Log[-1].ExitCode // "unknown"' 2>/dev/null)
 
-        BODY="Container: ${NAME}\nImage: ${IMAGE}\nExit Code: ${EXIT_CODE}\n\nHealth Status: ${HEALTH_STATUS}\nLast Health Check Exit Code: ${LAST_EXIT}\n\nLast Health Check Output:\n${LAST_OUTPUT}\n\nPossible Causes:\n- Exit 137: Force killed (SIGKILL) after exceeding stop_grace_period\n- Exit 1: Application error or failed startup\n- Check container logs: docker logs ${NAME}"
-        send_notification "Container died: ${NAME}" "$BODY"
+        BODY="<strong>Container:</strong> ${NAME}
+<strong>Image:</strong> ${IMAGE}
+<strong>Exit Code:</strong> ${EXIT_CODE}
+
+<strong>Health Status:</strong> ${HEALTH_STATUS}
+<strong>Last Health Check Exit Code:</strong> ${LAST_EXIT}
+
+<strong>Last Health Check Output:</strong>
+<pre style='background:#f5f5f5;padding:10px;overflow-x:auto'>${LAST_OUTPUT}</pre>
+
+<strong>Possible Causes:</strong>
+• Exit 137: Force killed (SIGKILL) after exceeding stop_grace_period
+• Exit 1: Application error or failed startup
+
+<strong>Next Steps:</strong>
+• Check container logs: <code>docker logs ${NAME}</code>"
+        send_notification "${NAME}: Container died abnormally" "$BODY"
       else
         log_line "Container stopped normally: ${NAME} (image: ${IMAGE}, exitCode: ${EXIT_CODE})"
       fi
       ;;
     oom)
       log_line "Container OOM: ${NAME} (image: ${IMAGE})"
-      send_notification "Container OOM: ${NAME}" "The container ${NAME} ran out of memory (image: ${IMAGE})."
+      BODY="<strong>Container:</strong> ${NAME}
+<strong>Image:</strong> ${IMAGE}
+
+<strong>Issue:</strong>
+The container ran out of memory (OOM - Out of Memory).
+
+<strong>Next Steps:</strong>
+• Check memory usage: <code>docker stats ${NAME}</code>
+• Review memory limits in docker-compose.yml
+• Investigate memory leaks in the application
+• Consider increasing mem_limit if needed"
+      send_notification "${NAME}: Out of Memory" "$BODY"
       ;;
     kill)
       # Only notify for force kills (SIGKILL/signal 9), not normal SIGTERM
@@ -62,8 +88,25 @@ handle_event() {
         # Get grace period info
         GRACE_PERIOD=$(docker inspect "${NAME}" --format '{{.HostConfig.StopTimeout}}' 2>/dev/null || echo "unknown")
 
-        BODY="Container: ${NAME}\nImage: ${IMAGE}\nSignal: ${SIGNAL} (SIGKILL - force kill)\nGrace Period: ${GRACE_PERIOD}s\n\nCause: Container did not stop within grace period after receiving SIGTERM (signal 15).\nDocker sent SIGKILL to forcefully terminate the process.\n\nPossible Reasons:\n- Application not handling SIGTERM properly\n- Long-running operations (downloads, database transactions)\n- Insufficient grace period for clean shutdown\n- Hung process\n\nNext Steps:\n- Check container logs: docker logs ${NAME}\n- Consider increasing stop_grace_period in docker-compose.yml\n- Verify application handles SIGTERM signal"
-        send_notification "Container force killed: ${NAME}" "$BODY"
+        BODY="<strong>Container:</strong> ${NAME}
+<strong>Image:</strong> ${IMAGE}
+<strong>Signal:</strong> ${SIGNAL} (SIGKILL - force kill)
+<strong>Grace Period:</strong> ${GRACE_PERIOD}s
+
+<strong>Cause:</strong>
+Container did not stop within grace period after receiving SIGTERM (signal 15). Docker sent SIGKILL to forcefully terminate the process.
+
+<strong>Possible Reasons:</strong>
+• Application not handling SIGTERM properly
+• Long-running operations (downloads, database transactions)
+• Insufficient grace period for clean shutdown
+• Hung process
+
+<strong>Next Steps:</strong>
+• Check container logs: <code>docker logs ${NAME}</code>
+• Consider increasing stop_grace_period in docker-compose.yml
+• Verify application handles SIGTERM signal"
+        send_notification "${NAME}: Force killed" "$BODY"
       else
         log_line "Container received shutdown signal: ${NAME} (image: ${IMAGE}, signal: ${SIGNAL})"
       fi
@@ -99,16 +142,43 @@ follow_autoheal_log() {
       HC_RETRIES=$(echo "$HEALTH_CONFIG" | jq -r '.Retries // "unknown"')
       HC_START=$(echo "$HEALTH_CONFIG" | jq -r '.StartPeriod // "unknown"')
 
+      # Get recent health check logs
+      HEALTH_LOGS=$(docker inspect "${NAME}" --format '{{json .State.Health.Log}}' 2>/dev/null || echo '[]')
+      RECENT_CHECKS=$(echo "$HEALTH_LOGS" | jq -r '.[-3:] | .[] | "Exit: \(.ExitCode) | \(.Output[:100])"' 2>/dev/null | sed 's/$/\n/g')
+
       # Determine root cause
       CAUSE="Unknown"
       if echo "$ERR" | grep -q "timed out"; then
         CAUSE="Health check exceeded timeout (${HC_TIMEOUT}). The health check command did not complete in time."
       elif echo "$ERR" | grep -q "unhealthy"; then
         CAUSE="Health check failed ${HC_RETRIES} consecutive times. The service is not responding correctly."
+      elif echo "$ERR" | grep -q "starting"; then
+        CAUSE="Container is still starting up. This is normal during restarts and deployments."
       fi
 
-      BODY="Container: ${NAME}\nAction: ${ACTION}\nAutoheal Code: ${CODE}\nError: ${ERR}\n\nHealth Check Configuration:\n- Interval: ${HC_INTERVAL}\n- Timeout: ${HC_TIMEOUT}\n- Retries: ${HC_RETRIES}\n- Start Period: ${HC_START}\n\nRoot Cause:\n${CAUSE}\n\nNext Steps:\n1. Check container logs: docker logs ${NAME}\n2. Review health check script output\n3. Consider increasing health check timeout if operations are slow\n4. Verify service is not overloaded or hanging\n5. Check if dependencies (VPN, network, databases) are healthy"
-      send_notification "Autoheal restart: ${NAME}" "$BODY"
+      BODY="<strong>Container:</strong> ${NAME}
+<strong>Action:</strong> ${ACTION}
+<strong>Autoheal Code:</strong> ${CODE}
+<strong>Error:</strong> ${ERR}
+
+<strong>Health Check Configuration:</strong>
+• Interval: ${HC_INTERVAL}
+• Timeout: ${HC_TIMEOUT}
+• Retries: ${HC_RETRIES}
+• Start Period: ${HC_START}
+
+<strong>Recent Health Checks:</strong>
+<pre style='background:#f5f5f5;padding:10px;overflow-x:auto'>${RECENT_CHECKS}</pre>
+
+<strong>Root Cause:</strong>
+${CAUSE}
+
+<strong>Next Steps:</strong>
+• Check container logs: <code>docker logs ${NAME} --tail 50</code>
+• Review health check script: <code>/scripts/healthchecks/${NAME}.sh</code>
+• Verify dependencies (VPN, network, databases) are healthy
+• Monitor if issue persists or is transient"
+      send_notification "${NAME}: Autoheal restart" "$BODY"
     fi
   done
 }

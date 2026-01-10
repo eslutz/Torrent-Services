@@ -60,10 +60,10 @@ services:
       - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/gluetun.sh"]
-      interval: 1m
-      timeout: 10s
+      interval: 2m
+      timeout: 30s
       retries: 3
-      start_period: 180s
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -105,10 +105,10 @@ services:
       - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/qbittorrent.sh"]
-      interval: 2m
+      interval: 3m
       timeout: 5s
       retries: 3
-      start_period: 90s
+      start_period: 150s
     logging:
       driver: "json-file"
       options:
@@ -154,7 +154,7 @@ services:
       interval: 5m
       timeout: 5s
       retries: 3
-      start_period: 120s
+      start_period: 180s
     logging:
       driver: "json-file"
       options:
@@ -201,7 +201,7 @@ services:
       interval: 5m
       timeout: 5s
       retries: 3
-      start_period: 90s
+      start_period: 210s
     logging:
       driver: "json-file"
       options:
@@ -248,7 +248,7 @@ services:
       interval: 5m
       timeout: 5s
       retries: 3
-      start_period: 90s
+      start_period: 240s
     logging:
       driver: "json-file"
       options:
@@ -299,7 +299,7 @@ services:
       interval: 5m
       timeout: 5s
       retries: 3
-      start_period: 120s
+      start_period: 270s
     logging:
       driver: "json-file"
       options:
@@ -408,7 +408,7 @@ services:
       interval: 5m
       timeout: 5s
       retries: 3
-      start_period: 120s
+      start_period: 330s
     logging:
       driver: "json-file"
       options:
@@ -502,7 +502,7 @@ services:
       interval: 5m
       timeout: 5s
       retries: 3
-      start_period: 120s
+      start_period: 360s
     logging:
       driver: "json-file"
       options:
@@ -573,14 +573,15 @@ services:
     networks:
       - torrent-services-network
     restart: unless-stopped
+    stop_grace_period: 15s
     security_opt:
       - no-new-privileges:true
     healthcheck:
       test: ["CMD", "wget", "-qO-", "--timeout=5", "http://localhost:9090/health"]
-      interval: 30s
-      timeout: 10s
+      interval: 1m
+      timeout: 30s
       retries: 3
-      start_period: 120s
+      start_period: 90s
     logging:
       driver: "json-file"
       options:
@@ -613,7 +614,7 @@ services:
       interval: 5m
       timeout: 5s
       retries: 3
-      start_period: 180s
+      start_period: 300s
     logging:
       driver: "json-file"
       options:
@@ -714,10 +715,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/localtime:/etc/localtime:ro
       - ./logs/autoheal:/opt/docker-autoheal
+    stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "sh", "-c", "ps aux | grep '[a]utoheal' > /dev/null"]
-      interval: 30s
-      timeout: 10s
+      interval: 1m
+      timeout: 30s
       retries: 3
       start_period: 60s
     logging:
@@ -727,6 +729,29 @@ services:
         max-file: "3"
     mem_limit: ${AUTOHEAL_MEM_LIMIT:-128m}
     cpus: ${AUTOHEAL_CPUS:-0.1}
+
+  # Log Streamer - Real-time Docker log aggregation with Fluent Bit
+  # Streams container logs to ./logs/<service>/ for unified log access
+  log-streamer:
+    image: docker:latest
+    container_name: log-streamer
+    restart: unless-stopped
+    command: sh /scripts/utilities/stream_docker_logs.sh
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./scripts:/scripts:ro
+      - ./logs:/logs:rw
+    networks:
+      - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${LOG_STREAMER_MEM_LIMIT:-256m}
+    cpus: ${LOG_STREAMER_CPUS:-0.25}
 
 networks:
   torrent-services-network:

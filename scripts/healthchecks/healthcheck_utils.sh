@@ -15,10 +15,45 @@ NOTIFICATION_COOLDOWN=${NOTIFICATION_COOLDOWN:-300}  # 5 minutes default
 NOTIFICATION_STATE_DIR=${NOTIFICATION_STATE_DIR:-/tmp/notification_state}
 mkdir -p "$NOTIFICATION_STATE_DIR" 2>/dev/null || true
 
+# Log rotation configuration
+LOG_KEEP_ROTATIONS=${LOG_KEEP_ROTATIONS:-7}  # Keep logs for N days
+
+get_dated_log_file() {
+  LOG_FILE="$1"
+  TODAY=$(date '+%Y.%m.%d')
+  LOG_DIR=$(dirname "$LOG_FILE")
+  LOG_BASE=$(basename "$LOG_FILE" .log)
+  echo "${LOG_DIR}/${LOG_BASE}-${TODAY}.log"
+}
+
+rotate_log_if_needed() {
+  LOG_FILE="$1"
+
+  # Get today's date-based log file
+  TODAY=$(date '+%Y.%m.%d')
+  LOG_DIR=$(dirname "$LOG_FILE")
+  LOG_BASE=$(basename "$LOG_FILE" .log)
+  DATED_LOG="${LOG_DIR}/${LOG_BASE}-${TODAY}.log"
+
+  # Create dated log file if it doesn't exist
+  if [ ! -f "$DATED_LOG" ]; then
+    touch "$DATED_LOG"
+
+    # Clean up old logs beyond retention period
+    if [ "$LOG_KEEP_ROTATIONS" -gt 0 ]; then
+      find "$LOG_DIR" -name "${LOG_BASE}-*.log" -type f -mtime +"$LOG_KEEP_ROTATIONS" -delete 2>/dev/null || true
+    fi
+  fi
+
+  # Return the dated log file path
+  echo "$DATED_LOG"
+}
+
 log_event() {
   EVENT="$(date '+%Y-%m-%d %H:%M:%S %Z') {\"service\": \"${SERVICE_NAME:-unknown}\", \"event\": \"$1\", \"details\": \"$2\"}"
   if [ -n "${LOG_PATH:-}" ]; then
-    echo "$EVENT" >> "$LOG_PATH"
+    DATED_LOG=$(rotate_log_if_needed "$LOG_PATH")
+    echo "$EVENT" >> "$DATED_LOG"
   fi
   echo "$EVENT"
   if [ "$1" = "error" ] || [ "$1" = "unhealthy" ]; then
@@ -51,6 +86,7 @@ should_send_notification() {
 send_notification() {
   TITLE="$1"
   BODY="$2"
+  USE_HTML="${3:-true}"  # Default to HTML emails
 
   # Skip if email not configured
   if [ -z "$EMAIL_TO" ] || [ -z "$SMTP_USER" ] || [ -z "$SMTP_PASSWORD" ]; then
@@ -93,9 +129,43 @@ EOF
 
     # Send email using msmtp
     if command -v msmtp >/dev/null 2>&1; then
-      EMAIL_RESULT=$(printf "To: %s\nFrom: %s\nSubject: [Torrent Services] %s\nContent-Type: text/plain; charset=utf-8\n\n%s\n\n--\nSent from: %s\nTimestamp: %s" \
-        "$EMAIL_TO" "$SMTP_FROM" "$TITLE" "$BODY" "${SERVICE_NAME:-healthcheck}" "$(date -Iseconds)" | \
-        msmtp -C "$MSMTP_CONFIG" "$EMAIL_TO" 2>&1)
+      if [ "$USE_HTML" = "true" ]; then
+        # Build HTML email with proper structure
+        EMAIL_CONTENT=$(printf '%s\r\n%s\r\n%s\r\n%s\r\n%s\r\n\r\n%s' \
+          "To: ${EMAIL_TO}" \
+          "From: ${SMTP_FROM}" \
+          "Subject: [Torrent Services] ${TITLE}" \
+          "MIME-Version: 1.0" \
+          "Content-Type: text/html; charset=utf-8" \
+          "<!DOCTYPE html>
+<html>
+<head>
+<style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}h2{color:#d32f2f;margin-bottom:10px}.info{background:#f5f5f5;padding:15px;border-left:4px solid #1976d2;margin:15px 0}.footer{margin-top:30px;padding-top:15px;border-top:1px solid #ddd;color:#666;font-size:0.9em}pre{white-space:pre-wrap;word-wrap:break-word}</style>
+</head>
+<body>
+<h2>${TITLE}</h2>
+<div class='info'>
+${BODY}
+</div>
+<div class='footer'>
+<p><strong>Sent from:</strong> ${SERVICE_NAME:-healthcheck}</p>
+<p><strong>Timestamp:</strong> $(date -Iseconds)</p>
+</div>
+</body>
+</html>")
+      else
+        # Plain text email
+        EMAIL_CONTENT=$(printf '%s\r\n%s\r\n%s\r\n%s\r\n\r\n%s\n\n--\nSent from: %s\nTimestamp: %s' \
+          "To: ${EMAIL_TO}" \
+          "From: ${SMTP_FROM}" \
+          "Subject: [Torrent Services] ${TITLE}" \
+          "Content-Type: text/plain; charset=utf-8" \
+          "${BODY}" \
+          "${SERVICE_NAME:-healthcheck}" \
+          "$(date -Iseconds)")
+      fi
+
+      EMAIL_RESULT=$(printf "%s" "$EMAIL_CONTENT" | msmtp -C "$MSMTP_CONFIG" "$EMAIL_TO" 2>&1)
       EXIT_CODE=$?
       rm -f "$MSMTP_CONFIG"
 

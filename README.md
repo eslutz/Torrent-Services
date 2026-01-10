@@ -71,6 +71,15 @@ If your provider does not support forwarding, Forwardarr will log that no port w
 
 For detailed information on health check intervals, timeouts, email notifications, and troubleshooting, see [scripts/healthchecks/HEALTHCHECKS.md](scripts/healthchecks/HEALTHCHECKS.md).
 
+## Logging
+
+All services write date-based logs for easy troubleshooting and analysis:
+
+- **Healthcheck logs**: Custom health check output at `logs/<service>/healthcheck-YYYY.MM.DD.log`
+- **Application logs**: Docker container output streamed to `logs/<service>/<service>-YYYY.MM.DD.log`
+
+Logs automatically rotate daily and old files are cleaned up after `LOG_KEEP_ROTATIONS` days (default: 7). You can also view live logs directly from Docker with `docker logs -f <service>` or use `docker compose logs -f <service>`. For detailed information on log formats, viewing live logs, rotation behavior, and troubleshooting, see [scripts/utilities/LOG_MANAGEMENT.md](scripts/utilities/LOG_MANAGEMENT.md).
+
 ### Exporter endpoints (localhost only)
 
 | Service | Endpoint |
