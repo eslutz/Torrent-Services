@@ -262,6 +262,9 @@ config/tdarr/
 # Jellyseerr - all config auto-generated
 config/jellyseerr/
 
+# Swiparr - all config auto-generated
+config/swiparr/
+
 # =============================================================================
 # Media Directory
 # =============================================================================

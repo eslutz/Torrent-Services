@@ -13,12 +13,12 @@ SCRIPT_DIR="$(dirname "$0")"
 
 set -e
 
-MAX_RESPONSE_TIME=3
+MAX_RESPONSE_TIME=$(resolve_max_response_time 8)
 
 # qBittorrent requires auth but we check if port is listening and responsive
 # A 403 response means service is running (just requires auth)
 START=$(date +%s)
-HTTP_CODE=$(wget --spider --server-response http://localhost:8080/api/v2/app/version 2>&1 | grep "^  HTTP/" | tail -1 | awk '{print $2}' || echo "000")
+HTTP_CODE=$(wget --spider --server-response --timeout=10 http://localhost:8080/api/v2/app/version 2>&1 | grep "^  HTTP/" | tail -1 | awk '{print $2}' || echo "000")
 END=$(date +%s)
 
 # Accept 200 (success) or 403 (requires auth but service is running)

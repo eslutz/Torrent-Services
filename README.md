@@ -1,6 +1,6 @@
 # Torrent-Services
 
-Media automation stack with qBittorrent, Gluetun (VPN), Prowlarr, Sonarr, Radarr, Bazarr, Unpackerr, Tdarr, Forwardarr, and optional monitoring/exporters.
+Media automation stack with qBittorrent, Gluetun (VPN), Prowlarr, Sonarr, Radarr, Bazarr, Unpackarr (wrapper), Tdarr, Forwardarr, and optional monitoring/exporters.
 
 [![CI Pipeline](https://github.com/eslutz/Torrent-Services/actions/workflows/ci.yml/badge.svg)](https://github.com/eslutz/Torrent-Services/actions/workflows/ci.yml) [![Security Analysis](https://github.com/eslutz/Torrent-Services/actions/workflows/security.yml/badge.svg)](https://github.com/eslutz/Torrent-Services/actions/workflows/security.yml)
 
@@ -14,18 +14,19 @@ Media automation stack with qBittorrent, Gluetun (VPN), Prowlarr, Sonarr, Radarr
 | [Sonarr](https://github.com/Sonarr/Sonarr) | <http://localhost:8989> | TV show automation; API key set in app UI and `.env` |
 | [Radarr](https://github.com/Radarr/Radarr) | <http://localhost:7878> | Movie automation; API key set in app UI and `.env` |
 | [Bazarr](https://github.com/morpheus65535/bazarr) | <http://localhost:6767> | Subtitles; configure providers via UI |
-| [Unpackerr](https://github.com/Unpackerr/unpackerr) | <http://localhost:5656> | Extracts completed downloads for *arr apps; metrics only |
+| [Unpackarr](https://github.com/eslutz/Unpackarr) | <http://localhost:9092> | Wrapper around official Unpackerr that extracts completed downloads for *arr apps; wrapper health endpoint at :9092, optional Unpackerr metrics at :5656 |
 | [Tdarr](https://github.com/HaveAGitGat/Tdarr) | <http://localhost:8265> | Optional transcoding with helper scripts for extra nodes; use scripts to add nodes |
 | [Forwardarr](https://github.com/eslutz/Forwardarr) | <http://127.0.0.1:9090/metrics> | Syncs VPN forwarded port into qBittorrent; port sync + metrics |
 | [Torarr](https://github.com/eslutz/Torarr) (optional) | <http://127.0.0.1:8085/metrics> | SOCKS5 proxy for Tor-only indexers; Tor bootstrap/metrics |
 | [Scraparr](https://github.com/thecfu/scraparr) / [qbittorrent-exporter](https://github.com/martabal/qbittorrent-exporter) (optional) | <http://127.0.0.1:7100/metrics> / <http://127.0.0.1:8090/metrics> | Prometheus metrics for qBittorrent, Forwardarr, Torarr, *arr apps; exporters only |
 | [Jellyseerr](https://github.com/Fallenbagel/jellyseerr) (optional) | <http://localhost:5055> | Requests UI; connect to Sonarr/Radarr |
+| [Swiparr](https://github.com/m3sserstudi0s/swiparr) (optional) | <http://localhost:4321> | Jellyfin swipe discovery UI |
 
 ### Core Patterns
 
 - Backup/restore first: configure via web UIs, then capture state with `scripts/utilities/backup_config.sh`; restore with `scripts/utilities/restore_config.sh`.
 - VPN network sharing: qBittorrent runs with `network_mode: service:gluetun`; in other services, reach it at `gluetun:8080`.
-- Health-gated startup: each service waits for real API health checks (<5s) before others start; autoheal restarts unhealthy containers.
+- Health-gated startup: each service waits for API health checks (with specified timeouts) before others start; autoheal restarts unhealthy containers.
 - Resource limits: controlled by env vars in `.env` (mem/cpu defaults per service); no YAML edits required.
 
 ## Quick Start (fresh install)
@@ -126,7 +127,7 @@ For complete usage instructions and examples, see [scripts/utilities/UTILITIES.m
 - VPN/port forwarding: `docker exec gluetun cat /tmp/gluetun/forwarded_port`; if empty, confirm provider supports forwarding and restart Gluetun.
 - qBittorrent unconnectable: verify Forwardarr logs show a port update; ensure `QBITTORRENT_PASSWORD` is set in `.env`; restart `qbittorrent` and `forwardarr`.
 - *arr cannot reach qBittorrent: host should be `gluetun` and port `8080`; test from a container: `docker exec sonarr curl -sf http://gluetun:8080`.
-- Slow health startup: check scripts in `scripts/healthchecks/` and confirm upstream services are reachable; health checks time out after ~5s.
+- Slow health startup: check scripts in `scripts/healthchecks/` and confirm upstream services are reachable; health checks allow up to ~20-60s per probe (depending on service).
 
 ## Security
 

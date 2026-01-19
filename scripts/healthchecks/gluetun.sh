@@ -42,9 +42,9 @@ fi
 
 # Try to check VPN status via Gluetun control server
 if [ -n "$AUTH_HEADER" ]; then
-  vpn_status=$(wget -qO- --header="$AUTH_HEADER" --timeout=5 http://localhost:8000/v1/vpn/status 2>/dev/null || echo "")
+  vpn_status=$(wget -qO- --header="$AUTH_HEADER" --timeout=10 http://localhost:8000/v1/vpn/status 2>/dev/null || echo "")
 else
-  vpn_status=$(wget -qO- --timeout=5 http://localhost:8000/v1/vpn/status 2>/dev/null || echo "")
+  vpn_status=$(wget -qO- --timeout=10 http://localhost:8000/v1/vpn/status 2>/dev/null || echo "")
 fi
 
 # On first startup (no API key yet), just verify tunnel exists
@@ -66,9 +66,9 @@ fi
 
 # Verify port forwarding is working via Gluetun API
 if [ -n "$AUTH_HEADER" ]; then
-  port_response=$(wget -qO- --header="$AUTH_HEADER" --timeout=5 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
+  port_response=$(wget -qO- --header="$AUTH_HEADER" --timeout=10 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
 else
-  port_response=$(wget -qO- --timeout=5 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
+  port_response=$(wget -qO- --timeout=10 http://localhost:8000/v1/openvpn/portforwarded 2>/dev/null || echo "")
 fi
 if [ -z "$port_response" ]; then
   log_event "error" "Cannot get port forwarding status"

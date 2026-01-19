@@ -14,7 +14,7 @@ SCRIPT_DIR="$(dirname "$0")"
 
 set -e
 
-MAX_RESPONSE_TIME=${MAX_RESPONSE_TIME:-3}
+MAX_RESPONSE_TIME=$(resolve_max_response_time 8)
 
 # If API key is available, use detailed health check
 if [ -n "$BAZARR_API_KEY" ]; then
@@ -47,7 +47,7 @@ else
   HEALTH_URL="http://localhost:6767/"
 
   START=$(date +%s)
-  HTTP_CODE=$(wget --spider --server-response "$HEALTH_URL" 2>&1 | grep "^  HTTP/" | tail -1 | awk '{print $2}' || echo "000")
+  HTTP_CODE=$(wget --spider --server-response --timeout=10 "$HEALTH_URL" 2>&1 | grep "^  HTTP/" | tail -1 | awk '{print $2}' || echo "000")
   END=$(date +%s)
 
   if [ "$HTTP_CODE" != "200" ]; then

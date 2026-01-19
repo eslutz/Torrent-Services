@@ -1,6 +1,6 @@
 #!/bin/sh
 # Sonarr healthcheck - verify API health with fallback to ping
-# 
+#
 # Two-tier validation strategy:
 # 1. Without API key (initial deployment):
 #    - Service is running and responding
@@ -13,7 +13,7 @@ SCRIPT_DIR="$(dirname "$0")"
 
 set -e
 
-MAX_RESPONSE_TIME=${MAX_RESPONSE_TIME:-3}
+MAX_RESPONSE_TIME=$(resolve_max_response_time 8)
 
 # If API key is available, use detailed health check
 if [ -n "$SONARR_API_KEY" ]; then

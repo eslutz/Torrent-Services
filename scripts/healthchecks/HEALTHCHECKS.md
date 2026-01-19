@@ -8,24 +8,38 @@ This folder contains healthcheck scripts for all services (*arr, qBittorrent, Gl
 ### Intervals & Timeouts
 Health check intervals are set pragmatically based on service criticality:
 
+Script response time limits are derived from the Docker timeout:
+
+$$
+	ext{MAX\_RESPONSE\_TIME} = \left\lfloor \frac{\text{HEALTHCHECK\_TIMEOUT\_SECONDS}}{3} \right\rfloor
+$$
+
 | Service | Interval | Timeout | Grace Period | Rationale |
 |---------|----------|---------|--------------|----------|
-| Gluetun | 1m | 10s | 30s | VPN gateway protection |
-| qBittorrent | 2m | 5s | 120s | Torrent engine (needs time to save state) |
-| Prowlarr, Sonarr, Radarr, Bazarr, Tdarr, Jellyseerr, Unpackarr, Torarr | 5m | 5s | 30s | Stable services |
-| Forwardarr | 30s | 5s | 30s | Quick port sync required |
+| Gluetun | 2m | 60s | 180s | VPN gateway protection |
+| qBittorrent | 5m | 60s | 240s | Torrent engine (needs time to save state) |
+| Prowlarr | 5m | 60s | 300s | Indexer API with retry/backoff |
+| Sonarr | 5m | 60s | 300s | Media manager API with retry/backoff |
+| Radarr | 5m | 60s | 300s | Media manager API with retry/backoff |
+| Bazarr | 5m | 60s | 330s | Subtitle API with retry/backoff |
+| Tdarr | 5m | 60s | 420s | Transcode service slow startup |
+| Jellyseerr | 5m | 60s | 420s | Node service slow startup |
+| Unpackarr | 5m | 20s | 180s | Wrapper health endpoint |
+| Torarr | 5m | 20s | 360s | Tor bootstrap time |
+| Forwardarr | 1m | 30s | 120s | Quick port sync required |
 
 **Design Philosophy:**
 - **Architectural protection first**: qBittorrent uses `network_mode: service:gluetun` for IP protection
 - **Health checks are secondary**: Catch rare failures, not constant validation
 - **Pragmatic intervals**: Non-critical services don't need constant validation (5min is sufficient)
 - **Hardcoded values**: Better than configurable complexity for health checks
-- **Safety margin**: Timeouts provide 5-10x headroom over typical execution time (0.5-1s)
+- **Safety margin**: Timeouts allow for retry/backoff and slower startup (roughly 20-60s headroom)
 
 ### Autoheal Circuit Breaker
 - **Enabled**: `DEFAULT_STOP=true`, `MAX_RETRIES=2`
 - **Purpose**: Prevents infinite restart loops
 - **Behavior**: After 2 failed restart attempts, container remains stopped until manual intervention
+ - **Startup buffer**: Autoheal waits 600s before monitoring to reduce startup flapping
 
 ## Email Notifications (health-monitor)
 
@@ -46,6 +60,11 @@ Health check intervals are set pragmatically based on service criticality:
 ### Configuration
 - SMTP via environment variables in `.env`:
   - `EMAIL_TO` (recipient), `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
+- Healthcheck timeouts via `.env`:
+  - `GLUETUN_HEALTHCHECK_TIMEOUT_SECONDS`, `QBITTORRENT_HEALTHCHECK_TIMEOUT_SECONDS`,
+    `PROWLARR_HEALTHCHECK_TIMEOUT_SECONDS`, `SONARR_HEALTHCHECK_TIMEOUT_SECONDS`,
+    `RADARR_HEALTHCHECK_TIMEOUT_SECONDS`, `BAZARR_HEALTHCHECK_TIMEOUT_SECONDS`,
+    `TDARR_HEALTHCHECK_TIMEOUT_SECONDS`, `JELLYSEERR_HEALTHCHECK_TIMEOUT_SECONDS`
 - Logs written to `/logs/health-monitor/events.log`
 - The `health-monitor` service installs `msmtp` + `jq`, mounts the Docker socket read-only
 
@@ -71,10 +90,10 @@ The health check process didn't complete within Docker's timeout window.
 This typically indicates system resource pressure (CPU/disk I/O).
 
 --- Health Check Configuration ---
-Interval: 2m0s
-Timeout: 5s
+Interval: 5m0s
+Timeout: 60s
 Retries: 3
-Start Period: 30s
+Start Period: 240s
 
 --- Next Steps ---
 1. Check system resources: docker stats qbittorrent
@@ -116,12 +135,12 @@ Start Period: 30s
 **Causes:**
 - Heavy disk I/O preventing check from completing
 - System resource pressure (CPU/memory)
-- Docker daemon timeout (30s system limit)
+- Healthcheck command exceeded its timeout window
 
 **Solutions:**
 - Check system resources: `docker stats`
 - Verify service response time: `docker exec <container> sh /scripts/healthchecks/<service>.sh`
-- Review timeout settings in `docker-compose.yml` (5s typical, 10s for Gluetun)
+- Review timeout settings in `docker-compose.yml` (20-60s typical depending on service)
 
 ### Container Force Kills (Exit Code 137)
 **Symptoms:** Container receives SIGKILL (signal 9), exit code 137

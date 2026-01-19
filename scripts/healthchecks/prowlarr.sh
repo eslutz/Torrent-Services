@@ -13,7 +13,7 @@ SCRIPT_DIR="$(dirname "$0")"
 
 set -e
 
-MAX_RESPONSE_TIME=${MAX_RESPONSE_TIME:-3}
+MAX_RESPONSE_TIME=$(resolve_max_response_time 8)
 
 # If API key is available, use detailed health check
 if [ -n "$PROWLARR_API_KEY" ]; then

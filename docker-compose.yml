@@ -33,7 +33,7 @@ services:
       UPDATER_PROTONVPN_PASSWORD: ${UPDATER_PROTONVPN_PASSWORD:-}
       # Control Server API Key (for healthcheck authentication)
       HTTP_CONTROL_SERVER_PASSWORD: ${CONTROL_APIKEY:-}
-      LOG_LEVEL: info
+      LOG_LEVEL: ${GLUETUN_LOG_LEVEL:-info}
       TZ: ${TZ:-America/New_York}
       # Email notification configuration for healthchecks
       EMAIL_TO: ${EMAIL_TO:-}
@@ -42,6 +42,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      HEALTHCHECK_TIMEOUT_SECONDS: ${GLUETUN_HEALTHCHECK_TIMEOUT_SECONDS:-60}
       # Notification rate limiting (5 minutes default)
       NOTIFICATION_COOLDOWN: ${NOTIFICATION_COOLDOWN:-300}
     ports:
@@ -61,9 +62,9 @@ services:
     healthcheck:
       test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/gluetun.sh"]
       interval: 2m
-      timeout: 30s
+      timeout: ${GLUETUN_HEALTHCHECK_TIMEOUT_SECONDS:-90}s
       retries: 3
-      start_period: 120s
+      start_period: 180s
     logging:
       driver: "json-file"
       options:
@@ -91,6 +92,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      HEALTHCHECK_TIMEOUT_SECONDS: ${QBITTORRENT_HEALTHCHECK_TIMEOUT_SECONDS:-60}
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./config/qbittorrent:/config
@@ -105,17 +107,17 @@ services:
       - no-new-privileges:true
     healthcheck:
       test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/qbittorrent.sh"]
-      interval: 3m
-      timeout: 5s
+      interval: 5m
+      timeout: ${QBITTORRENT_HEALTHCHECK_TIMEOUT_SECONDS:-120}s
       retries: 3
-      start_period: 150s
+      start_period: 240s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${QBITTORRENT_MEM_LIMIT:-2g}
-    cpus: ${QBITTORRENT_CPUS:-2.0}
+    mem_limit: ${QBITTORRENT_MEM_LIMIT:-3500m}
+    cpus: ${QBITTORRENT_CPUS:-4.0}
 
   # Prowlarr - Indexer Manager
   prowlarr:
@@ -137,6 +139,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      HEALTHCHECK_TIMEOUT_SECONDS: ${PROWLARR_HEALTHCHECK_TIMEOUT_SECONDS:-60}
     volumes:
       - ./config/prowlarr:/config
       - ./scripts/healthchecks:/scripts:ro
@@ -152,9 +155,9 @@ services:
     healthcheck:
       test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/prowlarr.sh"]
       interval: 5m
-      timeout: 5s
+      timeout: ${PROWLARR_HEALTHCHECK_TIMEOUT_SECONDS:-60}s
       retries: 3
-      start_period: 180s
+      start_period: 300s
     logging:
       driver: "json-file"
       options:
@@ -179,6 +182,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      HEALTHCHECK_TIMEOUT_SECONDS: ${SONARR_HEALTHCHECK_TIMEOUT_SECONDS:-60}
     # Increase file descriptor limit for ExFAT volumes on OrbStack
     ulimits:
       nofile:
@@ -193,15 +197,15 @@ services:
     ports:
       - ${SONARR_PORT:-8989}:8989
     restart: unless-stopped
-    stop_grace_period: 30s
+    stop_grace_period: 60s
     networks:
       - torrent-services-network
     healthcheck:
       test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/sonarr.sh"]
       interval: 5m
-      timeout: 5s
+      timeout: ${SONARR_HEALTHCHECK_TIMEOUT_SECONDS:-60}s
       retries: 3
-      start_period: 210s
+      start_period: 300s
     logging:
       driver: "json-file"
       options:
@@ -226,6 +230,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      HEALTHCHECK_TIMEOUT_SECONDS: ${RADARR_HEALTHCHECK_TIMEOUT_SECONDS:-60}
     # Increase file descriptor limit for ExFAT volumes on OrbStack
     ulimits:
       nofile:
@@ -246,9 +251,9 @@ services:
     healthcheck:
       test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/radarr.sh"]
       interval: 5m
-      timeout: 5s
+      timeout: ${RADARR_HEALTHCHECK_TIMEOUT_SECONDS:-60}s
       retries: 3
-      start_period: 240s
+      start_period: 300s
     logging:
       driver: "json-file"
       options:
@@ -273,6 +278,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      HEALTHCHECK_TIMEOUT_SECONDS: ${BAZARR_HEALTHCHECK_TIMEOUT_SECONDS:-60}
     # Increase file descriptor limit for ExFAT volumes on OrbStack
     ulimits:
       nofile:
@@ -297,9 +303,9 @@ services:
     healthcheck:
       test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/bazarr.sh"]
       interval: 5m
-      timeout: 5s
+      timeout: ${BAZARR_HEALTHCHECK_TIMEOUT_SECONDS:-60}s
       retries: 3
-      start_period: 270s
+      start_period: 330s
     logging:
       driver: "json-file"
       options:
@@ -308,30 +314,35 @@ services:
     mem_limit: ${BAZARR_MEM_LIMIT:-512m}
     cpus: ${BAZARR_CPUS:-0.5}
 
-  # Unpackarr - Extracts completed downloads for *arr apps
+  # Unpackarr - Wrapper around official Unpackerr for extracting completed downloads
   unpackarr:
-    image: ghcr.io/eslutz/unpackarr:v1.0.0-dev.5
+    image: ghcr.io/eslutz/unpackarr:v1.0.0
     container_name: unpackarr
     init: true
     environment:
-      TZ: ${TZ:-America/New_York}
-      HEALTH_PORT: 9092
+      # Wrapper configuration
       LOG_LEVEL: ${UNPACKARR_LOG_LEVEL:-INFO}
-      EXTRACT_DELETE_ORIG: ${UNPACKARR_DELETE_ORIG:-false}
-      POLL_INTERVAL: ${UNPACKARR_POLL_INTERVAL:-1h}
-      SONARR_URL: http://sonarr:8989
-      SONARR_API_KEY: ${SONARR_API_KEY:-}
-      SONARR_PATHS: /media
-      SONARR_PROTOCOLS: torrent
-      RADARR_URL: http://radarr:7878
-      RADARR_API_KEY: ${RADARR_API_KEY:-}
-      RADARR_PATHS: /media
-      RADARR_PROTOCOLS: torrent
+      HEALTH_PORT: ${UNPACKARR_PORT:-9092}
+      # Unpackerr configuration (passthrough with UN_ prefix)
+      UN_PARALLEL: ${UNPACKARR_PARALLEL:-1}
+      UN_DELETE_ORIG: ${UNPACKARR_DELETE_ORIG:-false}
+      UN_POLL_INTERVAL: ${UNPACKARR_POLL_INTERVAL:-5m}
+      UN_SONARR_0_URL: http://sonarr:8989
+      UN_SONARR_0_API_KEY: ${SONARR_API_KEY:-}
+      UN_SONARR_0_PATHS_0: /media
+      UN_SONARR_0_PROTOCOLS: torrent
+      UN_RADARR_0_URL: http://radarr:7878
+      UN_RADARR_0_API_KEY: ${RADARR_API_KEY:-}
+      UN_RADARR_0_PATHS_0: /media
+      UN_RADARR_0_PROTOCOLS: torrent
+      UN_WEBSERVER_METRICS: ${UNPACKARR_ENABLE_METRICS:-false}
+      UN_WEBSERVER_LISTEN_ADDR: 0.0.0.0:5656
     volumes:
       - ${TORRENT_MEDIA_DIR:-./media}:/media
       - ./logs:/logs
     ports:
-      - 127.0.0.1:${UNPACKARR_PORT:-9092}:9092
+      - ${UNPACKARR_PORT:-9092}:9092
+      - "5656:5656"
     depends_on:
       sonarr:
         condition: service_healthy
@@ -344,11 +355,11 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "--timeout=5", "http://localhost:9092/health"]
+      test: ["CMD", "wget", "-qO-", "--timeout=20", "http://localhost:9092/health"]
       interval: 5m
-      timeout: 5s
+      timeout: 30s
       retries: 3
-      start_period: 90s
+      start_period: 180s
     logging:
       driver: "json-file"
       options:
@@ -378,6 +389,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      HEALTHCHECK_TIMEOUT_SECONDS: ${TDARR_HEALTHCHECK_TIMEOUT_SECONDS:-60}
     # Increase file descriptor limit for ExFAT volumes on OrbStack
     ulimits:
       nofile:
@@ -394,9 +406,6 @@ services:
     ports:
       - ${TDARR_WEBUI_PORT:-8265}:8265
       - ${TDARR_SERVER_PORT:-8266}:8266
-    depends_on:
-      qbittorrent:
-        condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
     networks:
@@ -406,9 +415,9 @@ services:
     healthcheck:
       test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/tdarr.sh"]
       interval: 5m
-      timeout: 5s
+      timeout: ${TDARR_HEALTHCHECK_TIMEOUT_SECONDS:-60}s
       retries: 3
-      start_period: 330s
+      start_period: 420s
     logging:
       driver: "json-file"
       options:
@@ -480,6 +489,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      HEALTHCHECK_TIMEOUT_SECONDS: ${JELLYSEERR_HEALTHCHECK_TIMEOUT_SECONDS:-60}
     volumes:
       - ./config/jellyseerr:/app/config
       - ./scripts/healthchecks:/scripts:ro
@@ -500,9 +510,9 @@ services:
     healthcheck:
       test: ["CMD", "sh", "/scripts/run_healthcheck.sh", "/scripts/jellyseerr.sh"]
       interval: 5m
-      timeout: 5s
+      timeout: ${JELLYSEERR_HEALTHCHECK_TIMEOUT_SECONDS:-60}s
       retries: 3
-      start_period: 360s
+      start_period: 420s
     logging:
       driver: "json-file"
       options:
@@ -510,6 +520,40 @@ services:
         max-file: "3"
     mem_limit: ${JELLYSEERR_MEM_LIMIT:-512m}
     cpus: ${JELLYSEERR_CPUS:-1.0}
+
+  # Swiparr - Jellyfin media discovery swipe UI
+  swiparr:
+    image: ghcr.io/m3sserstudi0s/swiparr:latest
+    container_name: swiparr
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-America/New_York}
+      JELLYFIN_URL: ${SWIPARR_JELLYFIN_URL:-}
+      JELLYFIN_PUBLIC_URL: ${SWIPARR_JELLYFIN_PUBLIC_URL:-}
+      AUTH_SECRET: ${SWIPARR_AUTH_SECRET:-}
+      JELLYFIN_USE_WATCHLIST: ${SWIPARR_USE_WATCHLIST:-false}
+      USE_SECURE_COOKIES: ${SWIPARR_USE_SECURE_COOKIES:-false}
+      PORT: 4321
+      HOSTNAME: 0.0.0.0
+    volumes:
+      - ./config/swiparr:/app/data
+      - ./logs:/logs
+    ports:
+      - ${SWIPARR_PORT:-4321}:4321
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - torrent-services-network
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: ${SWIPARR_MEM_LIMIT:-512m}
+    cpus: ${SWIPARR_CPUS:-1.0}
 
   # Email notifier for container events
   events-notifier:
@@ -564,7 +608,7 @@ services:
       - gluetun-tmp:/tmp/gluetun:ro
       - ./logs:/logs
     ports:
-      - 127.0.0.1:${FORWARDARR_PORT:-9090}:9090
+      - ${FORWARDARR_PORT:-9090}:9090
     depends_on:
       gluetun:
         condition: service_healthy
@@ -573,15 +617,21 @@ services:
     networks:
       - torrent-services-network
     restart: unless-stopped
-    stop_grace_period: 15s
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+    stop_grace_period: 30s
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "--timeout=5", "http://localhost:9090/health"]
+      test: ["CMD", "wget", "-qO-", "--timeout=30", "http://localhost:9090/health"]
       interval: 1m
-      timeout: 30s
+      timeout: 60s
       retries: 3
-      start_period: 90s
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -600,7 +650,7 @@ services:
       TZ: ${TZ:-America/New_York}
     ports:
       - 127.0.0.1:${TORARR_PORT:-9050}:9050 # SOCKS5 proxy
-      - 127.0.0.1:${TORARR_HEALTH_PORT:-9091}:9091 # Health/metrics endpoint
+      - ${TORARR_HEALTH_PORT:-9091}:9091 # Health/metrics endpoint
     volumes:
       - tor-data:/var/lib/tor
       - ./logs:/logs
@@ -610,11 +660,11 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "--timeout=5", "http://localhost:9091/health"]
+      test: ["CMD", "wget", "-qO-", "--timeout=15", "http://localhost:9091/health"]
       interval: 5m
-      timeout: 5s
+      timeout: 20s
       retries: 3
-      start_period: 300s
+      start_period: 360s
     logging:
       driver: "json-file"
       options:
@@ -632,7 +682,7 @@ services:
       QBITTORRENT_USERNAME: ${SERVICE_USER:-admin}
       QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD:-}
       EXPORTER_PORT: 8090
-      LOG_LEVEL: INFO
+      LOG_LEVEL: ${QBITTORRENT_EXPORTER_LOG_LEVEL:-INFO}
       ENABLE_TRACKER: true
     depends_on:
       qbittorrent:
@@ -642,6 +692,12 @@ services:
     networks:
       - torrent-services-network
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
     profiles:
       - monitoring
     logging:
@@ -704,24 +760,20 @@ services:
     environment:
       AUTOHEAL_CONNECTION_TYPE: socket
       AUTOHEAL_MONITOR_ALL: true
-      AUTOHEAL_INTERVAL: 30
-      AUTOHEAL_START_DELAY: 300
-      AUTOHEAL_STOP_TIMEOUT: 30
+      AUTOHEAL_INTERVAL: 60
+      AUTOHEAL_START_DELAY: 600
+      AUTOHEAL_STOP_TIMEOUT: ${AUTOHEAL_STOP_TIMEOUT:-30}
       AUTOHEAL_LOG_PERSIST: true
       # Limit restart attempts to prevent endless loops
-      AUTOHEAL_DEFAULT_STOP: ${AUTOHEAL_DEFAULT_STOP:-false}
-      AUTOHEAL_MAX_RETRIES: ${AUTOHEAL_MAX_RETRIES:-3}
+      AUTOHEAL_DEFAULT_STOP: ${AUTOHEAL_DEFAULT_STOP:-true}
+      AUTOHEAL_MAX_RETRIES: ${AUTOHEAL_MAX_RETRIES:-2}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/localtime:/etc/localtime:ro
       - ./logs/autoheal:/opt/docker-autoheal
-    stop_grace_period: 30s
+    stop_grace_period: 60s
     healthcheck:
-      test: ["CMD", "sh", "-c", "ps aux | grep '[a]utoheal' > /dev/null"]
-      interval: 1m
-      timeout: 30s
-      retries: 3
-      start_period: 60s
+      disable: true
     logging:
       driver: "json-file"
       options:

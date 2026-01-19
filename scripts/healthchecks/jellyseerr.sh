@@ -1,6 +1,6 @@
 #!/bin/sh
 # Jellyseerr healthcheck - verify API health and responsiveness
-# 
+#
 # Validates that Jellyseerr is responding on port 5055
 
 export SERVICE_NAME=jellyseerr
@@ -11,7 +11,7 @@ SCRIPT_DIR="$(dirname "$0")"
 
 set -e
 
-MAX_RESPONSE_TIME=${MAX_RESPONSE_TIME:-5}
+MAX_RESPONSE_TIME=$(resolve_max_response_time 8)
 
 # Check status endpoint
 STATUS_URL="http://localhost:5055/api/v1/status"

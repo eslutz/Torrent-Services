@@ -18,6 +18,30 @@ mkdir -p "$NOTIFICATION_STATE_DIR" 2>/dev/null || true
 # Log rotation configuration
 LOG_KEEP_ROTATIONS=${LOG_KEEP_ROTATIONS:-7}  # Keep logs for N days
 
+resolve_max_response_time() {
+  DEFAULT_VALUE="$1"
+
+  if [ -n "${MAX_RESPONSE_TIME:-}" ]; then
+    echo "$MAX_RESPONSE_TIME"
+    return 0
+  fi
+
+  case "${HEALTHCHECK_TIMEOUT_SECONDS:-}" in
+    ''|*[!0-9]*)
+      echo "$DEFAULT_VALUE"
+      return 0
+      ;;
+  esac
+
+  CALC=$((HEALTHCHECK_TIMEOUT_SECONDS / 3))
+  if [ "$CALC" -lt 1 ]; then
+    CALC=1
+  fi
+
+  echo "$CALC"
+  return 0
+}
+
 get_dated_log_file() {
   LOG_FILE="$1"
   TODAY=$(date '+%Y.%m.%d')
