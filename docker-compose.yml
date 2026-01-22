@@ -70,8 +70,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${GLUETUN_MEM_LIMIT:-256m}
-    cpus: ${GLUETUN_CPUS:-0.5}
+    mem_limit: ${GLUETUN_MEM_LIMIT:-512m}
+    cpus: ${GLUETUN_CPUS:-1.0}
 
   # qBittorrent - Torrent Client
   # Routes through Gluetun VPN with automatic port forwarding
@@ -163,7 +163,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${PROWLARR_MEM_LIMIT:-512m}
+    mem_limit: ${PROWLARR_MEM_LIMIT:-1g}
     cpus: ${PROWLARR_CPUS:-1.0}
 
   # Sonarr - TV Show Management
@@ -311,8 +311,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${BAZARR_MEM_LIMIT:-512m}
-    cpus: ${BAZARR_CPUS:-0.5}
+    mem_limit: ${BAZARR_MEM_LIMIT:-1g}
+    cpus: ${BAZARR_CPUS:-1.0}
 
   # Unpackarr - Wrapper around official Unpackerr for extracting completed downloads
   unpackarr:
@@ -637,8 +637,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${FORWARDARR_MEM_LIMIT:-128m}
-    cpus: ${FORWARDARR_CPUS:-0.1}
+    mem_limit: ${FORWARDARR_MEM_LIMIT:-256m}
+    cpus: ${FORWARDARR_CPUS:-0.5}
 
   # Torarr - SOCKS5 proxy for anonymous indexer access
   # Provides access to .onion sites and bypasses blocks
@@ -670,8 +670,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${TOR_PROXY_MEM_LIMIT:-128m}
-    cpus: ${TOR_PROXY_CPUS:-0.25}
+    mem_limit: ${TOR_PROXY_MEM_LIMIT:-256m}
+    cpus: ${TOR_PROXY_CPUS:-0.5}
 
   # qBittorrent Exporter for Prometheus
   qbittorrent-exporter:
@@ -779,8 +779,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: ${AUTOHEAL_MEM_LIMIT:-128m}
-    cpus: ${AUTOHEAL_CPUS:-0.1}
+    mem_limit: ${AUTOHEAL_MEM_LIMIT:-256m}
+    cpus: ${AUTOHEAL_CPUS:-0.25}
 
   # Log Streamer - Real-time Docker log aggregation with Fluent Bit
   # Streams container logs to ./logs/<service>/ for unified log access
