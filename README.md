@@ -136,6 +136,14 @@ For complete usage instructions and examples, see [scripts/utilities/UTILITIES.m
 - Port forwarding (when supported by your VPN) is synced automatically into qBittorrent via Forwardarr
 - All torrent traffic is forced through the VPN interface
 
+
+## Test and Release Strategy
+
+A formal Jest + Playwright test plan and blue/green production rollout strategy is documented in [docs/testing-and-release-plan.md](docs/testing-and-release-plan.md).
+
+- CI now includes optional Node-based Jest unit tests and Playwright smoke tests (they run automatically when a `package.json` is present).
+- Production deployments should run through the blue/green workflow in `.github/workflows/deploy-blue-green.yml` and be wired to your environment-specific deploy/switch commands.
+
 ## Contributing
 
 - Open issues or pull requests on GitHub with a clear description and reproduction steps if applicable.

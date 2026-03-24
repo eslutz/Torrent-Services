@@ -1,0 +1,108 @@
+name: Deploy Production (Blue/Green)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Container image tag to deploy"
+        required: true
+        default: "latest"
+      smoke_url:
+        description: "Smoke test URL for candidate environment"
+        required: true
+        default: "https://green.example.com/health"
+
+concurrency:
+  group: prod-deploy
+  cancel-in-progress: false
+
+env:
+  DEPLOY_ENV_BLUE: blue
+  DEPLOY_ENV_GREEN: green
+
+jobs:
+  plan:
+    name: Determine next environment
+    runs-on: ubuntu-latest
+    outputs:
+      candidate: ${{ steps.select.outputs.candidate }}
+      active: ${{ steps.select.outputs.active }}
+    steps:
+      - name: Determine active and candidate environments
+        id: select
+        run: |
+          # Replace this with your real lookup (LB tag, DNS, service registry, etc.)
+          ACTIVE_ENV=${ACTIVE_ENV:-blue}
+          if [ "$ACTIVE_ENV" = "blue" ]; then
+            CANDIDATE_ENV=green
+          else
+            CANDIDATE_ENV=blue
+          fi
+
+          echo "active=$ACTIVE_ENV" >> "$GITHUB_OUTPUT"
+          echo "candidate=$CANDIDATE_ENV" >> "$GITHUB_OUTPUT"
+          echo "Active: $ACTIVE_ENV"
+          echo "Candidate: $CANDIDATE_ENV"
+
+  deploy-candidate:
+    name: Deploy candidate environment
+    runs-on: ubuntu-latest
+    needs: plan
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Deploy to candidate slot
+        run: |
+          echo "Deploying tag '${{ github.event.inputs.image_tag }}' to '${{ needs.plan.outputs.candidate }}'"
+          # Example: docker compose --project-name "${{ needs.plan.outputs.candidate }}" up -d
+          # Example: helm upgrade --install app-${{ needs.plan.outputs.candidate }} ...
+
+  smoke-test-candidate:
+    name: Smoke test candidate
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - deploy-candidate
+    steps:
+      - name: Run smoke check
+        run: |
+          url="${{ github.event.inputs.smoke_url }}"
+          echo "Testing candidate environment at: $url"
+          curl --retry 10 --retry-delay 5 --retry-connrefused --fail --show-error "$url"
+
+  switch-traffic:
+    name: Switch traffic to candidate
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - smoke-test-candidate
+    environment: production
+    steps:
+      - name: Shift load balancer / DNS
+        run: |
+          echo "Switching traffic from '${{ needs.plan.outputs.active }}' to '${{ needs.plan.outputs.candidate }}'"
+          # Example: aws elbv2 modify-listener ...
+          # Example: kubectl patch ingress ...
+
+      - name: Persist active environment metadata
+        run: |
+          echo "New active environment: ${{ needs.plan.outputs.candidate }}"
+          # Store active environment in your source of truth for next deployment.
+
+  rollback:
+    name: Rollback to previous environment
+    runs-on: ubuntu-latest
+    if: failure()
+    needs:
+      - plan
+      - deploy-candidate
+      - smoke-test-candidate
+      - switch-traffic
+    steps:
+      - name: Re-point traffic to previous environment
+        run: |
+          echo "Rolling back traffic to '${{ needs.plan.outputs.active }}'"
+          # Example: aws elbv2 modify-listener ...
+          # Example: kubectl patch ingress ...
