@@ -1,0 +1,14 @@
+{
+  "name": "torrent-services-test-harness",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Node-based test harness for Jest unit tests and Playwright smoke tests.",
+  "scripts": {
+    "test:unit": "jest --ci --coverage",
+    "test:ui:smoke": "playwright test --config=playwright.config.js --grep @smoke"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0",
+    "jest": "^30.2.0"
+  }
+}

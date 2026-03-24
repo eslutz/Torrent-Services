@@ -102,4 +102,5 @@ Rollback is immediate because the previously active slot remains intact and can 
 
 - CI updates are in `.github/workflows/ci.yml`.
 - Blue/green deployment workflow scaffold is in `.github/workflows/deploy-blue-green.yml`.
-- Teams should wire environment-specific deployment commands and slot state lookup before first production run.
+- Implemented test harness files: `package.json`, `playwright.config.js`, `scripts/js/blue_green.js`, `tests/unit/blue_green.test.js`, and `tests/ui/smoke.spec.js`.
+- Teams should still wire environment-specific deployment and traffic-switch commands before first production run.

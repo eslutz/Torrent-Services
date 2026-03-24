@@ -143,6 +143,7 @@ A formal Jest + Playwright test plan and blue/green production rollout strategy 
 
 - CI now includes optional Node-based Jest unit tests and Playwright smoke tests (they run automatically when a `package.json` is present).
 - Production deployments should run through the blue/green workflow in `.github/workflows/deploy-blue-green.yml` and be wired to your environment-specific deploy/switch commands.
+- Run Node tests locally with `npm run test:unit` and `npm run test:ui:smoke`.
 
 ## Contributing
 

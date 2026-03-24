@@ -276,3 +276,10 @@ media/
 logs/
 torrent_backup/
 venv/
+
+
+# Node / frontend test tooling
+node_modules/
+playwright-report/
+test-results/
+.npm/

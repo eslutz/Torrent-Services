@@ -28,16 +28,16 @@ jobs:
       candidate: ${{ steps.select.outputs.candidate }}
       active: ${{ steps.select.outputs.active }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
       - name: Determine active and candidate environments
         id: select
         run: |
-          # Replace this with your real lookup (LB tag, DNS, service registry, etc.)
+          # Replace ACTIVE_ENV lookup with your real source of truth (LB tag, DNS, service registry, etc.)
           ACTIVE_ENV=${ACTIVE_ENV:-blue}
-          if [ "$ACTIVE_ENV" = "blue" ]; then
-            CANDIDATE_ENV=green
-          else
-            CANDIDATE_ENV=blue
-          fi
+
+          CANDIDATE_ENV=$(node -e "const { resolveCandidateSlot } = require('./scripts/js/blue_green'); process.stdout.write(resolveCandidateSlot(process.argv[1]));" "$ACTIVE_ENV")
 
           echo "active=$ACTIVE_ENV" >> "$GITHUB_OUTPUT"
           echo "candidate=$CANDIDATE_ENV" >> "$GITHUB_OUTPUT"
