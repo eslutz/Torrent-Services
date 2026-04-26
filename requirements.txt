@@ -4,7 +4,7 @@ requests>=2.31.0
 flake8>=7.1.0
 pylint>=3.2.0
 pre-commit>=3.7.0
-pytest>=8.2.0
+pytest>=9.0.3
 pytest-cov>=5.0.0
 responses>=0.25.0
 
