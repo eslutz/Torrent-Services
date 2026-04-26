@@ -1,4 +1,4 @@
-requests>=2.31.0
+requests>=2.33.1
 
 # Tooling and tests
 flake8>=7.1.0
